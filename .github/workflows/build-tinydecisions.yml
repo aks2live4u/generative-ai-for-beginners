@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - claude/android-app-conversion-bdt5K
-    paths:
-      - 'TinyDecisions/**'
   workflow_dispatch:
 
 jobs:
