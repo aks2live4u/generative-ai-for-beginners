@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Dice face background -->
+    <path
+        android:fillColor="#a78bfa"
+        android:pathData="M24,30 Q24,24 30,24 L78,24 Q84,24 84,30 L84,78 Q84,84 78,84 L30,84 Q24,84 24,78 Z" />
+
+    <!-- Dice dots -->
+    <!-- Top-left -->
+    <circle android:fillColor="#080810" android:cx="38" android:cy="42" android:r="5" />
+    <!-- Top-right -->
+    <circle android:fillColor="#080810" android:cx="70" android:cy="42" android:r="5" />
+    <!-- Middle-left -->
+    <circle android:fillColor="#080810" android:cx="38" android:cy="54" android:r="5" />
+    <!-- Middle-right -->
+    <circle android:fillColor="#080810" android:cx="70" android:cy="54" android:r="5" />
+    <!-- Bottom-left -->
+    <circle android:fillColor="#080810" android:cx="38" android:cy="66" android:r="5" />
+    <!-- Bottom-right -->
+    <circle android:fillColor="#080810" android:cx="70" android:cy="66" android:r="5" />
+
+</vector>
