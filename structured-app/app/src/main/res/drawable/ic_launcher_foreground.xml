@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Highly polished decorative outer ring representing Structured Daily Cycles (R=28) -->
+    <!-- Segment 1: Lavender scheduling block -->
+    <path
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeColor="#C084FC"
+        android:pathData="M 54,26 A 28,28 0 0 1 82,54" />
+
+    <!-- Segment 2: Vibrant Indigo/Teal scheduling block -->
+    <path
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeColor="#38BDF8"
+        android:pathData="M 26,54 A 28,28 0 0 1 54,26" />
+
+    <!-- Segment 3: Deep Gold structured chunk -->
+    <path
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeColor="#FBBF24"
+        android:pathData="M 33.8,73.8 A 28,28 0 0 1 26,54" />
+
+    <!-- Solid modern centered Core Container representing Focused Deep Work (R=16) -->
+    <path
+        android:fillColor="#151622"
+        android:strokeColor="#30FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M 54,38 A 16,16 0 1 1 53.99,38 Z" />
+
+    <!-- Premium Plus (+) symbol in the dead center, signifying Structured+ (and the positive, productive add-on) -->
+    <path
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeColor="#FB7185"
+        android:pathData="M54,48 V60 M48,54 H60" />
+</vector>
