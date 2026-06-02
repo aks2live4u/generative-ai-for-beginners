@@ -383,6 +383,7 @@ data class VoiceParseResult(
     val startTime: String,
     val endTime: String,
     val hasReminder: Boolean,
+    val reminderMinutes: Int,
     val repeatType: String,
     val selectedDays: List<Int>
 )
@@ -407,19 +408,39 @@ private fun parseTimeComponents(timeStr: String, ampm: String): String {
     return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
-private fun detectRepeatFromVoice(text: String): Pair<String, List<Int>> {
-    val lower = text.lowercase()
+private fun detectRepeatFromVoice(rawText: String): Pair<String, List<Int>> {
+    val lower = rawText.lowercase()
+    val cal = Calendar.getInstance()
+    val todayDow = cal.get(Calendar.DAY_OF_WEEK) - 1   // 0=Sun … 6=Sat
+    val tomorrowDow = (todayDow + 1) % 7
+
+    val hasTodayAndTomorrow = Regex("""\btoday\s+and\s+tomorrow\b|\btomorrow\s+and\s+today\b""").containsMatchIn(lower)
+    val hasTomorrow = Regex("""\btomorrow\b""").containsMatchIn(lower)
+
     return when {
-        Regex("""\bevery\s+day\b|\bdaily\b|\bevery\s+morning\b""").containsMatchIn(lower) ->
-            "Daily" to emptyList()
-        Regex("""\bweekly\b|\bevery\s+week\b""").containsMatchIn(lower) ->
-            "Weekly" to emptyList()
-        Regex("""\bweekday(s)?\b|\bevery\s+weekday\b|\bmonday\s+to\s+friday\b|\bmon\s*[–-]\s*fri\b""").containsMatchIn(lower) ->
-            "Specific Days" to listOf(1, 2, 3, 4, 5)
-        Regex("""\bweekend(s)?\b|\bevery\s+weekend\b""").containsMatchIn(lower) ->
-            "Specific Days" to listOf(6, 0)
+        hasTodayAndTomorrow -> "Specific Days" to listOf(todayDow, tomorrowDow)
+        hasTomorrow -> "Specific Days" to listOf(tomorrowDow)
+        Regex("""\bevery\s+day\b|\bdaily\b|\bevery\s+morning\b""").containsMatchIn(lower) -> "Daily" to emptyList()
+        Regex("""\bweekly\b|\bevery\s+week\b""").containsMatchIn(lower) -> "Weekly" to emptyList()
+        Regex("""\bweekday(s)?\b|\bevery\s+weekday\b|\bmon(day)?\s+(to|-)\s+fri(day)?\b""").containsMatchIn(lower) -> "Specific Days" to listOf(1, 2, 3, 4, 5)
+        Regex("""\bweekend(s)?\b|\bevery\s+weekend\b""").containsMatchIn(lower) -> "Specific Days" to listOf(6, 0)
         else -> "Just Today" to emptyList()
     }
+}
+
+private fun detectReminderFromVoice(text: String): Pair<Boolean, Int> {
+    val lower = text.lowercase()
+    // "remind me X minutes before" / "X minute reminder" / "X min before" / "half an hour before"
+    val minRegex = Regex("""(\d+)\s*(?:min(?:ute)?s?)\s+(?:before|prior|reminder)""", RegexOption.IGNORE_CASE)
+    val hourRegex = Regex("""(\d+)\s*(?:hour|hr)s?\s+(?:before|prior)""", RegexOption.IGNORE_CASE)
+    val halfHourRegex = Regex("""\bhalf\s+(?:an?\s+)?hour\s+(?:before|prior)\b""", RegexOption.IGNORE_CASE)
+    val atStartRegex = Regex("""\bremind\s+me\b|\bset\s+(?:a\s+)?reminder\b""", RegexOption.IGNORE_CASE)
+
+    halfHourRegex.find(lower)?.let { return true to 30 }
+    hourRegex.find(lower)?.let { return true to (it.groupValues[1].toIntOrNull() ?: 60) * 60 }
+    minRegex.find(lower)?.let { return true to (it.groupValues[1].toIntOrNull() ?: 15) }
+    if (atStartRegex.containsMatchIn(lower)) return true to 15
+    return false to 0
 }
 
 fun parseVoiceToTask(rawText: String): VoiceParseResult {
@@ -445,27 +466,32 @@ fun parseVoiceToTask(rawText: String): VoiceParseResult {
         val atMatch = atRegex.find(text)
         if (atMatch != null) {
             startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
+            // Default end = start + 1 hour when not specified
+            endTime = if (startTime.isNotEmpty()) adjustTimeOffset(startTime, 60) else ""
             title = rawText.replace(Regex("""(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
         } else {
             val bareMatch = bareRegex.find(text)
             if (bareMatch != null) {
                 startTime = parseTimeComponents(bareMatch.groupValues[1], bareMatch.groupValues[2])
+                endTime = if (startTime.isNotEmpty()) adjustTimeOffset(startTime, 60) else ""
                 title = rawText.replace(Regex("""(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)(?!\w)""", RegexOption.IGNORE_CASE), "")
             }
         }
     }
 
-    val hasReminder = startTime.isNotEmpty()
+    val (hasReminder, reminderMinutes) = detectReminderFromVoice(rawText)
     val (repeatType, selectedDays) = detectRepeatFromVoice(rawText)
 
     title = title
-        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create an?\s+|set up an?\s+)\s*""", RegexOption.IGNORE_CASE), "")
-        .replace(Regex("""\b(daily|every day|every morning|weekly|every week|weekdays?|every weekday|weekends?|every weekend|monday to friday)\b""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""(?:create(?: a| an)?|add(?: a| an)?|schedule|set up(?: a| an)?|remind me to)\s+task\s+for\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""(?:create(?: a| an)?|add(?: a| an)?|schedule|set up(?: a| an)?)\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\b(?:remind me(?: to)?|set(?: a)? reminder)\b.*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\b(today and tomorrow|tomorrow and today|today|tomorrow|daily|every day|every morning|weekly|every week|weekdays?|every weekday|weekends?|every weekend)\b""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\s{2,}"""), " ")
         .trim()
         .replaceFirstChar { it.uppercase() }
 
-    return VoiceParseResult(title, startTime, endTime, hasReminder, repeatType, selectedDays)
+    return VoiceParseResult(title, startTime, endTime, hasReminder, reminderMinutes, repeatType, selectedDays)
 }
 
 @Composable
@@ -481,6 +507,7 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     var voiceStartTime by remember { mutableStateOf("") }
     var voiceEndTime by remember { mutableStateOf("") }
     var voiceHasReminder by remember { mutableStateOf(false) }
+    var voiceReminderMinutes by remember { mutableStateOf(0) }
     var voiceRepeatType by remember { mutableStateOf("Just Today") }
     var voiceSelectedDays by remember { mutableStateOf<List<Int>>(emptyList()) }
     val timeBlocks by viewModel.timeBlocks.collectAsStateWithLifecycle()
@@ -495,6 +522,7 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
         voiceStartTime = parsed.startTime
         voiceEndTime = parsed.endTime
         voiceHasReminder = parsed.hasReminder
+        voiceReminderMinutes = parsed.reminderMinutes
         voiceRepeatType = parsed.repeatType
         voiceSelectedDays = parsed.selectedDays
         showAddTaskDialog = true
@@ -700,8 +728,12 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                             runCatching {
                                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Say task name and time, e.g. gym at 7am")
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Say: gym at 9:15 PM, daily, remind me 5 mins before")
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                                    // Give user 3s of silence before recognition finalises
+                                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
+                                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+                                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
                                 }
                                 speechLauncher.launch(intent)
                             }
@@ -946,21 +978,24 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             initialDateStr = selectedDate,
             initialStartTime = voiceStartTime.ifEmpty { freeGapStartTime },
             initialEndTime = voiceEndTime,
-            initialHasReminder = voiceHasReminder || voiceTitle.isNotEmpty(),
+            initialHasReminder = voiceHasReminder,
+            initialReminderMinutes = if (voiceReminderMinutes > 0) voiceReminderMinutes else 15,
             initialRepeatType = voiceRepeatType,
             initialSelectedDays = voiceSelectedDays,
             onDismiss = {
                 showAddTaskDialog = false
                 freeGapStartTime = ""
                 voiceTitle = ""; voiceStartTime = ""; voiceEndTime = ""
-                voiceHasReminder = false; voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
+                voiceHasReminder = false; voiceReminderMinutes = 0
+                voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
             },
             onConfirm = { title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, details, chosenDate ->
                 viewModel.addTaskWithRepeat(title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, dayDate = chosenDate, details = details)
                 showAddTaskDialog = false
                 freeGapStartTime = ""
                 voiceTitle = ""; voiceStartTime = ""; voiceEndTime = ""
-                voiceHasReminder = false; voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
+                voiceHasReminder = false; voiceReminderMinutes = 0
+                voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
             }
         )
     }
@@ -1246,33 +1281,46 @@ fun TimelineTaskItemCard(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Timeline continuous connector line — stroke thickens top→bottom across all items
+        // Timeline connector line: bold = time already passed, thin = still in the future
         Box(
             modifier = Modifier
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.8f) else (if (isDark) Color(0xDDFFFFFF) else Color(0xCC000000))
-                    val circleTopY = 8.dp.toPx()
+                    val nowMinutes = Calendar.getInstance().let {
+                        it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE)
+                    }
+                    val taskStart = timeStringToMinutes(task.timeSlotStart)
+                    val taskEnd   = timeStringToMinutes(task.timeSlotEnd)
+                    val isPast    = taskEnd   <= nowMinutes
+                    val isActive  = taskStart <= nowMinutes && !isPast
+
+                    val boldColor = if (isCompleted) highlightColor.copy(alpha = 0.9f)
+                                    else if (isDark) Color(0xFFFFFFFF) else highlightColor
+                    val dimColor  = if (isDark) Color(0x33FFFFFF) else Color(0x3A000000)
+
+                    val colorAbove = if (taskStart <= nowMinutes) boldColor else dimColor
+                    val colorBelow = if (isPast || isActive) boldColor else dimColor
+                    val strokeBold = 3.dp.toPx()
+                    val strokeDim  = 1.5.dp.toPx()
+
+                    val circleTopY    = 8.dp.toPx()
                     val circleBottomY = 44.dp.toPx()
-                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
-                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
-                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
 
                     if (!isFirst) {
                         drawLine(
-                            color = lineColor,
+                            color = colorAbove,
                             start = Offset(size.width / 2, 0f),
                             end = Offset(size.width / 2, circleTopY),
-                            strokeWidth = strokeAbove
+                            strokeWidth = if (taskStart <= nowMinutes) strokeBold else strokeDim
                         )
                     }
                     if (!isLast) {
                         drawLine(
-                            color = lineColor,
+                            color = colorBelow,
                             start = Offset(size.width / 2, circleBottomY),
                             end = Offset(size.width / 2, size.height),
-                            strokeWidth = strokeBelow
+                            strokeWidth = if (isPast || isActive) strokeBold else strokeDim
                         )
                     }
                 },
@@ -1639,21 +1687,28 @@ fun TimeBlockItemCard(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Gutter with continuous vertical line
+        // Gutter line: bold = block end already passed, thin = still future
         Box(
             modifier = Modifier
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isDark) Color(0xDDFFFFFF) else Color(0xCC000000)
-                    val dotY = 14.dp.toPx()
-                    val dotSize = 8.dp.toPx()
-                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
-                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
-                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokeAbove)
-                    drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokeBelow)
+                    val nowMinutes  = Calendar.getInstance().let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
+                    val blockStart  = timeStringToMinutes(block.startTime)
+                    val blockEnd    = timeStringToMinutes(block.endTime)
+                    val isPast      = blockEnd  <= nowMinutes
+                    val isActive    = blockStart <= nowMinutes && !isPast
+                    val boldColor   = if (isDark) Color(0xFFFFFFFF) else Color(0xCC333333)
+                    val dimColor    = if (isDark) Color(0x33FFFFFF) else Color(0x3A000000)
+                    val dotY        = 14.dp.toPx()
+                    val dotSize     = 8.dp.toPx()
+                    val strokeBold  = 3.dp.toPx()
+                    val strokeDim   = 1.5.dp.toPx()
+                    val colorAbove  = if (blockStart <= nowMinutes) boldColor else dimColor
+                    val colorBelow  = if (isPast || isActive) boldColor else dimColor
+                    if (!isFirst) drawLine(color = colorAbove, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = if (blockStart <= nowMinutes) strokeBold else strokeDim)
+                    drawCircle(color = if (isPast || isActive) boldColor else dimColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
+                    if (!isLast) drawLine(color = colorBelow, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = if (isPast || isActive) strokeBold else strokeDim)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -1730,22 +1785,27 @@ fun FreeSlotCard(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Gutter with continuous vertical line (dashed for free slots)
+        // Dashed gutter: bold/bright if this free gap is in the past, dimmed if future
         Box(
             modifier = Modifier
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = highlightColor.copy(alpha = 0.35f)
-                    val dotY = 14.dp.toPx()
-                    val dotSize = 6.dp.toPx()
-                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
-                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
-                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
+                    val nowMinutes = Calendar.getInstance().let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
+                    val slotStart  = timeStringToMinutes(startTime)
+                    val slotEnd    = timeStringToMinutes(endTime)
+                    val isPast     = slotEnd  <= nowMinutes
+                    val isActive   = slotStart <= nowMinutes && !isPast
+                    val dotY       = 14.dp.toPx()
+                    val dotSize    = 6.dp.toPx()
+                    val strokeBold = 2.5.dp.toPx()
+                    val strokeDim  = 1.5.dp.toPx()
                     val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokeAbove, pathEffect = pathEffect)
-                    drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokeBelow, pathEffect = pathEffect)
+                    val colorAbove = if (slotStart <= nowMinutes) highlightColor.copy(alpha = 0.6f) else highlightColor.copy(alpha = 0.2f)
+                    val colorBelow = if (isPast || isActive) highlightColor.copy(alpha = 0.6f) else highlightColor.copy(alpha = 0.2f)
+                    if (!isFirst) drawLine(color = colorAbove, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = if (slotStart <= nowMinutes) strokeBold else strokeDim, pathEffect = pathEffect)
+                    drawCircle(color = if (isPast || isActive) highlightColor.copy(alpha = 0.5f) else highlightColor.copy(alpha = 0.2f), radius = dotSize / 2, center = Offset(size.width / 2, dotY))
+                    if (!isLast) drawLine(color = colorBelow, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = if (isPast || isActive) strokeBold else strokeDim, pathEffect = pathEffect)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -3363,6 +3423,7 @@ fun StyledTaskDialog(
     initialStartTime: String = "",
     initialEndTime: String = "",
     initialHasReminder: Boolean = false,
+    initialReminderMinutes: Int = 15,
     initialRepeatType: String = "Just Today",
     initialSelectedDays: List<Int> = emptyList(),
     onDismiss: () -> Unit,
@@ -3376,7 +3437,7 @@ fun StyledTaskDialog(
     }
     var energy by remember { mutableStateOf(task?.energyLevel ?: "Medium") }
     var hasReminder by remember { mutableStateOf(task?.hasReminder ?: initialHasReminder) }
-    var reminderMinutes by remember { mutableStateOf(task?.reminderMinutesBefore ?: 15) }
+    var reminderMinutes by remember { mutableStateOf(task?.reminderMinutesBefore ?: initialReminderMinutes) }
     var repeatType by remember { mutableStateOf(initialRepeatType) }
     val selectedDays = remember { mutableStateListOf<Int>().also { list -> list.addAll(initialSelectedDays) } }
     val subtasks = remember { mutableStateListOf<String>() }
@@ -4026,6 +4087,7 @@ fun AddTaskDialog(
     initialStartTime: String = "",
     initialEndTime: String = "",
     initialHasReminder: Boolean = false,
+    initialReminderMinutes: Int = 15,
     initialRepeatType: String = "Just Today",
     initialSelectedDays: List<Int> = emptyList(),
     onDismiss: () -> Unit,
@@ -4042,6 +4104,7 @@ fun AddTaskDialog(
         initialStartTime = initialStartTime,
         initialEndTime = initialEndTime,
         initialHasReminder = initialHasReminder,
+        initialReminderMinutes = initialReminderMinutes,
         initialRepeatType = initialRepeatType,
         initialSelectedDays = initialSelectedDays,
         onDismiss = onDismiss,
