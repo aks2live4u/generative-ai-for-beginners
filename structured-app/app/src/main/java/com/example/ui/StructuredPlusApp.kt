@@ -55,7 +55,7 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
 import com.example.R
 
 val LocalFontBoost = compositionLocalOf { 0 }
@@ -239,8 +239,8 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher),
+            AsyncImage(
+                model = R.mipmap.ic_launcher,
                 contentDescription = "Structured+",
                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
             )
