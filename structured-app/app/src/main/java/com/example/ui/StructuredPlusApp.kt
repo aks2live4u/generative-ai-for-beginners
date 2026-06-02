@@ -149,23 +149,35 @@ fun StructuredPlusApp(
                 if (isDark) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val minDim = minOf(size.width, size.height)
+                        // Coral/salmon blob — top right
                         drawCircle(
                             brush = Brush.radialGradient(
-                                listOf(Color(0x26E8837A), Color.Transparent),
-                                center = Offset(size.width * 0.85f, size.height * 0.08f),
-                                radius = minDim * 0.55f
+                                listOf(Color(0x55E8837A), Color(0x22E8537A), Color.Transparent),
+                                center = Offset(size.width * 0.88f, size.height * 0.06f),
+                                radius = minDim * 0.65f
                             ),
-                            center = Offset(size.width * 0.85f, size.height * 0.08f),
-                            radius = minDim * 0.55f
+                            center = Offset(size.width * 0.88f, size.height * 0.06f),
+                            radius = minDim * 0.65f
                         )
+                        // Purple blob — mid left
                         drawCircle(
                             brush = Brush.radialGradient(
-                                listOf(Color(0x1EA855F7), Color.Transparent),
-                                center = Offset(size.width * 0.12f, size.height * 0.65f),
-                                radius = minDim * 0.50f
+                                listOf(Color(0x44A855F7), Color(0x1AA855F7), Color.Transparent),
+                                center = Offset(size.width * 0.10f, size.height * 0.60f),
+                                radius = minDim * 0.60f
                             ),
-                            center = Offset(size.width * 0.12f, size.height * 0.65f),
-                            radius = minDim * 0.50f
+                            center = Offset(size.width * 0.10f, size.height * 0.60f),
+                            radius = minDim * 0.60f
+                        )
+                        // Teal blob — bottom right
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x2A34D399), Color.Transparent),
+                                center = Offset(size.width * 0.80f, size.height * 0.88f),
+                                radius = minDim * 0.45f
+                            ),
+                            center = Offset(size.width * 0.80f, size.height * 0.88f),
+                            radius = minDim * 0.45f
                         )
                     }
                 }
@@ -257,7 +269,6 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -609,7 +620,7 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             shape = RoundedCornerShape(18.dp),
             border = BorderStroke(1.2.dp, if (isDark) Color(0x2BFFFFFF) else Color(0x1F000000)),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xCC151528) else Color(0xEEFFFFFF)
+                containerColor = if (isDark) Color(0x9912122A) else Color(0xEEFFFFFF)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier
@@ -1288,14 +1299,14 @@ fun TimelineTaskItemCard(
     }
 
     val cardBgColor = if (isDark) {
-        if (isCompleted) Color(0xAA111120) else Color(0xCC16162A)
+        if (isCompleted) Color(0x7711111E) else Color(0x9914142A)
     } else {
-        if (isCompleted) Color(0xDDE4E4E7) else Color(0xF2FFFFFF)
+        if (isCompleted) Color(0xCCE8E8F0) else Color(0xEEFFFFFF)
     }
     val cardBorderColor = if (isDark) {
-        if (isCompleted) Color(0x22AAAAAA) else Color(0x3AFFFFFF)
+        if (isCompleted) Color(0x1AFFFFFF) else Color(0x44FFFFFF)
     } else {
-        if (isCompleted) Color(0x22AAAAAA) else Color(0x28000000)
+        if (isCompleted) Color(0x18000000) else Color(0x20000000)
     }
 
     Row(
@@ -1750,7 +1761,7 @@ fun TimeBlockItemCard(
                 .weight(1f)
                 .padding(end = 8.dp, bottom = 6.dp)
                 .background(
-                    if (isDark) Color(0xAA151525) else Color(0x1A9CA3AF),
+                    if (isDark) Color(0x7712121E) else Color(0xDDFFFFFF),
                     RoundedCornerShape(12.dp)
                 )
                 .border(1.dp, Color(0x33888888), RoundedCornerShape(12.dp))
@@ -2410,7 +2421,7 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xCC14142A) else Color(0xEEFFFFFF)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x9914142A) else Color(0xEEFFFFFF)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -2438,7 +2449,7 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xCC14142A) else Color(0xEEFFFFFF)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x9914142A) else Color(0xEEFFFFFF)),
             modifier = Modifier.fillMaxWidth().clickable { showSettings = !showSettings }
         ) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
