@@ -4,9 +4,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -1641,22 +1643,10 @@ fun TimeBlockManagementDialog(
 
                 // Custom add / edit form
                 Text(if (editingBlock != null) "Edit block:" else "Add custom block:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = highlightColor, fontFamily = fontFamily)
-                OutlinedTextField(
-                    value = newLabel, onValueChange = { newLabel = it },
-                    label = { Text("Label (e.g. Study Time)") },
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                    singleLine = true
-                )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = newStart, onValueChange = { newStart = it },
-                        label = { Text("Start") },
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = newEnd, onValueChange = { newEnd = it },
-                        label = { Text("End") },
+                        value = newLabel, onValueChange = { newLabel = it },
+                        label = { Text("Label") },
                         modifier = Modifier.weight(1f), shape = RoundedCornerShape(10.dp),
                         singleLine = true
                     )
@@ -1665,6 +1655,35 @@ fun TimeBlockManagementDialog(
                         label = { Text("Emoji") },
                         modifier = Modifier.width(70.dp), shape = RoundedCornerShape(10.dp),
                         singleLine = true
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(if (isDark) Color(0x1F2C2D35) else Color(0x0FA2A2A2), RoundedCornerShape(12.dp))
+                        .border(1.dp, highlightColor.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TimeWheelPicker(
+                        label = "Start",
+                        initialTime = newStart,
+                        onTimeChange = { newStart = it },
+                        highlightColor = highlightColor,
+                        fontFamily = fontFamily,
+                        isDark = isDark,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Box(modifier = Modifier.width(1.dp).height(120.dp).background(Color.Gray.copy(alpha = 0.2f)))
+                    TimeWheelPicker(
+                        label = "End",
+                        initialTime = newEnd,
+                        onTimeChange = { newEnd = it },
+                        highlightColor = highlightColor,
+                        fontFamily = fontFamily,
+                        isDark = isDark,
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2957,6 +2976,132 @@ fun calculateDurationMinutes(start: String, end: String): Int {
     }
 }
 
+fun currentTimeRoundedTo5(): String {
+    val cal = Calendar.getInstance()
+    val h = cal.get(Calendar.HOUR_OF_DAY)
+    val rawM = cal.get(Calendar.MINUTE)
+    val m = ((rawM + 4) / 5) * 5
+    return if (m >= 60) "%02d:00".format((h + 1) % 24) else "%02d:%02d".format(h, m)
+}
+
+@Composable
+fun TimeWheelColumn(
+    items: List<String>,
+    initialIndex: Int,
+    onItemSelected: (Int) -> Unit,
+    highlightColor: Color,
+    fontFamily: FontFamily,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialIndex.coerceIn(0, maxOf(0, items.size - 1))
+    )
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+    val selectedIndex by remember { derivedStateOf { listState.firstVisibleItemIndex.coerceIn(0, items.size - 1) } }
+    LaunchedEffect(selectedIndex) { onItemSelected(selectedIndex) }
+    val bgColor = if (isDark) Color(0xFF1C1B1F) else Color.White
+    Box(modifier = modifier.height(200.dp)) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .height(40.dp)
+                .background(highlightColor.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                .border(1.dp, highlightColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+        )
+        LazyColumn(
+            state = listState,
+            flingBehavior = flingBehavior,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(2) { Box(Modifier.height(40.dp)) }
+            itemsIndexed(items) { idx, item ->
+                val isSelected = idx == selectedIndex
+                Box(
+                    modifier = Modifier.height(40.dp).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = item,
+                        fontSize = if (isSelected) 22.sp else 15.sp,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal,
+                        color = if (isSelected) highlightColor
+                                else (if (isDark) Color.White else Color.Black).copy(alpha = 0.25f),
+                        fontFamily = fontFamily
+                    )
+                }
+            }
+            items(2) { Box(Modifier.height(40.dp)) }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth().height(80.dp).align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(listOf(bgColor, Color.Transparent)))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth().height(80.dp).align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, bgColor)))
+        )
+    }
+}
+
+@Composable
+fun TimeWheelPicker(
+    label: String,
+    initialTime: String,
+    onTimeChange: (String) -> Unit,
+    highlightColor: Color,
+    fontFamily: FontFamily,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val parts = initialTime.split(":")
+    val initH = parts.getOrNull(0)?.trim()?.toIntOrNull() ?: 9
+    val initMRaw = parts.getOrNull(1)?.trim()?.take(2)?.toIntOrNull() ?: 0
+    val minuteOptions = (0..55 step 5).toList()
+    val initMIdx = minuteOptions.indexOfFirst { it >= initMRaw }.coerceAtLeast(0)
+    var selHour by remember { mutableStateOf(initH) }
+    var selMinIdx by remember { mutableStateOf(initMIdx) }
+    LaunchedEffect(selHour, selMinIdx) {
+        val m = minuteOptions.getOrElse(selMinIdx) { 0 }
+        onTimeChange("%02d:%02d".format(selHour, m))
+    }
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, fontSize = 10.sp, color = Color.Gray, fontFamily = fontFamily, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            TimeWheelColumn(
+                items = (0..23).map { "%02d".format(it) },
+                initialIndex = initH,
+                onItemSelected = { selHour = it },
+                highlightColor = highlightColor,
+                fontFamily = fontFamily,
+                isDark = isDark,
+                modifier = Modifier.width(54.dp)
+            )
+            Text(
+                ":",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = highlightColor,
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
+            TimeWheelColumn(
+                items = minuteOptions.map { "%02d".format(it) },
+                initialIndex = initMIdx,
+                onItemSelected = { selMinIdx = it },
+                highlightColor = highlightColor,
+                fontFamily = fontFamily,
+                isDark = isDark,
+                modifier = Modifier.width(54.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StyledTaskDialog(
@@ -2972,8 +3117,11 @@ fun StyledTaskDialog(
     onConfirm: (String, String, String, String, Boolean, Int, String, List<Int>, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf(task?.title ?: initialTitle) }
-    var startHour by remember { mutableStateOf(task?.timeSlotStart ?: initialStartTime.ifEmpty { "09:00" }) }
-    var endHour by remember { mutableStateOf(task?.timeSlotEnd ?: "10:00") }
+    var startHour by remember { mutableStateOf(task?.timeSlotStart ?: initialStartTime.ifEmpty { currentTimeRoundedTo5() }) }
+    var endHour by remember {
+        val s = task?.timeSlotStart ?: initialStartTime.ifEmpty { currentTimeRoundedTo5() }
+        mutableStateOf(task?.timeSlotEnd ?: adjustTimeOffset(s, 60))
+    }
     var energy by remember { mutableStateOf(task?.energyLevel ?: "Medium") }
     var hasReminder by remember { mutableStateOf(task?.hasReminder ?: false) }
     var reminderMinutes by remember { mutableStateOf(task?.reminderMinutesBefore ?: 15) }
@@ -3150,109 +3298,42 @@ fun StyledTaskDialog(
                     // Section: When?
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("When?", color = Color.Gray, fontSize = 12.sp, fontFamily = fontFamily, fontWeight = FontWeight.SemiBold)
-                        
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(if (isDark) Color(0x1F2C2D35) else Color(0x0FA2A2A2), RoundedCornerShape(16.dp))
+                                .border(1.dp, highlightColor.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Start Card
-                            Column(
+                            TimeWheelPicker(
+                                label = "Start Time",
+                                initialTime = startHour,
+                                onTimeChange = { startHour = it },
+                                highlightColor = highlightColor,
+                                fontFamily = fontFamily,
+                                isDark = isDark,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .background(if (isDark) Color(0x1F2C2D35) else Color(0x0FA2A2A2), RoundedCornerShape(14.dp))
-                                    .border(1.dp, highlightColor.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                    .padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("Start Time", fontSize = 10.sp, color = Color.Gray, fontFamily = fontFamily)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = startHour,
-                                    onValueChange = {
-                                        if (it.length <= 5) {
-                                            startHour = it
-                                        }
-                                    },
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (isDark) Color.White else Color.Black,
-                                        fontFamily = fontFamily,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    ),
-                                    modifier = Modifier.width(64.dp),
-                                    singleLine = true,
-                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(highlightColor)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(
-                                        text = "-15m",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { startHour = adjustTimeOffset(startHour, -15) },
-                                        color = highlightColor
-                                    )
-                                    Text(
-                                        text = "+15m",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { startHour = adjustTimeOffset(startHour, 15) },
-                                        color = highlightColor
-                                    )
-                                }
-                            }
-                            
-                            // End Card
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(if (isDark) Color(0x1F2C2D35) else Color(0x0FA2A2A2), RoundedCornerShape(14.dp))
-                                    .border(1.dp, highlightColor.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                    .padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("End Time", fontSize = 10.sp, color = Color.Gray, fontFamily = fontFamily)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = endHour,
-                                    onValueChange = {
-                                        if (it.length <= 5) {
-                                            endHour = it
-                                        }
-                                    },
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = if (isDark) Color.White else Color.Black,
-                                        fontFamily = fontFamily,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    ),
-                                    modifier = Modifier.width(64.dp),
-                                    singleLine = true,
-                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(highlightColor)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(
-                                        text = "-15m",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { endHour = adjustTimeOffset(endHour, -15) },
-                                        color = highlightColor
-                                    )
-                                    Text(
-                                        text = "+15m",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { endHour = adjustTimeOffset(endHour, 15) },
-                                        color = highlightColor
-                                    )
-                                }
-                            }
+                                    .width(1.dp)
+                                    .height(160.dp)
+                                    .background(Color.Gray.copy(alpha = 0.2f))
+                            )
+                            TimeWheelPicker(
+                                label = "End Time",
+                                initialTime = endHour,
+                                onTimeChange = { endHour = it },
+                                highlightColor = highlightColor,
+                                fontFamily = fontFamily,
+                                isDark = isDark,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                        
+
                         // Mini date display helper that opens Calendar
                         Row(
                             modifier = Modifier
