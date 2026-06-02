@@ -87,15 +87,10 @@ fun StructuredPlusApp(
 ) {
     val isEmergency by viewModel.isEmergencyMode.collectAsStateWithLifecycle()
     val isDyslexiaFont by viewModel.isDyslexiaFontApplied.collectAsStateWithLifecycle()
-    val themeOption by viewModel.appThemeOption.collectAsStateWithLifecycle()
     val fontSizeBoost by viewModel.appFontSizeBoost.collectAsStateWithLifecycle()
     var currentTab by remember { mutableStateOf(0) }
-    
-    val isSystemDark = isSystemInDarkTheme()
-    val isDark = when (themeOption) {
-        "Cosmos Dark" -> true
-        else -> isSystemDark
-    }
+
+    val isDark = false
 
     // Dynamic High-Contrast Text Color Selection
     val selectedColorHex by viewModel.selectedTextColorHex.collectAsStateWithLifecycle()
@@ -232,12 +227,7 @@ fun AppIconEmblemMini(
 
 @Composable
 fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: Color) {
-    val themeOption by viewModel.appThemeOption.collectAsStateWithLifecycle()
-    val isSystemDark = isSystemInDarkTheme()
-    val isDark = when (themeOption) {
-        "Cosmos Dark" -> true
-        else -> isSystemDark
-    }
+    val isDark = false
 
     Row(
         modifier = Modifier
@@ -397,34 +387,45 @@ private fun parseTimeComponents(timeStr: String, ampm: String): String {
     return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
-fun parseVoiceToTask(text: String): Pair<String, String> {
+fun parseVoiceToTask(text: String): Triple<String, String, String> {
+    // "from 9am to 10am" / "from 9 to 10 pm"
     val fromToRegex = Regex("""from\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s+to\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
+    // "at 9am" / "at 9:30"
     val atRegex = Regex("""(?:at|@)\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
+    // bare "9am" / "7:30 pm" / "11PM" with word boundaries
+    val bareRegex = Regex("""(?<!\d)(\d{1,2}(?::\d{2})?)\s*(am|pm)(?!\w)""", RegexOption.IGNORE_CASE)
 
     var title = text
     var startTime = ""
+    var endTime = ""
 
     val fromToMatch = fromToRegex.find(text)
     if (fromToMatch != null) {
-        val ampm = fromToMatch.groupValues[2].ifEmpty { fromToMatch.groupValues[4] }
-        startTime = parseTimeComponents(fromToMatch.groupValues[1], ampm)
+        val hint = fromToMatch.groupValues[2].ifEmpty { fromToMatch.groupValues[4] }
+        startTime = parseTimeComponents(fromToMatch.groupValues[1], hint)
+        endTime   = parseTimeComponents(fromToMatch.groupValues[3], fromToMatch.groupValues[4].ifEmpty { hint })
         title = text.replace(fromToMatch.value, "")
     } else {
         val atMatch = atRegex.find(text)
         if (atMatch != null) {
             startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
             title = text.replace(atMatch.value, "")
+        } else {
+            val bareMatch = bareRegex.find(text)
+            if (bareMatch != null) {
+                startTime = parseTimeComponents(bareMatch.groupValues[1], bareMatch.groupValues[2])
+                title = text.replace(bareMatch.value, "")
+            }
         }
     }
 
-    // Strip filler phrases and clean up
     title = title
-        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create a?)\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create a?|set up a?)\s*""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\s{2,}"""), " ")
         .trim()
         .replaceFirstChar { it.uppercase() }
 
-    return Pair(title, startTime)
+    return Triple(title, startTime, endTime)
 }
 
 @Composable
@@ -438,6 +439,7 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     var freeGapStartTime by remember { mutableStateOf("") }
     var voiceTitle by remember { mutableStateOf("") }
     var voiceStartTime by remember { mutableStateOf("") }
+    var voiceEndTime by remember { mutableStateOf("") }
     val timeBlocks by viewModel.timeBlocks.collectAsStateWithLifecycle()
 
     val speechLauncher = rememberLauncherForActivityResult(
@@ -445,9 +447,10 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     ) { result ->
         val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
         val transcript = matches?.firstOrNull() ?: return@rememberLauncherForActivityResult
-        val (parsedTitle, parsedStart) = parseVoiceToTask(transcript)
+        val (parsedTitle, parsedStart, parsedEnd) = parseVoiceToTask(transcript)
         voiceTitle = parsedTitle
         voiceStartTime = parsedStart
+        voiceEndTime = parsedEnd
         showAddTaskDialog = true
     }
 
@@ -638,28 +641,26 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Voice task button
-                IconButton(
-                    onClick = {
-                        runCatching {
-                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Say task name, time, and any details")
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
-                            }
-                            speechLauncher.launch(intent)
-                        }
-                    },
+                // Voice task — circular mic button, visually distinct from Add
+                Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(
-                            if (isDark) Color(0x3B4B5563) else Color(0x1F2A2A31),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .border(1.dp, highlightColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .background(highlightColor.copy(alpha = 0.12f), CircleShape)
+                        .border(1.5.dp, highlightColor.copy(alpha = 0.55f), CircleShape)
+                        .clickable {
+                            runCatching {
+                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Say task name and time, e.g. gym at 7am")
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                                }
+                                speechLauncher.launch(intent)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(imageVector = Icons.Default.Mic, contentDescription = "Voice task", tint = highlightColor, modifier = Modifier.size(18.dp))
                 }
@@ -898,11 +899,14 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             initialTitle = voiceTitle,
             initialDateStr = selectedDate,
             initialStartTime = voiceStartTime.ifEmpty { freeGapStartTime },
+            initialEndTime = voiceEndTime,
+            initialHasReminder = voiceTitle.isNotEmpty(),
             onDismiss = {
                 showAddTaskDialog = false
                 freeGapStartTime = ""
                 voiceTitle = ""
                 voiceStartTime = ""
+                voiceEndTime = ""
             },
             onConfirm = { title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, details, chosenDate ->
                 viewModel.addTaskWithRepeat(title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, dayDate = chosenDate, details = details)
@@ -910,6 +914,7 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                 freeGapStartTime = ""
                 voiceTitle = ""
                 voiceStartTime = ""
+                voiceEndTime = ""
             }
         )
     }
@@ -1203,10 +1208,10 @@ fun TimelineTaskItemCard(
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.6f) else (if (isDark) Color(0x88FFFFFF) else Color(0x88000000))
+                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.8f) else (if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000))
                     val circleTopY = 10.dp.toPx()
                     val circleBottomY = 40.dp.toPx()
-                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
+                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
 
                     if (!isFirst) {
                         drawLine(
@@ -1591,10 +1596,10 @@ fun TimeBlockItemCard(
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isDark) Color(0x88FFFFFF) else Color(0x88000000)
+                    val lineColor = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000)
                     val dotY = 14.dp.toPx()
                     val dotSize = 8.dp.toPx()
-                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
+                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
                     if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
                     if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokePx)
@@ -1684,7 +1689,7 @@ fun FreeSlotCard(
                     val lineColor = highlightColor.copy(alpha = 0.35f)
                     val dotY = 14.dp.toPx()
                     val dotSize = 6.dp.toPx()
-                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
+                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
                     val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
                     if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx, pathEffect = pathEffect)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
@@ -2641,7 +2646,6 @@ fun AppIconPreview(
 @Composable
 fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: Color, isDark: Boolean) {
     val isDyslexiaFont by viewModel.isDyslexiaFontApplied.collectAsStateWithLifecycle()
-    val themeOption by viewModel.appThemeOption.collectAsStateWithLifecycle()
     val selectedColorHex by viewModel.selectedTextColorHex.collectAsStateWithLifecycle()
 
     val profileName by viewModel.profileName.collectAsStateWithLifecycle()
@@ -2936,7 +2940,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
             }
         }
 
-        // Section 2: Themes & Modes Card
+        // Section 2: Accessibility Card
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
@@ -2945,44 +2949,12 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Visual Theme Configuration",
+                    text = "Accessibility",
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     fontFamily = fontFamily,
                     color = highlightColor
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val themes = listOf(
-                        Triple("System", "💻 Auto", Icons.Default.BrightnessAuto),
-                        Triple("Cosmos Dark", "🌌 Cosmos", Icons.Default.DarkMode)
-                    )
-
-                    themes.forEach { (themeKey, displayLabel, icon) ->
-                        val isSelected = themeOption == themeKey
-                        Button(
-                            onClick = { viewModel.appThemeOption.value = themeKey },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) highlightColor else (if (isDark) Color(0x1FCDCDDF) else Color(0xFFE4E4E7)),
-                                contentColor = if (isSelected) (if (isDark) Color.Black else Color.White) else (if (isDark) Color.White else Color.Black)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(36.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Icon(imageVector = icon, contentDescription = displayLabel, modifier = Modifier.size(11.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = displayLabel.substringAfter(" "), fontSize = 11.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = if (isDark) Color(0x0EFFFFFF) else Color(0x1F000000))
 
                 // Dyslexia options custom switch
                 Row(
@@ -3337,6 +3309,8 @@ fun StyledTaskDialog(
     initialTitle: String = "",
     initialDateStr: String = "",
     initialStartTime: String = "",
+    initialEndTime: String = "",
+    initialHasReminder: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, Boolean, Int, String, List<Int>, String, String) -> Unit
 ) {
@@ -3344,10 +3318,10 @@ fun StyledTaskDialog(
     var startHour by remember { mutableStateOf(task?.timeSlotStart ?: initialStartTime.ifEmpty { currentTimeNow() }) }
     var endHour by remember {
         val s = task?.timeSlotStart ?: initialStartTime.ifEmpty { currentTimeNow() }
-        mutableStateOf(task?.timeSlotEnd ?: adjustTimeOffset(s, 60))
+        mutableStateOf(task?.timeSlotEnd ?: initialEndTime.ifEmpty { adjustTimeOffset(s, 60) })
     }
     var energy by remember { mutableStateOf(task?.energyLevel ?: "Medium") }
-    var hasReminder by remember { mutableStateOf(task?.hasReminder ?: false) }
+    var hasReminder by remember { mutableStateOf(task?.hasReminder ?: initialHasReminder) }
     var reminderMinutes by remember { mutableStateOf(task?.reminderMinutesBefore ?: 15) }
     var repeatType by remember { mutableStateOf("Just Today") } 
     val selectedDays = remember { mutableStateListOf<Int>() }
@@ -3996,6 +3970,8 @@ fun AddTaskDialog(
     initialTitle: String = "",
     initialDateStr: String = "",
     initialStartTime: String = "",
+    initialEndTime: String = "",
+    initialHasReminder: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, Boolean, Int, String, List<Int>, String, String) -> Unit
 ) {
@@ -4008,6 +3984,8 @@ fun AddTaskDialog(
         initialTitle = initialTitle,
         initialDateStr = initialDateStr,
         initialStartTime = initialStartTime,
+        initialEndTime = initialEndTime,
+        initialHasReminder = initialHasReminder,
         onDismiss = onDismiss,
         onConfirm = onConfirm
     )
