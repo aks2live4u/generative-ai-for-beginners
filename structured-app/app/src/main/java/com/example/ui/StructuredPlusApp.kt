@@ -62,6 +62,7 @@ import android.speech.RecognizerIntent
 import coil.compose.AsyncImage
 import com.example.R
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.graphicsLayer
 
 val LocalFontBoost = compositionLocalOf { 0 }
 
@@ -608,13 +609,13 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             shape = RoundedCornerShape(18.dp),
             border = BorderStroke(1.2.dp, if (isDark) Color(0x2BFFFFFF) else Color(0x1F000000)),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xB31E1E28) else Color(0xD9FFFFFF)
+                containerColor = if (isDark) Color(0xCC151528) else Color(0xEEFFFFFF)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .shadow(6.dp, RoundedCornerShape(18.dp))
+                .shadow(8.dp, RoundedCornerShape(18.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -1287,11 +1288,15 @@ fun TimelineTaskItemCard(
     }
 
     val cardBgColor = if (isDark) {
-        if (isCompleted) Color(0xFF1D1D2A) else Color(0xFF21212E)
+        if (isCompleted) Color(0xAA111120) else Color(0xCC16162A)
     } else {
-        if (isCompleted) Color(0xFFE4E4E7) else Color(0xF2F4F2EE)
+        if (isCompleted) Color(0xDDE4E4E7) else Color(0xF2FFFFFF)
     }
-    val cardBorderColor = if (isCompleted) Color(0x22AAAAAA) else highlightColor.copy(alpha = 0.3f)
+    val cardBorderColor = if (isDark) {
+        if (isCompleted) Color(0x22AAAAAA) else Color(0x3AFFFFFF)
+    } else {
+        if (isCompleted) Color(0x22AAAAAA) else Color(0x28000000)
+    }
 
     Row(
         modifier = Modifier
@@ -1371,7 +1376,7 @@ fun TimelineTaskItemCard(
                 .weight(1f)
                 .padding(end = 8.dp, bottom = 6.dp)
                 .shadow(
-                    elevation = if (isCompleted) 0.dp else 4.dp,
+                    elevation = if (isCompleted) 0.dp else 12.dp,
                     shape = RoundedCornerShape(16.dp),
                     clip = false
                 )
@@ -1385,6 +1390,14 @@ fun TimelineTaskItemCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .drawBehind {
+                        drawLine(
+                            Color(0x0EFFFFFF),
+                            Offset(16.dp.toPx(), 0f),
+                            Offset(size.width - 16.dp.toPx(), 0f),
+                            1.dp.toPx()
+                        )
+                    }
                     .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
                 Row(
@@ -1737,7 +1750,7 @@ fun TimeBlockItemCard(
                 .weight(1f)
                 .padding(end = 8.dp, bottom = 6.dp)
                 .background(
-                    if (isDark) Color(0x1A374151) else Color(0x1A9CA3AF),
+                    if (isDark) Color(0xAA151525) else Color(0x1A9CA3AF),
                     RoundedCornerShape(12.dp)
                 )
                 .border(1.dp, Color(0x33888888), RoundedCornerShape(12.dp))
@@ -1833,7 +1846,7 @@ fun FreeSlotCard(
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 8.dp, bottom = 6.dp)
-                .border(1.dp, highlightColor.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                .border(1.dp, if (isDark) highlightColor.copy(alpha = 0.22f) else highlightColor.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -2230,281 +2243,271 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
     val timerPlaying by viewModel.focusTimerIsActive.collectAsStateWithLifecycle()
     val focusMins by viewModel.focusTimerMinutes.collectAsStateWithLifecycle()
     val breakMins by viewModel.breakTimerMinutes.collectAsStateWithLifecycle()
+    val longBreakMins by viewModel.longBreakTimerMinutes.collectAsStateWithLifecycle()
     val isBreakMode by viewModel.isBreakMode.collectAsStateWithLifecycle()
-    val maxCycles by viewModel.focusMaxCycles.collectAsStateWithLifecycle()
-    val remCycles by viewModel.focusCyclesRemaining.collectAsStateWithLifecycle()
+    val isLongBreakMode by viewModel.isLongBreakMode.collectAsStateWithLifecycle()
+    val completedToday by viewModel.focusTimerSuccessCount.collectAsStateWithLifecycle()
+    val dailyGoal by viewModel.dailyPomodoroGoal.collectAsStateWithLifecycle()
+    val autoStartBreak by viewModel.autoStartBreak.collectAsStateWithLifecycle()
+    val autoStartPomodoro by viewModel.autoStartPomodoro.collectAsStateWithLifecycle()
+    val soundEnabled by viewModel.timerSoundEnabled.collectAsStateWithLifecycle()
+    val currentSession by viewModel.currentSessionInCycle.collectAsStateWithLifecycle()
 
-    val formattedSeconds = remember(secondsLeft) {
-        val mins = secondsLeft / 60
-        val secs = secondsLeft % 60
-        String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
+    var showSettings by remember { mutableStateOf(false) }
+
+    // Pulsing animation while active
+    val pulseAnim = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by pulseAnim.animateFloat(
+        initialValue = 1f, targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "scale"
+    )
+
+    val timerMode = when { isLongBreakMode -> "long_break"; isBreakMode -> "short_break"; else -> "focus" }
+    val maxSeconds = when (timerMode) { "short_break" -> breakMins * 60f; "long_break" -> longBreakMins * 60f; else -> focusMins * 60f }.coerceAtLeast(1f)
+    val progress = (secondsLeft / maxSeconds).coerceIn(0f, 1f)
+    val formattedTime = "%02d:%02d".format(secondsLeft / 60, secondsLeft % 60)
+
+    val modeAccent = when (timerMode) {
+        "short_break" -> Color(0xFF34D399)
+        "long_break"  -> Color(0xFF60A5FA)
+        else          -> highlightColor
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .widthIn(max = 400.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Mode switcher — 3 pills
+        Row(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                .background(if (isDark) Color(0xBB0E0E1E) else Color(0xBBF0F0F8))
+                .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x22000000), RoundedCornerShape(14.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = "Focus Timeline Helper",
-                fontWeight = FontWeight.Black,
-                fontFamily = fontFamily,
-                fontSize = 20.sp,
-                color = if (isDark) Color.White else Color.Black,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = "Establish rhythm on outstanding agenda items. Stretch regularly.",
-                fontSize = 11.sp,
-                fontFamily = fontFamily,
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Focus Mode vs Break Mode Switcher
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = { viewModel.setTimerMode(false) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!isBreakMode) highlightColor else (if (isDark) Color(0x1FCDCDDF) else Color(0xFFE4E4E7)),
-                        contentColor = if (!isBreakMode) (if (isDark) Color.Black else Color.White) else (if (isDark) Color.White else Color.Black)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.weight(1f).height(38.dp)
+            listOf("focus" to "Focus", "short_break" to "Short Break", "long_break" to "Long Break").forEach { (mode, label) ->
+                val isActive = timerMode == mode
+                Box(
+                    modifier = Modifier.weight(1f).height(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isActive) modeAccent else Color.Transparent)
+                        .clickable { viewModel.setTimerModeStr(mode) },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Focus Session", fontSize = 11.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = { viewModel.setTimerMode(true) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isBreakMode) highlightColor else (if (isDark) Color(0x1FCDCDDF) else Color(0xFFE4E4E7)),
-                        contentColor = if (isBreakMode) (if (isDark) Color.Black else Color.White) else (if (isDark) Color.White else Color.Black)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.weight(1f).height(38.dp)
-                ) {
-                    Text("Short Break", fontSize = 11.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
+                    Text(label, fontSize = 11.sp, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isActive) (if (isDark) Color.Black else Color.White) else (if (isDark) Color(0xBBFFFFFF) else Color(0xBB000000)),
+                        fontFamily = fontFamily, maxLines = 1)
                 }
             }
+        }
 
-            // Duration Customization Steppers
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        if (isBreakMode) {
-                            viewModel.setBreakMinutes(breakMins - 1)
-                        } else {
-                            viewModel.setTimerMinutes(focusMins - 1)
-                        }
-                    },
-                    modifier = Modifier.size(36.dp).background(if (isDark) Color(0x1FCDCDDF) else Color(0x33BDBDBD), CircleShape)
-                ) {
-                    Text("-", fontWeight = FontWeight.Bold, color = if (isDark) Color.White else Color.Black, fontSize = 16.sp)
-                }
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // Session dots: ● ● ○ ○ (4 dots, filled = completed this cycle)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            for (i in 1..4) {
+                Box(modifier = Modifier.size(10.dp).background(
+                    if (i < currentSession) modeAccent else modeAccent.copy(alpha = 0.25f), CircleShape))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Session $currentSession of 4",
+                fontSize = 11.sp, fontFamily = fontFamily, fontWeight = FontWeight.Medium,
+                color = if (isDark) Color(0xAAFFFFFF) else Color(0xAA000000)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Main ring timer — with pulse when running
+        Box(
+            modifier = Modifier
+                .size(220.dp)
+                .graphicsLayer { if (timerPlaying) { scaleX = pulseScale; scaleY = pulseScale } }
+                .drawBehind {
+                    // Outer track
+                    drawArc(color = modeAccent.copy(alpha = 0.12f), startAngle = -90f, sweepAngle = 360f, useCenter = false,
+                        style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
+                    // Progress arc
+                    if (progress > 0f) {
+                        drawArc(color = modeAccent, startAngle = -90f, sweepAngle = 360f * progress, useCenter = false,
+                            style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
+                    }
+                    // Glow ring when active
+                    if (timerPlaying) {
+                        drawArc(color = modeAccent.copy(alpha = 0.22f), startAngle = -90f, sweepAngle = 360f * progress, useCenter = false,
+                            style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round))
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = if (isBreakMode) "${breakMins}m Break" else "${focusMins}m Focus",
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    fontFamily = fontFamily,
+                    text = formattedTime,
+                    fontSize = 48.sp, fontWeight = FontWeight.Black, fontFamily = fontFamily,
                     color = if (isDark) Color.White else Color.Black
                 )
-
-                IconButton(
-                    onClick = {
-                        if (isBreakMode) {
-                            viewModel.setBreakMinutes(breakMins + 1)
-                        } else {
-                            viewModel.setTimerMinutes(focusMins + 1)
-                        }
-                    },
-                    modifier = Modifier.size(36.dp).background(if (isDark) Color(0x1FCDCDDF) else Color(0x33BDBDBD), CircleShape)
-                ) {
-                    Text("+", fontWeight = FontWeight.Bold, color = if (isDark) Color.White else Color.Black, fontSize = 16.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Beautiful Symmetrical Auto-Cycle Loop Counter Selector
-            Text(
-                text = "Auto-Cycle Loops: Link Work & Break (1-4x)",
-                fontSize = 11.sp,
-                fontFamily = fontFamily,
-                fontWeight = FontWeight.Bold,
-                color = if (isDark) Color.LightGray else Color.DarkGray
-            )
-            
-            Row(
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(1, 2, 3, 4).forEach { loopNum ->
-                    val isSelected = maxCycles == loopNum
-                    val bg = if (isSelected) highlightColor else (if (isDark) Color(0x1FCDCDDF) else Color(0x1FA2A2A2))
-                    val fg = if (isSelected) (if (isDark) Color.Black else Color.White) else (if (isDark) Color.White else Color.Black)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(34.dp)
-                            .background(bg, RoundedCornerShape(8.dp))
-                            .clickable { viewModel.setMaxCycles(loopNum) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${loopNum}x",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = fontFamily,
-                            color = fg
-                        )
-                    }
-                }
-            }
-
-            if (timerPlaying) {
                 Text(
-                    text = "Cycle Progress: $remCycles of $maxCycles remaining",
-                    fontSize = 11.sp,
-                    fontFamily = fontFamily,
-                    color = highlightColor,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    text = when (timerMode) { "short_break" -> "Short Break"; "long_break" -> "Long Break"; else -> "Focus" },
+                    fontSize = 12.sp, fontFamily = fontFamily, fontWeight = FontWeight.Medium,
+                    color = modeAccent
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            // Centered Ring Card
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x3B2C2D35) else Color(0xF2F4F2EE)),
-                modifier = Modifier.fillMaxWidth()
+        // Controls row: Reset | Start/Pause | Skip
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Reset
+            IconButton(
+                onClick = { viewModel.resetFocusTimer() },
+                modifier = Modifier.size(52.dp).background(
+                    if (isDark) Color(0xBB141428) else Color(0xBBF0F0F8), CircleShape)
+                    .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x22000000), CircleShape)
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Symmetrical visual clock ring
-                    Box(
-                        modifier = Modifier
-                            .size(160.dp)
-                            .drawBehind {
-                                val maxSeconds = (if (isBreakMode) breakMins else focusMins) * 60f
-                                val progress = if (maxSeconds > 0) (secondsLeft / maxSeconds).coerceIn(0f, 1f) else 1f
-                                drawArc(
-                                    color = highlightColor.copy(alpha = 0.12f),
-                                    startAngle = 0f,
-                                    sweepAngle = 360f,
-                                    useCenter = false,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 8.dp.toPx())
-                                )
-                                drawArc(
-                                    color = highlightColor,
-                                    startAngle = -90f,
-                                    sweepAngle = 360f * progress,
-                                    useCenter = false,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                        width = 8.dp.toPx(),
-                                        cap = androidx.compose.ui.graphics.StrokeCap.Round
-                                    )
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = formattedSeconds,
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = fontFamily,
-                            color = if (isDark) Color.White else Color.Black
-                        )
+                Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000), modifier = Modifier.size(22.dp))
+            }
+
+            // Start / Pause
+            Button(
+                onClick = { if (timerPlaying) viewModel.pauseFocusTimer() else viewModel.startFocusTimer() },
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = modeAccent,
+                    contentColor = if (isDark) Color.Black else Color.White
+                ),
+                modifier = Modifier.weight(1f).height(52.dp).testTag("focus_start_stop_btn"),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+            ) {
+                Icon(if (timerPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (timerPlaying) "Pause" else "Start", fontWeight = FontWeight.Black, fontSize = 15.sp, fontFamily = fontFamily)
+            }
+
+            // Skip
+            IconButton(
+                onClick = { viewModel.skipTimer() },
+                modifier = Modifier.size(52.dp).background(
+                    if (isDark) Color(0xBB141428) else Color(0xBBF0F0F8), CircleShape)
+                    .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x22000000), CircleShape)
+            ) {
+                Icon(Icons.Default.SkipNext, contentDescription = "Skip", tint = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000), modifier = Modifier.size(22.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Daily goal progress
+        val goalProgress = (completedToday.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xCC14142A) else Color(0xEEFFFFFF)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Today's Goal", fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily,
+                        color = if (isDark) Color.White else Color.Black)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (i in 1..dailyGoal) {
+                            Text(if (i <= completedToday) "🍅" else "⬜", fontSize = 16.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(modeAccent.copy(alpha = 0.15f))) {
+                    Box(modifier = Modifier.fillMaxWidth(goalProgress).fillMaxHeight().background(Brush.horizontalGradient(listOf(modeAccent, modeAccent.copy(alpha = 0.7f))), RoundedCornerShape(3.dp)))
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("$completedToday of $dailyGoal sessions complete", fontSize = 11.sp, color = if (isDark) Color(0xAAFFFFFF) else Color(0xAA000000), fontFamily = fontFamily)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Settings toggle card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xCC14142A) else Color(0xEEFFFFFF)),
+            modifier = Modifier.fillMaxWidth().clickable { showSettings = !showSettings }
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Timer Settings", fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily,
+                    color = if (isDark) Color.White else Color.Black)
+                Icon(if (showSettings) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null, tint = if (isDark) Color(0xAAFFFFFF) else Color(0xAA000000))
+            }
+
+            AnimatedVisibility(visible = showSettings) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    HorizontalDivider(color = if (isDark) Color(0x1AFFFFFF) else Color(0x1A000000))
+
+                    // Duration steppers
+                    listOf(
+                        Triple("Focus", focusMins, { m: Int -> viewModel.setTimerMinutes(m) }),
+                        Triple("Short Break", breakMins, { m: Int -> viewModel.setBreakMinutes(m) }),
+                        Triple("Long Break", longBreakMins, { m: Int -> viewModel.setLongBreakMinutes(m) })
+                    ).forEach { (label, value, setter) ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, fontSize = 13.sp, fontFamily = fontFamily, color = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                IconButton(onClick = { setter(value - 1) }, modifier = Modifier.size(30.dp).background(modeAccent.copy(alpha = 0.15f), CircleShape)) {
+                                    Text("-", color = modeAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                                Text("${value}m", fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily, color = if (isDark) Color.White else Color.Black, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                                IconButton(onClick = { setter(value + 1) }, modifier = Modifier.size(30.dp).background(modeAccent.copy(alpha = 0.15f), CircleShape)) {
+                                    Text("+", color = modeAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    HorizontalDivider(color = if (isDark) Color(0x1AFFFFFF) else Color(0x1A000000))
 
-                    // Buttons aligned with equal proportions and beautifully centered and balanced
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = {
-                                if (timerPlaying) viewModel.pauseFocusTimer() else viewModel.startFocusTimer()
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (timerPlaying) Color(0xFFEF4444) else highlightColor,
-                                contentColor = if (timerPlaying) Color.White else (if (isDark) Color.Black else Color.White)
-                            ),
-                            modifier = Modifier
-                                .height(48.dp)
-                                .weight(1f)
-                                .testTag("focus_start_stop_btn"),
-                            contentPadding = PaddingValues(horizontal = 10.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (timerPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = "Trigger"
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (timerPlaying) "Pause" else "Start ${if (isBreakMode) breakMins else focusMins}m",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = fontFamily,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                    // Daily goal stepper
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Daily Goal", fontSize = 13.sp, fontFamily = fontFamily, color = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(onClick = { viewModel.dailyPomodoroGoal.value = (dailyGoal - 1).coerceIn(1, 12) }, modifier = Modifier.size(30.dp).background(modeAccent.copy(alpha = 0.15f), CircleShape)) {
+                                Text("-", color = modeAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                            Text("$dailyGoal 🍅", fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily, color = if (isDark) Color.White else Color.Black)
+                            IconButton(onClick = { viewModel.dailyPomodoroGoal.value = (dailyGoal + 1).coerceIn(1, 12) }, modifier = Modifier.size(30.dp).background(modeAccent.copy(alpha = 0.15f), CircleShape)) {
+                                Text("+", color = modeAccent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
                         }
+                    }
 
-                        IconButton(
-                            onClick = { viewModel.resetFocusTimer() },
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(if (isDark) Color(0x2B4B5563) else Color(0x33BDBDBD), RoundedCornerShape(16.dp))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh, 
-                                contentDescription = "Reset Timer", 
-                                tint = if (isDark) Color.White else Color.Black,
-                                modifier = Modifier.size(20.dp)
-                            )
+                    HorizontalDivider(color = if (isDark) Color(0x1AFFFFFF) else Color(0x1A000000))
+
+                    // Toggles
+                    listOf(
+                        Triple("Auto-start Breaks", autoStartBreak, { v: Boolean -> viewModel.autoStartBreak.value = v }),
+                        Triple("Auto-start Pomodoros", autoStartPomodoro, { v: Boolean -> viewModel.autoStartPomodoro.value = v }),
+                        Triple("Sound on completion", soundEnabled, { v: Boolean -> viewModel.timerSoundEnabled.value = v })
+                    ).forEach { (label, state, onToggle) ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, fontSize = 13.sp, fontFamily = fontFamily, color = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000))
+                            Switch(checked = state, onCheckedChange = onToggle,
+                                colors = SwitchDefaults.colors(checkedThumbColor = modeAccent, checkedTrackColor = modeAccent.copy(alpha = 0.4f)))
                         }
                     }
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
