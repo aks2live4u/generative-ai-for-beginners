@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,6 +54,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.res.painterResource
+import com.example.R
+
+val LocalFontBoost = compositionLocalOf { 0 }
 
 data class CalendarDay(val dayName: String, val dateStr: String, val dateNum: String)
 
@@ -78,6 +84,7 @@ fun StructuredPlusApp(
     val isEmergency by viewModel.isEmergencyMode.collectAsStateWithLifecycle()
     val isDyslexiaFont by viewModel.isDyslexiaFontApplied.collectAsStateWithLifecycle()
     val themeOption by viewModel.appThemeOption.collectAsStateWithLifecycle()
+    val fontSizeBoost by viewModel.appFontSizeBoost.collectAsStateWithLifecycle()
     var currentTab by remember { mutableStateOf(0) }
     
     val isSystemDark = isSystemInDarkTheme()
@@ -123,6 +130,7 @@ fun StructuredPlusApp(
                 .padding(innerPadding),
             color = if (isDark) Color.Black else SandDb
         ) {
+            CompositionLocalProvider(LocalFontBoost provides fontSizeBoost) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -141,6 +149,7 @@ fun StructuredPlusApp(
                     }
                 }
             }
+            } // end CompositionLocalProvider
         }
     }
 }
@@ -211,7 +220,6 @@ fun AppIconEmblemMini(
 @Composable
 fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: Color) {
     val themeOption by viewModel.appThemeOption.collectAsStateWithLifecycle()
-    val appIconPreset by viewModel.appIconPresetColor.collectAsStateWithLifecycle()
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeOption) {
         "Cosmos Dark" -> true
@@ -231,9 +239,10 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            AppIconEmblemMini(
-                iconStyle = appIconPreset,
-                highlightColor = highlightColor
+            Image(
+                painter = painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = "Structured+",
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
             )
             
             Text(
@@ -738,14 +747,12 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                 itemsIndexed(mergedTimeline) { index, item ->
                     when (item) {
                         is TimelineDisplayItem.Task -> {
-                            val taskList = mergedTimeline.filterIsInstance<TimelineDisplayItem.Task>()
-                            val taskIndex = taskList.indexOfFirst { it.task.id == item.task.id }
                             TimelineTaskItemCard(
                                 task = item.task,
                                 viewModel = viewModel,
                                 fontFamily = fontFamily,
-                                isFirst = taskIndex == 0,
-                                isLast = taskIndex == taskList.size - 1,
+                                isFirst = index == 0,
+                                isLast = index == mergedTimeline.size - 1,
                                 highlightColor = highlightColor,
                                 isDark = isDark
                             )
@@ -756,6 +763,8 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                                 fontFamily = fontFamily,
                                 isDark = isDark,
                                 highlightColor = highlightColor,
+                                isFirst = index == 0,
+                                isLast = index == mergedTimeline.size - 1,
                                 onDelete = { viewModel.deleteTimeBlock(item.block) }
                             )
                         }
@@ -767,6 +776,8 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                                 fontFamily = fontFamily,
                                 isDark = isDark,
                                 highlightColor = highlightColor,
+                                isFirst = index == 0,
+                                isLast = index == mergedTimeline.size - 1,
                                 onAddTask = {
                                     freeGapStartTime = item.startTime
                                     showAddTaskDialog = true
@@ -826,6 +837,7 @@ fun TimelineTaskItemCard(
     var showDeleteChoiceDialog by remember { mutableStateOf(false) }
     var pendingEditData by remember { mutableStateOf<PendingEditData?>(null) }
     val isCompleted = task.isCompleted
+    val fontBoost = LocalFontBoost.current
 
     if (showDeleteChoiceDialog) {
         AlertDialog(
@@ -1080,7 +1092,7 @@ fun TimelineTaskItemCard(
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.5f) else (if (isDark) Color(0x22FFFFFF) else Color(0x33000000))
+                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.6f) else (if (isDark) Color(0x88FFFFFF) else Color(0x66000000))
                     val circleTopY = 10.dp.toPx()
                     val circleBottomY = 40.dp.toPx()
                     
@@ -1222,7 +1234,7 @@ fun TimelineTaskItemCard(
                     Text(
                         text = task.title,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        fontSize = (14 + fontBoost).sp,
                         fontFamily = fontFamily,
                         textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                         color = if (isCompleted) Color.Gray else (if (isDark) Color.White else Color.Black),
@@ -1450,46 +1462,72 @@ fun TimeBlockItemCard(
     fontFamily: FontFamily,
     isDark: Boolean,
     highlightColor: Color,
+    isFirst: Boolean = false,
+    isLast: Boolean = false,
     onDelete: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 3.dp, bottom = 3.dp, start = 46.dp, end = 8.dp)
-            .background(
-                if (isDark) Color(0x1A374151) else Color(0x1A9CA3AF),
-                RoundedCornerShape(12.dp)
-            )
-            .border(1.dp, Color(0x33888888), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .height(IntrinsicSize.Min)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = block.emoji, fontSize = 14.sp)
-            Column {
-                Text(
-                    text = block.label,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    fontFamily = fontFamily,
-                    color = if (isDark) Color(0xFFD1D5DB) else Color(0xFF374151)
+        // Gutter with continuous vertical line
+        Box(
+            modifier = Modifier
+                .width(46.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    val lineColor = if (isDark) Color(0x88FFFFFF) else Color(0x66000000)
+                    val dotY = 14.dp.toPx()
+                    val dotSize = 8.dp.toPx()
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = 2.dp.toPx())
+                    drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = 2.dp.toPx())
+                },
+            contentAlignment = Alignment.TopCenter
+        ) {}
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp, bottom = 6.dp)
+                .background(
+                    if (isDark) Color(0x1A374151) else Color(0x1A9CA3AF),
+                    RoundedCornerShape(12.dp)
                 )
-                Text(
-                    text = "${block.startTime} – ${block.endTime} · Blocked",
-                    fontSize = 10.sp,
-                    fontFamily = fontFamily,
-                    color = Color.Gray
+                .border(1.dp, Color(0x33888888), RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text = block.emoji, fontSize = 14.sp)
+                Column {
+                    Text(
+                        text = block.label,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        fontFamily = fontFamily,
+                        color = if (isDark) Color(0xFFD1D5DB) else Color(0xFF374151)
+                    )
+                    Text(
+                        text = "${block.startTime} – ${block.endTime} · Blocked",
+                        fontSize = 10.sp,
+                        fontFamily = fontFamily,
+                        color = Color.Gray
+                    )
+                }
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Remove block",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(14.dp)
                 )
             }
-        }
-        IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Remove block",
-                tint = Color.Gray,
-                modifier = Modifier.size(14.dp)
-            )
         }
     }
 }
@@ -1502,6 +1540,8 @@ fun FreeSlotCard(
     fontFamily: FontFamily,
     isDark: Boolean,
     highlightColor: Color,
+    isFirst: Boolean = false,
+    isLast: Boolean = false,
     onAddTask: () -> Unit
 ) {
     val durationText = if (durationMinutes >= 60) {
@@ -1515,34 +1555,59 @@ fun FreeSlotCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 3.dp, bottom = 3.dp, start = 46.dp, end = 8.dp)
-            .border(1.dp, highlightColor.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .height(IntrinsicSize.Min)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Column {
-            Text(
-                text = "✨ $durationText",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                fontFamily = fontFamily,
-                color = highlightColor.copy(alpha = 0.8f)
-            )
-            Text(
-                text = "$startTime – $endTime",
-                fontSize = 10.sp,
-                fontFamily = fontFamily,
-                color = Color.Gray
-            )
-        }
-        TextButton(
-            onClick = onAddTask,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+        // Gutter with continuous vertical line (dashed for free slots)
+        Box(
+            modifier = Modifier
+                .width(46.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    val lineColor = highlightColor.copy(alpha = 0.35f)
+                    val dotY = 14.dp.toPx()
+                    val dotSize = 6.dp.toPx()
+                    val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = 2.dp.toPx(), pathEffect = pathEffect)
+                    drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = 2.dp.toPx(), pathEffect = pathEffect)
+                },
+            contentAlignment = Alignment.TopCenter
+        ) {}
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp, bottom = 6.dp)
+                .border(1.dp, highlightColor.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = highlightColor, modifier = Modifier.size(12.dp))
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(text = "Add Task", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = highlightColor, fontFamily = fontFamily)
+            Column {
+                Text(
+                    text = "✨ $durationText",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    fontFamily = fontFamily,
+                    color = highlightColor.copy(alpha = 0.8f)
+                )
+                Text(
+                    text = "$startTime – $endTime",
+                    fontSize = 10.sp,
+                    fontFamily = fontFamily,
+                    color = Color.Gray
+                )
+            }
+            TextButton(
+                onClick = onAddTask,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = highlightColor, modifier = Modifier.size(12.dp))
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(text = "Add Task", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = highlightColor, fontFamily = fontFamily)
+            }
         }
     }
 }
@@ -2754,104 +2819,6 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
             }
         }
 
-        // Exclusive App Icon Customizer Panel
-        val appIconPreset by viewModel.appIconPresetColor.collectAsStateWithLifecycle()
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "🌌 PREMIUM APP LOGO COLOR",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    fontFamily = fontFamily,
-                    color = highlightColor
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AppIconPreview(
-                        iconStyle = appIconPreset,
-                        highlightColor = highlightColor,
-                        isDark = isDark
-                    )
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "In-App Accent Emblem Color",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            fontFamily = fontFamily,
-                            color = if (isDark) Color.White else Color.Black
-                        )
-                        Text(
-                            text = "Select a signature premium accent color for your customized in-app app symbol in the top toolbar.",
-                            fontSize = 10.sp,
-                            color = Color.Gray,
-                            fontFamily = fontFamily
-                        )
-
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        // Horizontally scrollable presets for premium feel
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val presetsList = listOf("Theme Match", "Neon Cyan", "Golden Hour", "Lilac Bloom", "Electric Rose")
-                            presetsList.forEach { p ->
-                                val isSelectedPreset = appIconPreset == p
-                                val presetLabel = p.substringBefore(" ")
-                                val presetColor = when (p) {
-                                    "Neon Cyan" -> Color(0xFF38BDF8)
-                                    "Golden Hour" -> Color(0xFFFBBF24)
-                                    "Lilac Bloom" -> Color(0xFFC084FC)
-                                    "Electric Rose" -> Color(0xFFFB7185)
-                                    else -> highlightColor
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (isSelectedPreset) presetColor.copy(alpha = 0.15f) 
-                                            else (if (isDark) Color(0x11FFFFFF) else Color(0x0A000000))
-                                        )
-                                        .border(
-                                            width = if (isSelectedPreset) 1.5.dp else 0.5.dp,
-                                            color = if (isSelectedPreset) presetColor else Color.Gray.copy(alpha = 0.4f),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { viewModel.appIconPresetColor.value = p }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = p,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = fontFamily,
-                                        color = if (isSelectedPreset) presetColor else (if (isDark) Color.LightGray else Color.DarkGray)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Section 2: Themes & Modes Card
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -2919,6 +2886,51 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
                             checkedTrackColor = highlightColor.copy(alpha = 0.5f)
                         )
                     )
+                }
+            }
+        }
+
+        // Section 3: Font Size Card
+        val fontSizeBoostLocal by viewModel.appFontSizeBoost.collectAsStateWithLifecycle()
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Text Size",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    fontFamily = fontFamily,
+                    color = highlightColor
+                )
+                Text(
+                    text = "Increase content text size across the planner view.",
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    fontFamily = fontFamily
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(0 to "Normal", 1 to "+1", 2 to "+2").forEach { (boost, label) ->
+                        val isSelected = fontSizeBoostLocal == boost
+                        Button(
+                            onClick = { viewModel.appFontSizeBoost.value = boost },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSelected) highlightColor else (if (isDark) Color(0x1FCDCDDF) else Color(0xFFE4E4E7)),
+                                contentColor = if (isSelected) (if (isDark) Color.Black else Color.White) else (if (isDark) Color.White else Color.Black)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(text = label, fontSize = 12.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

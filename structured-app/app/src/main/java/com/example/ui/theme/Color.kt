@@ -18,15 +18,15 @@ val ElegantMuted = Color(0xFF7C7C8A)        // Soft muted secondary gray
 val ElegantWarningText = Color(0xFFFFFFFF)
 val ElegantWarningBackground = Color(0xFFE05B5B)
 
-// Premium Balanced Light Theme Colors (Calm Warm Sand/Cream)
-val SandDb = Color(0xFFF7F6F2)             // Calming soft cream paper background (Warm, anti-eye strain)
-val SandPrimary = Color(0xFF5E49DE)        // Deep Royal Indigo (beautiful, structured)
-val SandSecondary = Color(0xFF3B7AFA)      // Electric blue secondary accent
-val SandTertiary = Color(0xFFE96B56)       // Soft Coral warning indicator
-val SandSurface = Color(0xFFFFFFFF)        // Pure crisp white cards
-val SandSurfaceVariant = Color(0xFFEFEEDB) // Soft sand paper elevated separator
-val SandOnSurface = Color(0xFF1F1E24)      // Dark organic typography color
-val SandOnBackground = Color(0xFF2E2C35)   // Secondary darker text
+// Premium Balanced Light Theme Colors (Warm Sand)
+val SandDb = Color(0xFFDFCFAA)             // True warm sand background
+val SandPrimary = Color(0xFF5E49DE)        // Deep Royal Indigo
+val SandSecondary = Color(0xFF3B7AFA)      // Electric blue accent
+val SandTertiary = Color(0xFFE96B56)       // Soft coral warning
+val SandSurface = Color(0xFFEEE0C0)        // Slightly lighter sand for cards
+val SandSurfaceVariant = Color(0xFFD4BE92) // Deeper sand separator
+val SandOnSurface = Color(0xFF1F1812)      // Dark warm-brown text on sand
+val SandOnBackground = Color(0xFF3A2E18)   // Secondary warm-brown text
 
 // Status & Emotional State Soft Pastel Indicators
 val MoodOverwhelmed = Color(0xFFE57373)

@@ -24,9 +24,9 @@ class MainViewModel(application: Application, private val repository: Repository
     val currentSelectedDate = MutableStateFlow(getTodayDateString())
 
     // --- Visual Theme & Customization Choice ---
-    val appThemeOption = MutableStateFlow(prefs.getString("app_theme_option", "System") ?: "System") // "System", "Cosmos Dark", "Sand Light"
-    val selectedTextColorHex = MutableStateFlow(prefs.getString("selected_text_color_hex", "#FFFFFF") ?: "#FFFFFF") // #FFFFFF, #38BDF8, #34D399, #FBBF24, #C084FC, #F43F5E
-    val appIconPresetColor = MutableStateFlow(prefs.getString("app_icon_preset_color", "Theme Match") ?: "Theme Match") // "Theme Match", "Neon Cyan", "Golden Hour", "Lilac Bloom", "Electric Rose"
+    val appThemeOption = MutableStateFlow(prefs.getString("app_theme_option", "System") ?: "System")
+    val selectedTextColorHex = MutableStateFlow(prefs.getString("selected_text_color_hex", "#FFFFFF") ?: "#FFFFFF")
+    val appFontSizeBoost = MutableStateFlow(prefs.getInt("app_font_size_boost", 0)) // 0=Normal, 2=Large
 
     // --- Custom ADHD Personal Profile Hub details ---
     val profileName = MutableStateFlow(prefs.getString("profile_name", "Alex Sinclair") ?: "Alex Sinclair")
@@ -219,8 +219,8 @@ class MainViewModel(application: Application, private val repository: Repository
             }
         }
         viewModelScope.launch {
-            appIconPresetColor.collect { value ->
-                prefs.edit().putString("app_icon_preset_color", value).apply()
+            appFontSizeBoost.collect { value ->
+                prefs.edit().putInt("app_font_size_boost", value).apply()
             }
         }
         viewModelScope.launch {
