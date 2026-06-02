@@ -105,9 +105,8 @@ fun StructuredPlusApp(
 
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
-    val darkBg = Color(0xFF12121A)
     val backgroundBrush = if (isDark) {
-        Brush.verticalGradient(colors = listOf(darkBg, Color(0xFF1A1A27)))
+        Brush.verticalGradient(colors = listOf(Color(0xFF0D0D1A), Color(0xFF131325), Color(0xFF0A1628)))
     } else {
         Brush.verticalGradient(colors = listOf(Color(0xFFF5F5F5), Color(0xFFF5F5F5)))
     }
@@ -127,7 +126,7 @@ fun StructuredPlusApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = if (isDark) Color(0xFF12121A) else Color(0xFFF5F5F5)
+            color = if (isDark) Color(0xFF0D0D1A) else Color(0xFFF5F5F5)
         ) {
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(fontSizeBoost, baseDensity) {
@@ -146,6 +145,29 @@ fun StructuredPlusApp(
                     .fillMaxSize()
                     .background(backgroundBrush)
             ) {
+                if (isDark) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val minDim = minOf(size.width, size.height)
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x26E8837A), Color.Transparent),
+                                center = Offset(size.width * 0.85f, size.height * 0.08f),
+                                radius = minDim * 0.55f
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.08f),
+                            radius = minDim * 0.55f
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x1EA855F7), Color.Transparent),
+                                center = Offset(size.width * 0.12f, size.height * 0.65f),
+                                radius = minDim * 0.50f
+                            ),
+                            center = Offset(size.width * 0.12f, size.height * 0.65f),
+                            radius = minDim * 0.50f
+                        )
+                    }
+                }
                 Column(modifier = Modifier.fillMaxSize()) {
                     TopAppBarHeader(viewModel, customFontFamily, highlightColor)
                     
@@ -235,7 +257,7 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -263,50 +285,47 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
 
 @Composable
 fun AppBottomBar(selectedIndex: Int, onTabSelected: (Int) -> Unit, highlightColor: Color, isDark: Boolean) {
-    NavigationBar(
-        tonalElevation = 8.dp,
-        containerColor = if (isDark) Color(0xFF070707) else Color(0xFFE4E4E7),
-        modifier = Modifier.drawBehind {
-            val borderSize = 1.dp.toPx()
-            drawLine(
-                color = if (isDark) Color(0x33555555) else Color(0x1FA2A2A2),
-                start = Offset(0f, 0f),
-                end = Offset(size.width, 0f),
-                strokeWidth = borderSize
-            )
-        }
-    ) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
         val items = listOf(
             Triple(0, "Planner", Icons.Default.CalendarToday),
             Triple(1, "Brain Dump", Icons.Default.Inbox),
             Triple(2, "Focus", Icons.Default.Timer),
             Triple(3, "Settings", Icons.Default.Settings)
         )
-
-        items.forEach { (index, label, icon) ->
-            val isSelected = selectedIndex == index
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onTabSelected(index) },
-                icon = { 
-                    Icon(
-                        imageVector = icon, 
-                        contentDescription = label,
-                        tint = if (isSelected) highlightColor else Color.Gray
-                    ) 
-                },
-                label = { 
-                    Text(
-                        text = label, 
-                        maxLines = 1, 
-                        fontSize = 10.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) highlightColor else Color.Gray
-                    ) 
-                },
-                alwaysShowLabel = true,
-                modifier = Modifier.testTag("bottom_nav_${label.lowercase().replace(" ", "_")}")
-            )
+        NavigationBar(
+            containerColor = if (isDark) Color(0xCC0E0E1C) else Color(0xCCFFFFFF),
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .border(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000), RoundedCornerShape(22.dp))
+                .shadow(16.dp, RoundedCornerShape(22.dp))
+        ) {
+            items.forEach { (index, label, icon) ->
+                val isSelected = selectedIndex == index
+                NavigationBarItem(
+                    selected = isSelected,
+                    onClick = { onTabSelected(index) },
+                    icon = {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (isSelected) highlightColor else Color.Gray
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = label,
+                            maxLines = 1,
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) highlightColor else Color.Gray
+                        )
+                    },
+                    alwaysShowLabel = true,
+                    modifier = Modifier.testTag("bottom_nav_${label.lowercase().replace(" ", "_")}")
+                )
+            }
         }
     }
 }

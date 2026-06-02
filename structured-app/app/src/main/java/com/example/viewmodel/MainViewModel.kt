@@ -105,6 +105,14 @@ class MainViewModel(application: Application, private val repository: Repository
     val focusMaxCycles = MutableStateFlow(2) // 1, 2, 3, or 4
     val focusCyclesRemaining = MutableStateFlow(2)
 
+    val longBreakTimerMinutes = MutableStateFlow(prefs.getInt("long_break_mins", 15))
+    val isLongBreakMode = MutableStateFlow(false)
+    val dailyPomodoroGoal = MutableStateFlow(prefs.getInt("daily_pomodoro_goal", 4))
+    val autoStartBreak = MutableStateFlow(prefs.getBoolean("auto_start_break", false))
+    val autoStartPomodoro = MutableStateFlow(prefs.getBoolean("auto_start_pomodoro", false))
+    val timerSoundEnabled = MutableStateFlow(prefs.getBoolean("timer_sound", true))
+    val currentSessionInCycle = MutableStateFlow(1) // 1-4, resets after long break
+
     // --- Dynamic Week Offset Navigation ---
     val weekOffsetDays = MutableStateFlow(0)
 
@@ -237,6 +245,21 @@ class MainViewModel(application: Application, private val repository: Repository
             profileDailyEnergyGoal.collect { value ->
                 prefs.edit().putString("profile_daily_energy_goal", value).apply()
             }
+        }
+        viewModelScope.launch {
+            longBreakTimerMinutes.collect { prefs.edit().putInt("long_break_mins", it).apply() }
+        }
+        viewModelScope.launch {
+            dailyPomodoroGoal.collect { prefs.edit().putInt("daily_pomodoro_goal", it).apply() }
+        }
+        viewModelScope.launch {
+            autoStartBreak.collect { prefs.edit().putBoolean("auto_start_break", it).apply() }
+        }
+        viewModelScope.launch {
+            autoStartPomodoro.collect { prefs.edit().putBoolean("auto_start_pomodoro", it).apply() }
+        }
+        viewModelScope.launch {
+            timerSoundEnabled.collect { prefs.edit().putBoolean("timer_sound", it).apply() }
         }
 
         // Seed some starter habits & tasks if the DB is completely empty!
@@ -832,23 +855,32 @@ class MainViewModel(application: Application, private val repository: Repository
                 if (!isBreakMode.value) {
                     momentumLevel.value = (momentumLevel.value + 25f).coerceAtMost(100f)
                     focusTimerSuccessCount.value += 1
-                    
+
+                    // Advance session in cycle
+                    currentSessionInCycle.value = (currentSessionInCycle.value % 4) + 1
+                    val isLong = currentSessionInCycle.value == 1  // long break after 4th session
+                    isLongBreakMode.value = isLong
                     isBreakMode.value = true
-                    focusTimerSecondsLeft.value = breakTimerMinutes.value * 60
-                    
-                    kotlinx.coroutines.delay(100)
+                    focusTimerSecondsLeft.value = if (isLong) longBreakTimerMinutes.value * 60 else breakTimerMinutes.value * 60
+
                     focusTimerIsActive.value = false
-                    startFocusTimer()
+                    if (autoStartBreak.value) {
+                        kotlinx.coroutines.delay(100)
+                        startFocusTimer()
+                    }
                 } else {
                     isBreakMode.value = false
+                    isLongBreakMode.value = false
                     focusTimerSecondsLeft.value = focusTimerMinutes.value * 60
-                    
+
                     val rem = focusCyclesRemaining.value - 1
                     if (rem > 0) {
                         focusCyclesRemaining.value = rem
-                        kotlinx.coroutines.delay(100)
                         focusTimerIsActive.value = false
-                        startFocusTimer()
+                        if (autoStartPomodoro.value) {
+                            kotlinx.coroutines.delay(100)
+                            startFocusTimer()
+                        }
                     } else {
                         focusTimerIsActive.value = false
                         focusCyclesRemaining.value = focusMaxCycles.value
@@ -888,6 +920,38 @@ class MainViewModel(application: Application, private val repository: Repository
         isBreakMode.value = isBreak
         pauseFocusTimer()
         focusTimerSecondsLeft.value = (if (isBreak) breakTimerMinutes.value else focusTimerMinutes.value) * 60
+    }
+
+    fun setLongBreakMinutes(mins: Int) {
+        longBreakTimerMinutes.value = mins.coerceIn(1, 60)
+        if (!focusTimerIsActive.value && isLongBreakMode.value) {
+            focusTimerSecondsLeft.value = longBreakTimerMinutes.value * 60
+        }
+    }
+
+    fun setTimerModeStr(mode: String) { // "focus", "short_break", "long_break"
+        pauseFocusTimer()
+        when (mode) {
+            "short_break" -> { isBreakMode.value = true; isLongBreakMode.value = false; focusTimerSecondsLeft.value = breakTimerMinutes.value * 60 }
+            "long_break"  -> { isBreakMode.value = true; isLongBreakMode.value = true;  focusTimerSecondsLeft.value = longBreakTimerMinutes.value * 60 }
+            else          -> { isBreakMode.value = false; isLongBreakMode.value = false; focusTimerSecondsLeft.value = focusTimerMinutes.value * 60 }
+        }
+    }
+
+    fun skipTimer() {
+        pauseFocusTimer()
+        if (!isBreakMode.value) {
+            // Skip to break
+            focusTimerSuccessCount.value += 1
+            currentSessionInCycle.value = (currentSessionInCycle.value % 4) + 1
+            val isLong = currentSessionInCycle.value == 1  // long break after 4th session
+            isLongBreakMode.value = isLong
+            isBreakMode.value = true
+            focusTimerSecondsLeft.value = if (isLong) longBreakTimerMinutes.value * 60 else breakTimerMinutes.value * 60
+        } else {
+            isBreakMode.value = false; isLongBreakMode.value = false
+            focusTimerSecondsLeft.value = focusTimerMinutes.value * 60
+        }
     }
 
     fun toggleCoworkingRoom() {
