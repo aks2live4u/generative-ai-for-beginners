@@ -1453,7 +1453,7 @@ fun TimeBlockItemCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp, start = 46.dp, end = 8.dp)
+            .padding(top = 3.dp, bottom = 3.dp, start = 46.dp, end = 8.dp)
             .background(
                 if (isDark) Color(0x1A374151) else Color(0x1A9CA3AF),
                 RoundedCornerShape(12.dp)
@@ -1513,7 +1513,7 @@ fun FreeSlotCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp, start = 46.dp, end = 8.dp)
+            .padding(top = 3.dp, bottom = 3.dp, start = 46.dp, end = 8.dp)
             .border(1.dp, highlightColor.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
