@@ -55,6 +55,10 @@ import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import android.content.Intent
+import android.speech.RecognizerIntent
 import coil.compose.AsyncImage
 import com.example.R
 
@@ -90,7 +94,6 @@ fun StructuredPlusApp(
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeOption) {
         "Cosmos Dark" -> true
-        "Sand Light" -> false
         else -> isSystemDark
     }
 
@@ -106,11 +109,10 @@ fun StructuredPlusApp(
 
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
-    // Pure pitch black background brush for maximum contrast in black mode, or Sand Light background in white mode
     val backgroundBrush = if (isDark) {
         Brush.verticalGradient(colors = listOf(Color.Black, Color.Black))
     } else {
-        Brush.verticalGradient(colors = listOf(SandDb, SandDb))
+        Brush.verticalGradient(colors = listOf(Color(0xFFF5F5F5), Color(0xFFF5F5F5)))
     }
 
     Scaffold(
@@ -128,9 +130,20 @@ fun StructuredPlusApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = if (isDark) Color.Black else SandDb
+            color = if (isDark) Color.Black else Color(0xFFF5F5F5)
         ) {
-            CompositionLocalProvider(LocalFontBoost provides fontSizeBoost) {
+            val baseDensity = LocalDensity.current
+            val scaledDensity = remember(fontSizeBoost, baseDensity) {
+                Density(baseDensity.density, baseDensity.fontScale * when (fontSizeBoost) {
+                    1 -> 1.12f
+                    2 -> 1.25f
+                    else -> 1f
+                })
+            }
+            CompositionLocalProvider(
+                LocalFontBoost provides fontSizeBoost,
+                LocalDensity provides scaledDensity
+            ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -223,7 +236,6 @@ fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightC
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeOption) {
         "Cosmos Dark" -> true
-        "Sand Light" -> false
         else -> isSystemDark
     }
 
@@ -374,6 +386,47 @@ fun buildMergedTimeline(tasks: List<TimelineTask>, blocks: List<TimeBlock>): Lis
     return result
 }
 
+private fun parseTimeComponents(timeStr: String, ampm: String): String {
+    val parts = timeStr.split(":")
+    var hour = parts[0].toIntOrNull() ?: return ""
+    val minute = if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
+    when (ampm.lowercase()) {
+        "am" -> if (hour == 12) hour = 0
+        "pm" -> if (hour != 12) hour += 12
+    }
+    return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
+}
+
+fun parseVoiceToTask(text: String): Pair<String, String> {
+    val fromToRegex = Regex("""from\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s+to\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
+    val atRegex = Regex("""(?:at|@)\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
+
+    var title = text
+    var startTime = ""
+
+    val fromToMatch = fromToRegex.find(text)
+    if (fromToMatch != null) {
+        val ampm = fromToMatch.groupValues[2].ifEmpty { fromToMatch.groupValues[4] }
+        startTime = parseTimeComponents(fromToMatch.groupValues[1], ampm)
+        title = text.replace(fromToMatch.value, "")
+    } else {
+        val atMatch = atRegex.find(text)
+        if (atMatch != null) {
+            startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
+            title = text.replace(atMatch.value, "")
+        }
+    }
+
+    // Strip filler phrases and clean up
+    title = title
+        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create a?)\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\s{2,}"""), " ")
+        .trim()
+        .replaceFirstChar { it.uppercase() }
+
+    return Pair(title, startTime)
+}
+
 @Composable
 fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: Color, isDark: Boolean) {
     val tasks by viewModel.tasksForToday.collectAsStateWithLifecycle()
@@ -383,7 +436,20 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     var showAddTaskDialog by remember { mutableStateOf(false) }
     var showTimeBlockDialog by remember { mutableStateOf(false) }
     var freeGapStartTime by remember { mutableStateOf("") }
+    var voiceTitle by remember { mutableStateOf("") }
+    var voiceStartTime by remember { mutableStateOf("") }
     val timeBlocks by viewModel.timeBlocks.collectAsStateWithLifecycle()
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+        val transcript = matches?.firstOrNull() ?: return@rememberLauncherForActivityResult
+        val (parsedTitle, parsedStart) = parseVoiceToTask(transcript)
+        voiceTitle = parsedTitle
+        voiceStartTime = parsedStart
+        showAddTaskDialog = true
+    }
 
     val weekOffsetDays by viewModel.weekOffsetDays.collectAsStateWithLifecycle()
 
@@ -571,21 +637,49 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                 }
             }
 
-            Button(
-                onClick = { showAddTaskDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDark) Color(0x3B4B5563) else Color(0x1F2A2A31),
-                    contentColor = highlightColor
-                ),
-                border = BorderStroke(1.dp, highlightColor.copy(alpha = 0.4f)),
-                modifier = Modifier
-                    .testTag("add_task_trigger_btn")
-                    .height(38.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task", tint = highlightColor, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Add task", fontSize = 12.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
+                // Voice task button
+                IconButton(
+                    onClick = {
+                        runCatching {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Say task name, time, and any details")
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                            }
+                            speechLauncher.launch(intent)
+                        }
+                    },
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(
+                            if (isDark) Color(0x3B4B5563) else Color(0x1F2A2A31),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .border(1.dp, highlightColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                ) {
+                    Icon(imageVector = Icons.Default.Mic, contentDescription = "Voice task", tint = highlightColor, modifier = Modifier.size(18.dp))
+                }
+
+                Button(
+                    onClick = { showAddTaskDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDark) Color(0x3B4B5563) else Color(0x1F2A2A31),
+                        contentColor = highlightColor
+                    ),
+                    border = BorderStroke(1.dp, highlightColor.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .testTag("add_task_trigger_btn")
+                        .height(38.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task", tint = highlightColor, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Add task", fontSize = 12.sp, fontFamily = fontFamily, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -753,6 +847,8 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                                 fontFamily = fontFamily,
                                 isFirst = index == 0,
                                 isLast = index == mergedTimeline.size - 1,
+                                timelineIndex = index,
+                                timelineTotal = mergedTimeline.size,
                                 highlightColor = highlightColor,
                                 isDark = isDark
                             )
@@ -765,6 +861,8 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                                 highlightColor = highlightColor,
                                 isFirst = index == 0,
                                 isLast = index == mergedTimeline.size - 1,
+                                timelineIndex = index,
+                                timelineTotal = mergedTimeline.size,
                                 onDelete = { viewModel.deleteTimeBlock(item.block) }
                             )
                         }
@@ -778,6 +876,8 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
                                 highlightColor = highlightColor,
                                 isFirst = index == 0,
                                 isLast = index == mergedTimeline.size - 1,
+                                timelineIndex = index,
+                                timelineTotal = mergedTimeline.size,
                                 onAddTask = {
                                     freeGapStartTime = item.startTime
                                     showAddTaskDialog = true
@@ -795,13 +895,21 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             fontFamily = fontFamily,
             highlightColor = highlightColor,
             isDark = isDark,
+            initialTitle = voiceTitle,
             initialDateStr = selectedDate,
-            initialStartTime = freeGapStartTime.ifEmpty { "" },
-            onDismiss = { showAddTaskDialog = false; freeGapStartTime = "" },
+            initialStartTime = voiceStartTime.ifEmpty { freeGapStartTime },
+            onDismiss = {
+                showAddTaskDialog = false
+                freeGapStartTime = ""
+                voiceTitle = ""
+                voiceStartTime = ""
+            },
             onConfirm = { title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, details, chosenDate ->
                 viewModel.addTaskWithRepeat(title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, dayDate = chosenDate, details = details)
                 showAddTaskDialog = false
                 freeGapStartTime = ""
+                voiceTitle = ""
+                voiceStartTime = ""
             }
         )
     }
@@ -828,6 +936,8 @@ fun TimelineTaskItemCard(
     fontFamily: FontFamily,
     isFirst: Boolean,
     isLast: Boolean,
+    timelineIndex: Int = 0,
+    timelineTotal: Int = 1,
     highlightColor: Color,
     isDark: Boolean
 ) {
@@ -1087,32 +1197,31 @@ fun TimelineTaskItemCard(
         verticalAlignment = Alignment.Top
     ) {
         // Timeline continuous connector line
+        val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
         Box(
             modifier = Modifier
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.6f) else (if (isDark) Color(0x88FFFFFF) else Color(0x66000000))
+                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.6f) else (if (isDark) Color(0x88FFFFFF) else Color(0x88000000))
                     val circleTopY = 10.dp.toPx()
                     val circleBottomY = 40.dp.toPx()
-                    
-                    // Draw top segment if not first
+                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
+
                     if (!isFirst) {
                         drawLine(
                             color = lineColor,
                             start = Offset(size.width / 2, 0f),
                             end = Offset(size.width / 2, circleTopY),
-                            strokeWidth = 2.dp.toPx()
+                            strokeWidth = strokePx
                         )
                     }
-                    
-                    // Draw bottom segment if not last
                     if (!isLast) {
                         drawLine(
                             color = lineColor,
                             start = Offset(size.width / 2, circleBottomY),
                             end = Offset(size.width / 2, size.height),
-                            strokeWidth = 2.dp.toPx()
+                            strokeWidth = strokePx
                         )
                     }
                 },
@@ -1464,8 +1573,11 @@ fun TimeBlockItemCard(
     highlightColor: Color,
     isFirst: Boolean = false,
     isLast: Boolean = false,
+    timelineIndex: Int = 0,
+    timelineTotal: Int = 1,
     onDelete: () -> Unit
 ) {
+    val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1479,12 +1591,13 @@ fun TimeBlockItemCard(
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isDark) Color(0x88FFFFFF) else Color(0x66000000)
+                    val lineColor = if (isDark) Color(0x88FFFFFF) else Color(0x88000000)
                     val dotY = 14.dp.toPx()
                     val dotSize = 8.dp.toPx()
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = 2.dp.toPx())
+                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = 2.dp.toPx())
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokePx)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -1542,6 +1655,8 @@ fun FreeSlotCard(
     highlightColor: Color,
     isFirst: Boolean = false,
     isLast: Boolean = false,
+    timelineIndex: Int = 0,
+    timelineTotal: Int = 1,
     onAddTask: () -> Unit
 ) {
     val durationText = if (durationMinutes >= 60) {
@@ -1552,6 +1667,7 @@ fun FreeSlotCard(
         "${durationMinutes}m free"
     }
 
+    val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1568,10 +1684,11 @@ fun FreeSlotCard(
                     val lineColor = highlightColor.copy(alpha = 0.35f)
                     val dotY = 14.dp.toPx()
                     val dotSize = 6.dp.toPx()
+                    val strokePx = (1.5f + 3.5f * lineProgress).dp.toPx()
                     val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = 2.dp.toPx(), pathEffect = pathEffect)
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx, pathEffect = pathEffect)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = 2.dp.toPx(), pathEffect = pathEffect)
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokePx, pathEffect = pathEffect)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -2841,8 +2958,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
                 ) {
                     val themes = listOf(
                         Triple("System", "💻 Auto", Icons.Default.BrightnessAuto),
-                        Triple("Cosmos Dark", "🌌 Cosmos", Icons.Default.DarkMode),
-                        Triple("Sand Light", "🌾 Sand", Icons.Default.LightMode)
+                        Triple("Cosmos Dark", "🌌 Cosmos", Icons.Default.DarkMode)
                     )
 
                     themes.forEach { (themeKey, displayLabel, icon) ->
