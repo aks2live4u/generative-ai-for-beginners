@@ -106,11 +106,6 @@ fun StructuredPlusApp(
 
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
-    val backgroundBrush = if (isDark) {
-        Brush.verticalGradient(colors = listOf(Color.Black, Color.Black))
-    } else {
-        Brush.verticalGradient(colors = listOf(Color(0xFFF0EEFF), Color(0xFFF5F0FF)))
-    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -141,86 +136,14 @@ fun StructuredPlusApp(
                 LocalFontBoost provides fontSizeBoost,
                 LocalDensity provides scaledDensity
             ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundBrush)
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val minDim = minOf(size.width, size.height)
-                    if (isDark) {
-                        // Coral/magenta blob — top right, dominant accent
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0xCCE8537A), Color(0x66E8537A), Color.Transparent),
-                                center = Offset(size.width * 0.90f, size.height * 0.05f),
-                                radius = minDim * 0.70f
-                            ),
-                            center = Offset(size.width * 0.90f, size.height * 0.05f),
-                            radius = minDim * 0.70f
-                        )
-                        // Violet/purple blob — mid left, strong secondary
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0xAAA855F7), Color(0x44A855F7), Color.Transparent),
-                                center = Offset(size.width * 0.08f, size.height * 0.58f),
-                                radius = minDim * 0.65f
-                            ),
-                            center = Offset(size.width * 0.08f, size.height * 0.58f),
-                            radius = minDim * 0.65f
-                        )
-                        // Teal blob — bottom right
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0x8834D399), Color(0x3334D399), Color.Transparent),
-                                center = Offset(size.width * 0.82f, size.height * 0.90f),
-                                radius = minDim * 0.55f
-                            ),
-                            center = Offset(size.width * 0.82f, size.height * 0.90f),
-                            radius = minDim * 0.55f
-                        )
-                        // Blue blob — top left, cool contrast
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0x663B82F6), Color(0x223B82F6), Color.Transparent),
-                                center = Offset(size.width * 0.05f, size.height * 0.12f),
-                                radius = minDim * 0.50f
-                            ),
-                            center = Offset(size.width * 0.05f, size.height * 0.12f),
-                            radius = minDim * 0.50f
-                        )
-                    } else {
-                        // Light mode: soft pastel blobs for warm depth
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0x44C084FC), Color.Transparent),
-                                center = Offset(size.width * 0.85f, size.height * 0.08f),
-                                radius = minDim * 0.55f
-                            ),
-                            center = Offset(size.width * 0.85f, size.height * 0.08f),
-                            radius = minDim * 0.55f
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0x33F9A8D4), Color.Transparent),
-                                center = Offset(size.width * 0.10f, size.height * 0.65f),
-                                radius = minDim * 0.50f
-                            ),
-                            center = Offset(size.width * 0.10f, size.height * 0.65f),
-                            radius = minDim * 0.50f
-                        )
-                    }
-                }
-                Column(modifier = Modifier.fillMaxSize()) {
-                    TopAppBarHeader(viewModel, customFontFamily, highlightColor)
-                    
-                    Box(modifier = Modifier.weight(1f)) {
-                        when (currentTab) {
-                            0 -> PlannerTab(viewModel, customFontFamily, highlightColor, isDark)
-                            1 -> InboxTab(viewModel, customFontFamily, highlightColor, isDark)
-                            2 -> FocusTab(viewModel, customFontFamily, highlightColor, isDark)
-                            3 -> SettingsTab(viewModel, customFontFamily, highlightColor, isDark)
-                        }
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopAppBarHeader(viewModel, customFontFamily, highlightColor)
+                Box(modifier = Modifier.weight(1f)) {
+                    when (currentTab) {
+                        0 -> PlannerTab(viewModel, customFontFamily, highlightColor, isDark)
+                        1 -> InboxTab(viewModel, customFontFamily, highlightColor, isDark)
+                        2 -> FocusTab(viewModel, customFontFamily, highlightColor, isDark)
+                        3 -> SettingsTab(viewModel, customFontFamily, highlightColor, isDark)
                     }
                 }
             }
