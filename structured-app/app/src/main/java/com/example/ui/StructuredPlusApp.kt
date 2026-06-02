@@ -107,9 +107,9 @@ fun StructuredPlusApp(
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
     val backgroundBrush = if (isDark) {
-        Brush.verticalGradient(colors = listOf(Color(0xFF0D0D1A), Color(0xFF131325), Color(0xFF0A1628)))
+        Brush.verticalGradient(colors = listOf(Color(0xFF050510), Color(0xFF07071A), Color(0xFF050512)))
     } else {
-        Brush.verticalGradient(colors = listOf(Color(0xFFF5F5F5), Color(0xFFF5F5F5)))
+        Brush.verticalGradient(colors = listOf(Color(0xFFF0EEFF), Color(0xFFF5F0FF)))
     }
 
     Scaffold(
@@ -127,7 +127,7 @@ fun StructuredPlusApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = if (isDark) Color(0xFF0D0D1A) else Color(0xFFF5F5F5)
+            color = if (isDark) Color(0xFF050510) else Color(0xFFF0EEFF)
         ) {
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(fontSizeBoost, baseDensity) {
@@ -146,38 +146,68 @@ fun StructuredPlusApp(
                     .fillMaxSize()
                     .background(backgroundBrush)
             ) {
-                if (isDark) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val minDim = minOf(size.width, size.height)
-                        // Coral/salmon blob — top right
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val minDim = minOf(size.width, size.height)
+                    if (isDark) {
+                        // Coral/magenta blob — top right, dominant accent
                         drawCircle(
                             brush = Brush.radialGradient(
-                                listOf(Color(0x55E8837A), Color(0x22E8537A), Color.Transparent),
-                                center = Offset(size.width * 0.88f, size.height * 0.06f),
+                                listOf(Color(0xCCE8537A), Color(0x66E8537A), Color.Transparent),
+                                center = Offset(size.width * 0.90f, size.height * 0.05f),
+                                radius = minDim * 0.70f
+                            ),
+                            center = Offset(size.width * 0.90f, size.height * 0.05f),
+                            radius = minDim * 0.70f
+                        )
+                        // Violet/purple blob — mid left, strong secondary
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0xAAA855F7), Color(0x44A855F7), Color.Transparent),
+                                center = Offset(size.width * 0.08f, size.height * 0.58f),
                                 radius = minDim * 0.65f
                             ),
-                            center = Offset(size.width * 0.88f, size.height * 0.06f),
+                            center = Offset(size.width * 0.08f, size.height * 0.58f),
                             radius = minDim * 0.65f
-                        )
-                        // Purple blob — mid left
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0x44A855F7), Color(0x1AA855F7), Color.Transparent),
-                                center = Offset(size.width * 0.10f, size.height * 0.60f),
-                                radius = minDim * 0.60f
-                            ),
-                            center = Offset(size.width * 0.10f, size.height * 0.60f),
-                            radius = minDim * 0.60f
                         )
                         // Teal blob — bottom right
                         drawCircle(
                             brush = Brush.radialGradient(
-                                listOf(Color(0x2A34D399), Color.Transparent),
-                                center = Offset(size.width * 0.80f, size.height * 0.88f),
-                                radius = minDim * 0.45f
+                                listOf(Color(0x8834D399), Color(0x3334D399), Color.Transparent),
+                                center = Offset(size.width * 0.82f, size.height * 0.90f),
+                                radius = minDim * 0.55f
                             ),
-                            center = Offset(size.width * 0.80f, size.height * 0.88f),
-                            radius = minDim * 0.45f
+                            center = Offset(size.width * 0.82f, size.height * 0.90f),
+                            radius = minDim * 0.55f
+                        )
+                        // Blue blob — top left, cool contrast
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x663B82F6), Color(0x223B82F6), Color.Transparent),
+                                center = Offset(size.width * 0.05f, size.height * 0.12f),
+                                radius = minDim * 0.50f
+                            ),
+                            center = Offset(size.width * 0.05f, size.height * 0.12f),
+                            radius = minDim * 0.50f
+                        )
+                    } else {
+                        // Light mode: soft pastel blobs for warm depth
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x44C084FC), Color.Transparent),
+                                center = Offset(size.width * 0.85f, size.height * 0.08f),
+                                radius = minDim * 0.55f
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.08f),
+                            radius = minDim * 0.55f
+                        )
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(Color(0x33F9A8D4), Color.Transparent),
+                                center = Offset(size.width * 0.10f, size.height * 0.65f),
+                                radius = minDim * 0.50f
+                            ),
+                            center = Offset(size.width * 0.10f, size.height * 0.65f),
+                            radius = minDim * 0.50f
                         )
                     }
                 }
@@ -305,13 +335,13 @@ fun AppBottomBar(selectedIndex: Int, onTabSelected: (Int) -> Unit, highlightColo
             Triple(3, "Settings", Icons.Default.Settings)
         )
         NavigationBar(
-            containerColor = if (isDark) Color(0xCC0E0E1C) else Color(0xCCFFFFFF),
+            containerColor = if (isDark) Color(0xDD050510) else Color(0xEEFFFFFF),
             tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
-                .border(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000), RoundedCornerShape(22.dp))
-                .shadow(16.dp, RoundedCornerShape(22.dp))
+                .border(1.dp, if (isDark) Color(0x55FFFFFF) else Color(0x30000000), RoundedCornerShape(22.dp))
+                .shadow(20.dp, RoundedCornerShape(22.dp))
         ) {
             items.forEach { (index, label, icon) ->
                 val isSelected = selectedIndex == index
@@ -618,15 +648,15 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
         // Week calendar slider strip with navigation buttons wrapped in a floating frosted 3D Card
         Card(
             shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.2.dp, if (isDark) Color(0x2BFFFFFF) else Color(0x1F000000)),
+            border = BorderStroke(1.2.dp, if (isDark) Color(0x66FFFFFF) else Color(0x28000000)),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0x9912122A) else Color(0xEEFFFFFF)
+                containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF8FFFFFF)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .shadow(8.dp, RoundedCornerShape(18.dp))
+                .shadow(10.dp, RoundedCornerShape(18.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -1299,14 +1329,14 @@ fun TimelineTaskItemCard(
     }
 
     val cardBgColor = if (isDark) {
-        if (isCompleted) Color(0x7711111E) else Color(0x9914142A)
+        if (isCompleted) Color(0x18FFFFFF) else Color(0x2AFFFFFF)
     } else {
-        if (isCompleted) Color(0xCCE8E8F0) else Color(0xEEFFFFFF)
+        if (isCompleted) Color(0xF0F5F5FF) else Color(0xF8FFFFFF)
     }
     val cardBorderColor = if (isDark) {
-        if (isCompleted) Color(0x1AFFFFFF) else Color(0x44FFFFFF)
+        if (isCompleted) Color(0x33FFFFFF) else Color(0x77FFFFFF)
     } else {
-        if (isCompleted) Color(0x18000000) else Color(0x20000000)
+        if (isCompleted) Color(0x22000000) else Color(0x35000000)
     }
 
     Row(
@@ -1395,7 +1425,7 @@ fun TimelineTaskItemCard(
                 .clickable { isExpanded = !isExpanded },
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.5.dp, cardBorderColor),
-            colors = CardDefaults.cardColors(containerColor = cardBgColor.copy(alpha = 0.82f)),
+            colors = CardDefaults.cardColors(containerColor = cardBgColor),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
@@ -1761,10 +1791,10 @@ fun TimeBlockItemCard(
                 .weight(1f)
                 .padding(end = 8.dp, bottom = 6.dp)
                 .background(
-                    if (isDark) Color(0x7712121E) else Color(0xDDFFFFFF),
+                    if (isDark) Color(0x22FFFFFF) else Color(0xF0FFFFFF),
                     RoundedCornerShape(12.dp)
                 )
-                .border(1.dp, Color(0x33888888), RoundedCornerShape(12.dp))
+                .border(1.dp, if (isDark) Color(0x55FFFFFF) else Color(0x33000000), RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -2197,7 +2227,7 @@ fun InboxTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
                     Card(
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(1.dp, if (isDark) Color(0x1AFFFFFF) else Color(0x1F000000)),
-                        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x3B2C2D35) else Color(0xF2F4F2EE)),
+                        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F4F2EE)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -2294,8 +2324,8 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
         // Mode switcher — 3 pills
         Row(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                .background(if (isDark) Color(0xBB0E0E1E) else Color(0xBBF0F0F8))
-                .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x22000000), RoundedCornerShape(14.dp))
+                .background(if (isDark) Color(0x22FFFFFF) else Color(0xBBF0F0F8))
+                .border(1.dp, if (isDark) Color(0x55FFFFFF) else Color(0x22000000), RoundedCornerShape(14.dp))
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -2420,8 +2450,8 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
         val goalProgress = (completedToday.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
         Card(
             shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x9914142A) else Color(0xEEFFFFFF)),
+            border = BorderStroke(1.dp, if (isDark) Color(0x66FFFFFF) else Color(0x28000000)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x2AFFFFFF) else Color(0xF8FFFFFF)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -2448,8 +2478,8 @@ fun FocusTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: C
         // Settings toggle card
         Card(
             shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, if (isDark) Color(0x26FFFFFF) else Color(0x26000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x9914142A) else Color(0xEEFFFFFF)),
+            border = BorderStroke(1.dp, if (isDark) Color(0x66FFFFFF) else Color(0x28000000)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x2AFFFFFF) else Color(0xF8FFFFFF)),
             modifier = Modifier.fillMaxWidth().clickable { showSettings = !showSettings }
         ) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -2592,7 +2622,7 @@ fun HabitsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: 
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         border = BorderStroke(1.dp, if (isDark) Color(0x1FA2A2A2) else Color(0x1F000000)),
-                        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x3B2C2D35) else Color(0xF2F4F2EE)),
+                        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F4F2EE)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -2857,7 +2887,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         Card(
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.5.dp, highlightColor.copy(alpha = 0.4f)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x3B2C2D35) else Color(0xF2F4F2EE)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F4F2EE)),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
@@ -2912,7 +2942,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F2F7F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2974,7 +3004,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F2F7F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -3089,7 +3119,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F2F7F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -3128,7 +3158,7 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
         Card(
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, if (isDark) Color(0x19FFFFFF) else Color(0x1F000000)),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x223A3A3C) else Color(0xF2F2F7F0)),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0x22FFFFFF) else Color(0xF2F2F7F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
