@@ -151,10 +151,10 @@ class Repository(private val db: AppDatabase) {
     suspend fun evaluateScheduleWarning(tasksCount: Int, totalDurationMs: Long): ScheduleCheckResult {
         val totalHours = totalDurationMs.toDouble() / (1000 * 60 * 60)
         
-        if (tasksCount > 6 || totalHours > 6.0) {
+        if (tasksCount > 12 || totalHours > 10.0) {
             return ScheduleCheckResult(
                 isOverloaded = true,
-                warningMessage = "Hey friend, you've planned $tasksCount tasks ($totalHours hrs) today! ADHD brains thrive on empty buffer space. How about we skip or schedule some of these for later?",
+                warningMessage = "Hey friend, you've planned $tasksCount tasks (${String.format("%.1f", totalHours)} hrs) today! ADHD brains thrive on empty buffer space. How about we skip or schedule some of these for later?",
                 suggestedAction = "Simplify today"
             )
         }

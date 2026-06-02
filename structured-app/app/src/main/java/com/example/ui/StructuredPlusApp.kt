@@ -332,9 +332,14 @@ fun buildMergedTimeline(tasks: List<TimelineTask>, blocks: List<TimeBlock>): Lis
     }
     for (block in blocks) {
         val s = timeStringToMinutes(block.startTime)
-        var e = timeStringToMinutes(block.endTime)
-        if (e < s) e += 24 * 60 // midnight crossing
-        allSlots.add(Slot(s, e, TimelineDisplayItem.Block(block)))
+        val e = timeStringToMinutes(block.endTime)
+        if (e < s) {
+            // Midnight-crossing block (e.g. Sleep 23:00–07:00): split into two visible segments
+            allSlots.add(Slot(s, 24 * 60, TimelineDisplayItem.Block(block))) // evening portion
+            allSlots.add(Slot(0, e, TimelineDisplayItem.Block(block)))        // morning portion
+        } else {
+            allSlots.add(Slot(s, e, TimelineDisplayItem.Block(block)))
+        }
     }
     allSlots.sortBy { it.start }
     val result = mutableListOf<TimelineDisplayItem>()
@@ -1554,6 +1559,7 @@ fun TimeBlockManagementDialog(
     var newStart by remember { mutableStateOf("22:00") }
     var newEnd by remember { mutableStateOf("07:00") }
     var newEmoji by remember { mutableStateOf("🔒") }
+    var editingBlock by remember { mutableStateOf<TimeBlock?>(null) }
 
     val presets = listOf(
         Triple("Sleep", "23:00" to "07:00", "🌙"),
@@ -1576,20 +1582,33 @@ fun TimeBlockManagementDialog(
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Blocked time (sleep, commute, etc.) is excluded from your free time calculation.", fontSize = 11.sp, color = Color.Gray, fontFamily = fontFamily)
+                Text("Tap ✏️ to edit a block's times, or 🗑 to remove it.", fontSize = 11.sp, color = Color.Gray, fontFamily = fontFamily)
 
                 // Existing blocks
                 timeBlocks.forEach { block ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (isDark) Color(0x1F3F3F46) else Color(0xFFEFEFEF), RoundedCornerShape(10.dp))
+                            .background(
+                                if (editingBlock?.id == block.id) highlightColor.copy(alpha = 0.12f)
+                                else if (isDark) Color(0x1F3F3F46) else Color(0xFFEFEFEF),
+                                RoundedCornerShape(10.dp)
+                            )
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${block.emoji} ${block.label} (${block.startTime}–${block.endTime})", fontSize = 12.sp, fontFamily = fontFamily, color = if (isDark) Color.White else Color.Black)
-                        IconButton(onClick = { onDelete(block) }, modifier = Modifier.size(24.dp)) {
+                        Text("${block.emoji} ${block.label} (${block.startTime}–${block.endTime})", fontSize = 12.sp, fontFamily = fontFamily, color = if (isDark) Color.White else Color.Black, modifier = Modifier.weight(1f))
+                        IconButton(onClick = {
+                            editingBlock = block
+                            newLabel = block.label
+                            newStart = block.startTime
+                            newEnd = block.endTime
+                            newEmoji = block.emoji
+                        }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = highlightColor, modifier = Modifier.size(14.dp))
+                        }
+                        IconButton(onClick = { onDelete(block); if (editingBlock?.id == block.id) editingBlock = null }, modifier = Modifier.size(28.dp)) {
                             Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
                         }
                     }
@@ -1620,8 +1639,8 @@ fun TimeBlockManagementDialog(
 
                 HorizontalDivider(color = if (isDark) Color(0x1FFFFFFF) else Color(0x1F000000))
 
-                // Custom add form
-                Text("Add custom block:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = highlightColor, fontFamily = fontFamily)
+                // Custom add / edit form
+                Text(if (editingBlock != null) "Edit block:" else "Add custom block:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = highlightColor, fontFamily = fontFamily)
                 OutlinedTextField(
                     value = newLabel, onValueChange = { newLabel = it },
                     label = { Text("Label (e.g. Study Time)") },
@@ -1648,18 +1667,34 @@ fun TimeBlockManagementDialog(
                         singleLine = true
                     )
                 }
-                Button(
-                    onClick = {
-                        if (newLabel.isNotBlank()) {
-                            onAdd(newLabel, newStart, newEnd, newEmoji)
-                            newLabel = ""; newStart = "22:00"; newEnd = "07:00"; newEmoji = "🔒"
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (editingBlock != null) {
+                        OutlinedButton(
+                            onClick = { editingBlock = null; newLabel = ""; newStart = "22:00"; newEnd = "07:00"; newEmoji = "🔒" },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancel", fontFamily = fontFamily)
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = highlightColor, contentColor = if (isDark) Color.Black else Color.White),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Add Block", fontWeight = FontWeight.Bold, fontFamily = fontFamily)
+                    }
+                    Button(
+                        onClick = {
+                            if (newLabel.isNotBlank()) {
+                                val eb = editingBlock
+                                if (eb != null) {
+                                    onDelete(eb) // remove old version
+                                    editingBlock = null
+                                }
+                                onAdd(newLabel, newStart, newEnd, newEmoji)
+                                newLabel = ""; newStart = "22:00"; newEnd = "07:00"; newEmoji = "🔒"
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = highlightColor, contentColor = if (isDark) Color.Black else Color.White),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(if (editingBlock != null) "Save Changes" else "Add Block", fontWeight = FontWeight.Bold, fontFamily = fontFamily)
+                    }
                 }
             }
         },
@@ -2651,6 +2686,49 @@ fun SettingsTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor
             }
         }
 
+        // Exact alarm permission banner (Android 12+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFF9800).copy(alpha = 0.1f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("⏰ Exact Alarm Permission Needed", fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = fontFamily, color = Color(0xFFFF9800))
+                            Text("Without this, reminders may be delayed by up to 15 minutes. Tap 'Fix' to grant it.", fontSize = 10.sp, color = Color.Gray, fontFamily = fontFamily)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = android.net.Uri.parse("package:${context.packageName}")
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800), contentColor = Color.White),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Fix", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily)
+                        }
+                    }
+                }
+            }
+        }
+
         // Exclusive App Icon Customizer Panel
         val appIconPreset by viewModel.appIconPresetColor.collectAsStateWithLifecycle()
         Card(
@@ -3419,16 +3497,17 @@ fun StyledTaskDialog(
                         if (hasReminder) {
                             val reminderOptions = listOf(
                                 0 to "At start",
+                                5 to "5 min",
                                 15 to "15 min",
                                 30 to "30 min",
                                 60 to "1 hour"
                             )
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 reminderOptions.forEach { (mins, label) ->
                                     val isSelected = reminderMinutes == mins
                                     Box(
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .width(72.dp)
                                             .height(36.dp)
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(if (isSelected) highlightColor else (if (isDark) Color(0x1F2C2D35) else Color(0x1FA2A2A2)))
