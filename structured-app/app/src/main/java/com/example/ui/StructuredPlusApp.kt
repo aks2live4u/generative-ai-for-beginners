@@ -61,6 +61,7 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import coil.compose.AsyncImage
 import com.example.R
+import androidx.compose.foundation.isSystemInDarkTheme
 
 val LocalFontBoost = compositionLocalOf { 0 }
 
@@ -90,7 +91,7 @@ fun StructuredPlusApp(
     val fontSizeBoost by viewModel.appFontSizeBoost.collectAsStateWithLifecycle()
     var currentTab by remember { mutableStateOf(0) }
 
-    val isDark = false
+    val isDark = isSystemInDarkTheme()
 
     // Dynamic High-Contrast Text Color Selection
     val selectedColorHex by viewModel.selectedTextColorHex.collectAsStateWithLifecycle()
@@ -104,8 +105,9 @@ fun StructuredPlusApp(
 
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
+    val darkBg = Color(0xFF12121A)
     val backgroundBrush = if (isDark) {
-        Brush.verticalGradient(colors = listOf(Color.Black, Color.Black))
+        Brush.verticalGradient(colors = listOf(darkBg, Color(0xFF1A1A27)))
     } else {
         Brush.verticalGradient(colors = listOf(Color(0xFFF5F5F5), Color(0xFFF5F5F5)))
     }
@@ -125,7 +127,7 @@ fun StructuredPlusApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = if (isDark) Color.Black else Color(0xFFF5F5F5)
+            color = if (isDark) Color(0xFF12121A) else Color(0xFFF5F5F5)
         ) {
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(fontSizeBoost, baseDensity) {
@@ -227,7 +229,7 @@ fun AppIconEmblemMini(
 
 @Composable
 fun TopAppBarHeader(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor: Color) {
-    val isDark = false
+    val isDark = isSystemInDarkTheme()
 
     Row(
         modifier = Modifier
@@ -376,23 +378,57 @@ fun buildMergedTimeline(tasks: List<TimelineTask>, blocks: List<TimeBlock>): Lis
     return result
 }
 
+data class VoiceParseResult(
+    val title: String,
+    val startTime: String,
+    val endTime: String,
+    val hasReminder: Boolean,
+    val repeatType: String,
+    val selectedDays: List<Int>
+)
+
+private fun normalizeVoiceText(text: String): String = text
+    .replace(Regex("""\ba\.?m\.?\b""", RegexOption.IGNORE_CASE), "am")
+    .replace(Regex("""\bp\.?m\.?\b""", RegexOption.IGNORE_CASE), "pm")
+    .replace(Regex("""\bo['']?clock\b""", RegexOption.IGNORE_CASE), "")
+    .replace("twelve", "12").replace("eleven", "11").replace("ten", "10")
+    .replace("nine", "9").replace("eight", "8").replace("seven", "7")
+    .replace("six", "6").replace("five", "5").replace("four", "4")
+    .replace("three", "3").replace("two", "2").replace("one", "1")
+
 private fun parseTimeComponents(timeStr: String, ampm: String): String {
-    val parts = timeStr.split(":")
-    var hour = parts[0].toIntOrNull() ?: return ""
-    val minute = if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
-    when (ampm.lowercase()) {
+    val parts = timeStr.trim().split(":")
+    var hour = parts[0].trim().toIntOrNull() ?: return ""
+    val minute = if (parts.size > 1) parts[1].trim().take(2).toIntOrNull() ?: 0 else 0
+    when (ampm.lowercase().trim()) {
         "am" -> if (hour == 12) hour = 0
         "pm" -> if (hour != 12) hour += 12
     }
     return String.format(java.util.Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
-fun parseVoiceToTask(text: String): Triple<String, String, String> {
-    // "from 9am to 10am" / "from 9 to 10 pm"
+private fun detectRepeatFromVoice(text: String): Pair<String, List<Int>> {
+    val lower = text.lowercase()
+    return when {
+        Regex("""\bevery\s+day\b|\bdaily\b|\bevery\s+morning\b""").containsMatchIn(lower) ->
+            "Daily" to emptyList()
+        Regex("""\bweekly\b|\bevery\s+week\b""").containsMatchIn(lower) ->
+            "Weekly" to emptyList()
+        Regex("""\bweekday(s)?\b|\bevery\s+weekday\b|\bmonday\s+to\s+friday\b|\bmon\s*[–-]\s*fri\b""").containsMatchIn(lower) ->
+            "Specific Days" to listOf(1, 2, 3, 4, 5)
+        Regex("""\bweekend(s)?\b|\bevery\s+weekend\b""").containsMatchIn(lower) ->
+            "Specific Days" to listOf(6, 0)
+        else -> "Just Today" to emptyList()
+    }
+}
+
+fun parseVoiceToTask(rawText: String): VoiceParseResult {
+    val text = normalizeVoiceText(rawText)
+    // "from 9am to 10am" / "from 9 to 10 pm" / "from 9:30 to 10:30 pm"
     val fromToRegex = Regex("""from\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s+to\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
     // "at 9am" / "at 9:30"
     val atRegex = Regex("""(?:at|@)\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
-    // bare "9am" / "7:30 pm" / "11PM" with word boundaries
+    // bare "9am" / "7:30 pm" / "11PM"
     val bareRegex = Regex("""(?<!\d)(\d{1,2}(?::\d{2})?)\s*(am|pm)(?!\w)""", RegexOption.IGNORE_CASE)
 
     var title = text
@@ -404,28 +440,32 @@ fun parseVoiceToTask(text: String): Triple<String, String, String> {
         val hint = fromToMatch.groupValues[2].ifEmpty { fromToMatch.groupValues[4] }
         startTime = parseTimeComponents(fromToMatch.groupValues[1], hint)
         endTime   = parseTimeComponents(fromToMatch.groupValues[3], fromToMatch.groupValues[4].ifEmpty { hint })
-        title = text.replace(fromToMatch.value, "")
+        title = rawText.substring(0, fromToMatch.range.first) + rawText.substring(fromToMatch.range.last + 1)
     } else {
         val atMatch = atRegex.find(text)
         if (atMatch != null) {
             startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
-            title = text.replace(atMatch.value, "")
+            title = rawText.replace(Regex("""(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
         } else {
             val bareMatch = bareRegex.find(text)
             if (bareMatch != null) {
                 startTime = parseTimeComponents(bareMatch.groupValues[1], bareMatch.groupValues[2])
-                title = text.replace(bareMatch.value, "")
+                title = rawText.replace(Regex("""(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)(?!\w)""", RegexOption.IGNORE_CASE), "")
             }
         }
     }
 
+    val hasReminder = startTime.isNotEmpty()
+    val (repeatType, selectedDays) = detectRepeatFromVoice(rawText)
+
     title = title
-        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create a?|set up a?)\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""(?:add task|add a task|remind me to|schedule|create an?\s+|set up an?\s+)\s*""", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("""\b(daily|every day|every morning|weekly|every week|weekdays?|every weekday|weekends?|every weekend|monday to friday)\b""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\s{2,}"""), " ")
         .trim()
         .replaceFirstChar { it.uppercase() }
 
-    return Triple(title, startTime, endTime)
+    return VoiceParseResult(title, startTime, endTime, hasReminder, repeatType, selectedDays)
 }
 
 @Composable
@@ -440,6 +480,9 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     var voiceTitle by remember { mutableStateOf("") }
     var voiceStartTime by remember { mutableStateOf("") }
     var voiceEndTime by remember { mutableStateOf("") }
+    var voiceHasReminder by remember { mutableStateOf(false) }
+    var voiceRepeatType by remember { mutableStateOf("Just Today") }
+    var voiceSelectedDays by remember { mutableStateOf<List<Int>>(emptyList()) }
     val timeBlocks by viewModel.timeBlocks.collectAsStateWithLifecycle()
 
     val speechLauncher = rememberLauncherForActivityResult(
@@ -447,10 +490,13 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
     ) { result ->
         val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
         val transcript = matches?.firstOrNull() ?: return@rememberLauncherForActivityResult
-        val (parsedTitle, parsedStart, parsedEnd) = parseVoiceToTask(transcript)
-        voiceTitle = parsedTitle
-        voiceStartTime = parsedStart
-        voiceEndTime = parsedEnd
+        val parsed = parseVoiceToTask(transcript)
+        voiceTitle = parsed.title
+        voiceStartTime = parsed.startTime
+        voiceEndTime = parsed.endTime
+        voiceHasReminder = parsed.hasReminder
+        voiceRepeatType = parsed.repeatType
+        voiceSelectedDays = parsed.selectedDays
         showAddTaskDialog = true
     }
 
@@ -900,21 +946,21 @@ fun PlannerTab(viewModel: MainViewModel, fontFamily: FontFamily, highlightColor:
             initialDateStr = selectedDate,
             initialStartTime = voiceStartTime.ifEmpty { freeGapStartTime },
             initialEndTime = voiceEndTime,
-            initialHasReminder = voiceTitle.isNotEmpty(),
+            initialHasReminder = voiceHasReminder || voiceTitle.isNotEmpty(),
+            initialRepeatType = voiceRepeatType,
+            initialSelectedDays = voiceSelectedDays,
             onDismiss = {
                 showAddTaskDialog = false
                 freeGapStartTime = ""
-                voiceTitle = ""
-                voiceStartTime = ""
-                voiceEndTime = ""
+                voiceTitle = ""; voiceStartTime = ""; voiceEndTime = ""
+                voiceHasReminder = false; voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
             },
             onConfirm = { title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, details, chosenDate ->
                 viewModel.addTaskWithRepeat(title, start, end, energy, reminder, reminderMinutes, repeatType, selectedDays, dayDate = chosenDate, details = details)
                 showAddTaskDialog = false
                 freeGapStartTime = ""
-                voiceTitle = ""
-                voiceStartTime = ""
-                voiceEndTime = ""
+                voiceTitle = ""; voiceStartTime = ""; voiceEndTime = ""
+                voiceHasReminder = false; voiceRepeatType = "Just Today"; voiceSelectedDays = emptyList()
             }
         )
     }
@@ -1186,13 +1232,12 @@ fun TimelineTaskItemCard(
         )
     }
 
-    // Symmetrical Gray Frosted Glass cards styled on dark background
     val cardBgColor = if (isDark) {
-        if (isCompleted) Color(0x1F3F3F46) else Color(0x3B2C2D35)
+        if (isCompleted) Color(0xFF1D1D2A) else Color(0xFF21212E)
     } else {
         if (isCompleted) Color(0xFFE4E4E7) else Color(0xF2F4F2EE)
     }
-    val cardBorderColor = if (isCompleted) Color(0x1A7E7E7E) else highlightColor.copy(alpha = 0.25f)
+    val cardBorderColor = if (isCompleted) Color(0x22AAAAAA) else highlightColor.copy(alpha = 0.3f)
 
     Row(
         modifier = Modifier
@@ -1201,24 +1246,25 @@ fun TimelineTaskItemCard(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        // Timeline continuous connector line
-        val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
+        // Timeline continuous connector line — stroke thickens top→bottom across all items
         Box(
             modifier = Modifier
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.8f) else (if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000))
-                    val circleTopY = 10.dp.toPx()
-                    val circleBottomY = 40.dp.toPx()
-                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
+                    val lineColor = if (isCompleted) highlightColor.copy(alpha = 0.8f) else (if (isDark) Color(0xDDFFFFFF) else Color(0xCC000000))
+                    val circleTopY = 8.dp.toPx()
+                    val circleBottomY = 44.dp.toPx()
+                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
+                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
+                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
 
                     if (!isFirst) {
                         drawLine(
                             color = lineColor,
                             start = Offset(size.width / 2, 0f),
                             end = Offset(size.width / 2, circleTopY),
-                            strokeWidth = strokePx
+                            strokeWidth = strokeAbove
                         )
                     }
                     if (!isLast) {
@@ -1226,7 +1272,7 @@ fun TimelineTaskItemCard(
                             color = lineColor,
                             start = Offset(size.width / 2, circleBottomY),
                             end = Offset(size.width / 2, size.height),
-                            strokeWidth = strokePx
+                            strokeWidth = strokeBelow
                         )
                     }
                 },
@@ -1234,17 +1280,21 @@ fun TimelineTaskItemCard(
         ) {
             Box(
                 modifier = Modifier
-                    .padding(top = 10.dp)
-                    .size(30.dp)
-                    .background(highlightColor.copy(alpha = 0.12f), CircleShape)
+                    .padding(top = 8.dp)
+                    .size(36.dp)
+                    .background(
+                        if (isCompleted) highlightColor.copy(alpha = 0.22f)
+                        else if (isDark) highlightColor.copy(alpha = 0.18f) else highlightColor.copy(alpha = 0.14f),
+                        CircleShape
+                    )
                     .border(
-                        width = if (isCompleted) 2.dp else 1.dp,
-                        color = if (isCompleted) highlightColor else (if (isDark) Color(0x33FFFFFF) else Color(0x33000000)),
+                        width = if (isCompleted) 2.5.dp else 1.5.dp,
+                        color = if (isCompleted) highlightColor else highlightColor.copy(alpha = 0.5f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = task.emoji, fontSize = 15.sp)
+                Text(text = task.emoji, fontSize = 17.sp)
             }
         }
 
@@ -1582,7 +1632,6 @@ fun TimeBlockItemCard(
     timelineTotal: Int = 1,
     onDelete: () -> Unit
 ) {
-    val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1596,13 +1645,15 @@ fun TimeBlockItemCard(
                 .width(46.dp)
                 .fillMaxHeight()
                 .drawBehind {
-                    val lineColor = if (isDark) Color(0xCCFFFFFF) else Color(0xCC000000)
+                    val lineColor = if (isDark) Color(0xDDFFFFFF) else Color(0xCC000000)
                     val dotY = 14.dp.toPx()
                     val dotSize = 8.dp.toPx()
-                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx)
+                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
+                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
+                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokeAbove)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokePx)
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokeBelow)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -1672,7 +1723,6 @@ fun FreeSlotCard(
         "${durationMinutes}m free"
     }
 
-    val lineProgress = if (timelineTotal > 1) timelineIndex.toFloat() / (timelineTotal - 1) else 0f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1689,11 +1739,13 @@ fun FreeSlotCard(
                     val lineColor = highlightColor.copy(alpha = 0.35f)
                     val dotY = 14.dp.toPx()
                     val dotSize = 6.dp.toPx()
-                    val strokePx = (1f + 7f * lineProgress).dp.toPx()
+                    val n = (timelineTotal - 1).coerceAtLeast(1).toFloat()
+                    val strokeAbove = (1f + 7f * ((timelineIndex - 0.5f).coerceAtLeast(0f) / n)).dp.toPx()
+                    val strokeBelow = (1f + 7f * ((timelineIndex + 0.5f).coerceAtMost(n) / n)).dp.toPx()
                     val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
-                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokePx, pathEffect = pathEffect)
+                    if (!isFirst) drawLine(color = lineColor, start = Offset(size.width / 2, 0f), end = Offset(size.width / 2, dotY - dotSize / 2), strokeWidth = strokeAbove, pathEffect = pathEffect)
                     drawCircle(color = lineColor, radius = dotSize / 2, center = Offset(size.width / 2, dotY))
-                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokePx, pathEffect = pathEffect)
+                    if (!isLast) drawLine(color = lineColor, start = Offset(size.width / 2, dotY + dotSize / 2), end = Offset(size.width / 2, size.height), strokeWidth = strokeBelow, pathEffect = pathEffect)
                 },
             contentAlignment = Alignment.TopCenter
         ) {}
@@ -3311,6 +3363,8 @@ fun StyledTaskDialog(
     initialStartTime: String = "",
     initialEndTime: String = "",
     initialHasReminder: Boolean = false,
+    initialRepeatType: String = "Just Today",
+    initialSelectedDays: List<Int> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, Boolean, Int, String, List<Int>, String, String) -> Unit
 ) {
@@ -3323,8 +3377,8 @@ fun StyledTaskDialog(
     var energy by remember { mutableStateOf(task?.energyLevel ?: "Medium") }
     var hasReminder by remember { mutableStateOf(task?.hasReminder ?: initialHasReminder) }
     var reminderMinutes by remember { mutableStateOf(task?.reminderMinutesBefore ?: 15) }
-    var repeatType by remember { mutableStateOf("Just Today") } 
-    val selectedDays = remember { mutableStateListOf<Int>() }
+    var repeatType by remember { mutableStateOf(initialRepeatType) }
+    val selectedDays = remember { mutableStateListOf<Int>().also { list -> list.addAll(initialSelectedDays) } }
     val subtasks = remember { mutableStateListOf<String>() }
     var newSubtaskText by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -3972,6 +4026,8 @@ fun AddTaskDialog(
     initialStartTime: String = "",
     initialEndTime: String = "",
     initialHasReminder: Boolean = false,
+    initialRepeatType: String = "Just Today",
+    initialSelectedDays: List<Int> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, Boolean, Int, String, List<Int>, String, String) -> Unit
 ) {
@@ -3986,6 +4042,8 @@ fun AddTaskDialog(
         initialStartTime = initialStartTime,
         initialEndTime = initialEndTime,
         initialHasReminder = initialHasReminder,
+        initialRepeatType = initialRepeatType,
+        initialSelectedDays = initialSelectedDays,
         onDismiss = onDismiss,
         onConfirm = onConfirm
     )
