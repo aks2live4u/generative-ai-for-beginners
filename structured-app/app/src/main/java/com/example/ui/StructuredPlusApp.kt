@@ -107,7 +107,7 @@ fun StructuredPlusApp(
     val customFontFamily = if (isDyslexiaFont) FontFamily.Monospace else FontFamily.SansSerif
 
     val backgroundBrush = if (isDark) {
-        Brush.verticalGradient(colors = listOf(Color(0xFF050510), Color(0xFF07071A), Color(0xFF050512)))
+        Brush.verticalGradient(colors = listOf(Color.Black, Color.Black))
     } else {
         Brush.verticalGradient(colors = listOf(Color(0xFFF0EEFF), Color(0xFFF5F0FF)))
     }
@@ -127,7 +127,7 @@ fun StructuredPlusApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            color = if (isDark) Color(0xFF050510) else Color(0xFFF0EEFF)
+            color = if (isDark) Color.Black else Color(0xFFF0EEFF)
         ) {
             val baseDensity = LocalDensity.current
             val scaledDensity = remember(fontSizeBoost, baseDensity) {
@@ -472,19 +472,35 @@ private fun parseTimeComponents(timeStr: String, ampm: String): String {
 private fun detectRepeatFromVoice(rawText: String): Pair<String, List<Int>> {
     val lower = rawText.lowercase()
     val cal = Calendar.getInstance()
-    val todayDow = cal.get(Calendar.DAY_OF_WEEK) - 1   // 0=Sun … 6=Sat
-    val tomorrowDow = (todayDow + 1) % 7
+    // Use Calendar constants (1=Sun, 2=Mon ... 7=Sat) — must match ViewModel's addTaskWithRepeat
+    val todayDow    = cal.get(Calendar.DAY_OF_WEEK)
+    val tomorrowDow = (todayDow % 7) + 1   // wraps Sat(7)→Sun(1) correctly
 
     val hasTodayAndTomorrow = Regex("""\btoday\s+and\s+tomorrow\b|\btomorrow\s+and\s+today\b""").containsMatchIn(lower)
     val hasTomorrow = Regex("""\btomorrow\b""").containsMatchIn(lower)
 
+    // Detect explicit day names — e.g. "every Monday", "on Wednesdays"
+    val dayNameMap = mapOf(
+        "sunday" to Calendar.SUNDAY, "monday" to Calendar.MONDAY,
+        "tuesday" to Calendar.TUESDAY, "wednesday" to Calendar.WEDNESDAY,
+        "thursday" to Calendar.THURSDAY, "friday" to Calendar.FRIDAY,
+        "saturday" to Calendar.SATURDAY
+    )
+    val mentionedDays = dayNameMap.entries
+        .filter { Regex("""\b${it.key}\b""").containsMatchIn(lower) }
+        .map { it.value }
+
     return when {
         hasTodayAndTomorrow -> "Specific Days" to listOf(todayDow, tomorrowDow)
-        hasTomorrow -> "Specific Days" to listOf(tomorrowDow)
-        Regex("""\bevery\s+day\b|\bdaily\b|\bevery\s+morning\b""").containsMatchIn(lower) -> "Daily" to emptyList()
-        Regex("""\bweekly\b|\bevery\s+week\b""").containsMatchIn(lower) -> "Weekly" to emptyList()
-        Regex("""\bweekday(s)?\b|\bevery\s+weekday\b|\bmon(day)?\s+(to|-)\s+fri(day)?\b""").containsMatchIn(lower) -> "Specific Days" to listOf(1, 2, 3, 4, 5)
-        Regex("""\bweekend(s)?\b|\bevery\s+weekend\b""").containsMatchIn(lower) -> "Specific Days" to listOf(6, 0)
+        hasTomorrow         -> "Specific Days" to listOf(tomorrowDow)
+        Regex("""\bevery\s+day\b|\bdaily\b|\bevery\s+morning\b""").containsMatchIn(lower) ->
+            "Daily" to emptyList()
+        // "weekly", "every week", "weekdays", "every weekday", "mon to fri" → Mon–Fri repeat
+        Regex("""\bweekday(s)?\b|\bevery\s+weekday\b|\bmon(day)?\s+(to|-)\s+fri(day)?\b|\bweekly\b|\bevery\s+week\b""").containsMatchIn(lower) ->
+            "Weekdays" to emptyList()
+        Regex("""\bweekend(s)?\b|\bevery\s+weekend\b""").containsMatchIn(lower) ->
+            "Specific Days" to listOf(Calendar.SATURDAY, Calendar.SUNDAY)
+        mentionedDays.isNotEmpty() -> "Specific Days" to mentionedDays
         else -> "Just Today" to emptyList()
     }
 }
@@ -508,7 +524,9 @@ fun parseVoiceToTask(rawText: String): VoiceParseResult {
     val text = normalizeVoiceText(rawText)
     // "from 9am to 10am" / "from 9 to 10 pm" / "from 9:30 to 10:30 pm"
     val fromToRegex = Regex("""from\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s+to\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
-    // "at 9am" / "at 9:30"
+    // "at 9:15 AM to 10:15 AM" — explicit range without "from"
+    val atToRegex = Regex("""(?:at|@)\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s+to\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
+    // "at 9am" / "at 9:30" — single time, default +1h end
     val atRegex = Regex("""(?:at|@)\s+(\d{1,2}(?::\d{2})?)\s*(am|pm)?""", RegexOption.IGNORE_CASE)
     // bare "9am" / "7:30 pm" / "11PM"
     val bareRegex = Regex("""(?<!\d)(\d{1,2}(?::\d{2})?)\s*(am|pm)(?!\w)""", RegexOption.IGNORE_CASE)
@@ -522,20 +540,27 @@ fun parseVoiceToTask(rawText: String): VoiceParseResult {
         val hint = fromToMatch.groupValues[2].ifEmpty { fromToMatch.groupValues[4] }
         startTime = parseTimeComponents(fromToMatch.groupValues[1], hint)
         endTime   = parseTimeComponents(fromToMatch.groupValues[3], fromToMatch.groupValues[4].ifEmpty { hint })
-        title = rawText.substring(0, fromToMatch.range.first) + rawText.substring(fromToMatch.range.last + 1)
+        title = rawText.replace(Regex("""from\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s+to\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
     } else {
-        val atMatch = atRegex.find(text)
-        if (atMatch != null) {
-            startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
-            // Default end = start + 1 hour when not specified
-            endTime = if (startTime.isNotEmpty()) adjustTimeOffset(startTime, 60) else ""
-            title = rawText.replace(Regex("""(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
+        val atToMatch = atToRegex.find(text)
+        if (atToMatch != null) {
+            val hint = atToMatch.groupValues[2].ifEmpty { atToMatch.groupValues[4] }
+            startTime = parseTimeComponents(atToMatch.groupValues[1], hint)
+            endTime   = parseTimeComponents(atToMatch.groupValues[3], atToMatch.groupValues[4].ifEmpty { hint })
+            title = rawText.replace(Regex("""(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s+to\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
         } else {
-            val bareMatch = bareRegex.find(text)
-            if (bareMatch != null) {
-                startTime = parseTimeComponents(bareMatch.groupValues[1], bareMatch.groupValues[2])
+            val atMatch = atRegex.find(text)
+            if (atMatch != null) {
+                startTime = parseTimeComponents(atMatch.groupValues[1], atMatch.groupValues[2])
                 endTime = if (startTime.isNotEmpty()) adjustTimeOffset(startTime, 60) else ""
-                title = rawText.replace(Regex("""(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)(?!\w)""", RegexOption.IGNORE_CASE), "")
+                title = rawText.replace(Regex("""(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?""", RegexOption.IGNORE_CASE), "")
+            } else {
+                val bareMatch = bareRegex.find(text)
+                if (bareMatch != null) {
+                    startTime = parseTimeComponents(bareMatch.groupValues[1], bareMatch.groupValues[2])
+                    endTime = if (startTime.isNotEmpty()) adjustTimeOffset(startTime, 60) else ""
+                    title = rawText.replace(Regex("""(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)(?!\w)""", RegexOption.IGNORE_CASE), "")
+                }
             }
         }
     }
@@ -548,6 +573,8 @@ fun parseVoiceToTask(rawText: String): VoiceParseResult {
         .replace(Regex("""(?:create(?: a| an)?|add(?: a| an)?|schedule|set up(?: a| an)?)\s*""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\b(?:remind me(?: to)?|set(?: a)? reminder)\b.*""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\b(today and tomorrow|tomorrow and today|today|tomorrow|daily|every day|every morning|weekly|every week|weekdays?|every weekday|weekends?|every weekend)\b""", RegexOption.IGNORE_CASE), "")
+        // Remove day names (e.g. "every Monday", "on Wednesdays")
+        .replace(Regex("""\b(?:every\s+|on\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b""", RegexOption.IGNORE_CASE), "")
         .replace(Regex("""\s{2,}"""), " ")
         .trim()
         .replaceFirstChar { it.uppercase() }
