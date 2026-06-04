@@ -1,6 +1,5 @@
 package com.stockadvisor.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -46,11 +45,11 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Actual logo PNG
-            Image(
-                painter = painterResource(id = R.drawable.ic_logo_actual),
+            // Logo — uses Icon with Color.Unspecified to preserve all vector colors
+            Icon(
+                painter = painterResource(id = R.drawable.ic_indistock_logo),
                 contentDescription = "IndiStock Advisor",
-                contentScale = ContentScale.Fit,
+                tint = Color.Unspecified,
                 modifier = Modifier
                     .size(160.dp)
                     .clip(RoundedCornerShape(28.dp))

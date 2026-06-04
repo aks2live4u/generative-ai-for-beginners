@@ -24,41 +24,24 @@ class AnthropicService(private val apiKey: String) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    // Use claude-sonnet-4-6 — valid, supports web search
-    private val model = "claude-sonnet-4-6"
-
     @Throws(IOException::class)
     fun analyzeStock(stockData: StockData, decision: String): String {
         if (apiKey.isBlank() || apiKey == "your_api_key_here") {
-            throw IOException("Invalid API key: please set ANTHROPIC_API_KEY in local.properties")
+            throw IOException("Invalid API key: open local.properties and set ANTHROPIC_API_KEY=sk-ant-...")
         }
 
         val prompt = buildPrompt(stockData, decision)
 
-        // Web search tool — no beta header needed (GA as of 2025)
-        val toolsArray = JsonArray().apply {
-            add(JsonObject().apply {
-                addProperty("type", "web_search_20250305")
-                addProperty("name", "web_search")
-            })
-        }
-
         val messagesArray = JsonArray().apply {
             add(JsonObject().apply {
                 addProperty("role", "user")
-                add("content", JsonArray().apply {
-                    add(JsonObject().apply {
-                        addProperty("type", "text")
-                        addProperty("text", prompt)
-                    })
-                })
+                addProperty("content", prompt)
             })
         }
 
         val requestBody = JsonObject().apply {
-            addProperty("model", model)
+            addProperty("model", "claude-sonnet-4-6")
             addProperty("max_tokens", 2000)
-            add("tools", toolsArray)
             add("messages", messagesArray)
         }.toString().toRequestBody(jsonMediaType)
 
@@ -75,46 +58,40 @@ class AnthropicService(private val apiKey: String) {
             ?: throw IOException("Empty response from Anthropic API")
 
         when (response.code) {
+            200 -> { /* success, fall through */ }
+            401 -> throw IOException("Invalid API key. Please check ANTHROPIC_API_KEY in local.properties.")
             429 -> throw RateLimitException("Rate limit reached. Please wait a moment and retry.")
-            401 -> throw IOException("Invalid API key. Please check your ANTHROPIC_API_KEY in local.properties.")
-            400 -> {
-                // Try to extract a helpful message from the 400 response
+            else -> {
                 val errMsg = try {
-                    val json = JsonParser.parseString(responseBody).asJsonObject
-                    json.getAsJsonObject("error")?.get("message")?.asString ?: responseBody
-                } catch (_: Exception) { responseBody }
-                throw IOException("API error: $errMsg")
-            }
-            else -> if (!response.isSuccessful) {
-                throw IOException("Anthropic API error ${response.code}: $responseBody")
+                    JsonParser.parseString(responseBody).asJsonObject
+                        .getAsJsonObject("error")?.get("message")?.asString ?: responseBody
+                } catch (_: Exception) { responseBody.take(200) }
+                throw IOException("API error ${response.code}: $errMsg")
             }
         }
 
         return parseResponseText(responseBody)
     }
 
-    private fun parseResponseText(responseBody: String): String {
-        val json = JsonParser.parseString(responseBody).asJsonObject
-        val contentArray = json.getAsJsonArray("content") ?: return "No analysis available."
+    private fun parseResponseText(body: String): String {
+        val content = JsonParser.parseString(body).asJsonObject
+            .getAsJsonArray("content") ?: return "No analysis available."
         val sb = StringBuilder()
-        for (item in contentArray) {
+        for (item in content) {
             val obj = item.asJsonObject
             if (obj.get("type")?.asString == "text") {
                 sb.append(obj.get("text")?.asString ?: "")
             }
         }
-        return sb.toString().trim().ifEmpty { "Analysis completed but no text was returned." }
+        return sb.toString().trim().ifEmpty { "Analysis completed but no text returned." }
     }
 
     private fun buildPrompt(data: StockData, decision: String): String {
         val startPrice = data.priceHistory.firstOrNull()?.closePrice ?: data.currentPrice
-        val pctChange = if (startPrice > 0) {
-            ((data.currentPrice - startPrice) / startPrice * 100).roundToInt()
-        } else 0
+        val pctChange = if (startPrice > 0) ((data.currentPrice - startPrice) / startPrice * 100).roundToInt() else 0
         val maxDrawdown = calculateMaxDrawdown(data.priceHistory)
-        val marketCapStr = data.marketCap?.let { formatLargeNumber(it) } ?: "N/A"
         val peStr = data.peRatio?.let { String.format("%.1f", it) } ?: "N/A"
-        val volumeStr = formatLargeNumber(data.volume)
+        val marketCapStr = data.marketCap?.let { formatLargeNumber(it) } ?: "N/A"
 
         return """
 You are a professional financial research analyst. A user wants to $decision ${data.symbol}.
@@ -126,37 +103,36 @@ Current Market Data:
 - 52-Week Low: ${"$"}${String.format("%.2f", data.fiftyTwoWeekLow)}
 - P/E Ratio: $peStr
 - Market Cap: $marketCapStr
-- Volume: $volumeStr
+- Volume: ${formatLargeNumber(data.volume)}
 
-5-Year Price History:
-- Price ~5 years ago: ${"$"}${String.format("%.2f", startPrice)}
-- Current Price: ${"$"}${String.format("%.2f", data.currentPrice)}
+5-Year History:
+- 5 years ago: ${"$"}${String.format("%.2f", startPrice)}
+- Today: ${"$"}${String.format("%.2f", data.currentPrice)}
 - Total Return: $pctChange%
-- Maximum Drawdown: ${maxDrawdown.roundToInt()}%
-- Monthly data points: ${data.priceHistory.size}
+- Max Drawdown: ${maxDrawdown.roundToInt()}%
 
-Please research the latest news and analyst opinions for ${data.symbol} and provide a comprehensive analysis of whether the user's decision to $decision ${data.symbol} is WISE, RISKY, or NEUTRAL.
+Provide a comprehensive analysis of whether $decision of ${data.symbol} is WISE, RISKY, or NEUTRAL.
 
-Format your response EXACTLY as:
+Respond in this EXACT format:
 
 VERDICT: [WISE/RISKY/NEUTRAL]
 
 MARKET ANALYSIS:
-[2-3 paragraphs on current market conditions, recent news, and sector trends]
+[2–3 paragraphs on current market conditions and sector trends]
 
 TECHNICAL ANALYSIS:
-[Analysis of the 5-year price trend, support/resistance, momentum]
+[Price trend, support/resistance, momentum over 5 years]
 
 FUNDAMENTAL ANALYSIS:
 [PE ratio context, growth, competitive position, valuation]
 
 RISK FACTORS:
-[3-5 key risks to this investment decision]
+[3–5 key risks bullet points]
 
 RECOMMENDATION:
-[Final recommendation with clear reasoning for the $decision decision]
+[Final clear reasoning for the $decision decision]
 
-Disclaimer: This analysis is for educational purposes only and does not constitute financial advice.
+Disclaimer: Educational purposes only. Not financial advice.
         """.trimIndent()
     }
 
@@ -164,18 +140,18 @@ Disclaimer: This analysis is for educational purposes only and does not constitu
         if (prices.isEmpty()) return 0.0
         var maxDrawdown = 0.0
         var peak = prices.first().closePrice
-        for (point in prices) {
-            if (point.closePrice > peak) peak = point.closePrice
-            val drawdown = if (peak > 0) (peak - point.closePrice) / peak * 100 else 0.0
-            if (drawdown > maxDrawdown) maxDrawdown = drawdown
+        for (p in prices) {
+            if (p.closePrice > peak) peak = p.closePrice
+            val dd = if (peak > 0) (peak - p.closePrice) / peak * 100 else 0.0
+            if (dd > maxDrawdown) maxDrawdown = dd
         }
         return maxDrawdown
     }
 
     private fun formatLargeNumber(n: Long): String = when {
-        n >= 1_000_000_000_000L -> String.format("$%.2fT", n / 1_000_000_000_000.0)
-        n >= 1_000_000_000L    -> String.format("$%.2fB", n / 1_000_000_000.0)
-        n >= 1_000_000L        -> String.format("$%.2fM", n / 1_000_000.0)
+        n >= 1_000_000_000_000L -> "$%.2fT".format(n / 1_000_000_000_000.0)
+        n >= 1_000_000_000L    -> "$%.2fB".format(n / 1_000_000_000.0)
+        n >= 1_000_000L        -> "$%.2fM".format(n / 1_000_000.0)
         else                   -> "$$n"
     }
 }
