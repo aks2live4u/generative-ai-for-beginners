@@ -68,13 +68,10 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } catch (e: IOException) {
                 val msg = e.message ?: "Network error"
-                _state.value = AnalysisState.Error(
-                    if ("Invalid API key" in msg) msg else "Connection error. Please retry.",
-                    isRetryable = true
-                )
+                _state.value = AnalysisState.Error(msg, isRetryable = true)
             } catch (e: Exception) {
                 _state.value = AnalysisState.Error(
-                    "Unexpected error: ${e.message ?: "unknown"}",
+                    e.message ?: "Unexpected error",
                     isRetryable = true
                 )
             }

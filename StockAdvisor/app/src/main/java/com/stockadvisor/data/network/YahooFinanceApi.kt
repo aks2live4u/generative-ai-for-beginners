@@ -25,11 +25,15 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         val url = "https://query1.finance.yahoo.com/v8/finance/chart/$symbol?interval=1mo&range=5y"
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", "Mozilla/5.0 (compatible; StockAdvisor/1.0)")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Accept", "application/json,text/plain,*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Origin", "https://finance.yahoo.com")
+            .header("Referer", "https://finance.yahoo.com/")
             .build()
         val response = client.newCall(request).execute()
         val body = response.body?.string() ?: throw IOException("Empty chart response")
-        if (!response.isSuccessful) throw IOException("Chart API error: ${response.code}")
+        if (!response.isSuccessful) throw IOException("Yahoo Finance chart error ${response.code}: check ticker symbol")
         return JsonParser.parseString(body).asJsonObject
     }
 
@@ -37,11 +41,15 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         val url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=$symbol"
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", "Mozilla/5.0 (compatible; StockAdvisor/1.0)")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .header("Accept", "application/json,text/plain,*/*")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Origin", "https://finance.yahoo.com")
+            .header("Referer", "https://finance.yahoo.com/")
             .build()
         val response = client.newCall(request).execute()
         val body = response.body?.string() ?: throw IOException("Empty quote response")
-        if (!response.isSuccessful) throw IOException("Quote API error: ${response.code}")
+        if (!response.isSuccessful) throw IOException("Yahoo Finance quote error ${response.code}")
         return JsonParser.parseString(body).asJsonObject
     }
 
