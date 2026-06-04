@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Stock Advisor</string>
+    <string name="search_hint">Enter ticker or name (e.g. AAPL, VOO, FXAIX)</string>
+    <string name="continue_button">Continue</string>
+    <string name="analyze_another">Analyze Another</string>
+    <string name="loading_market_data">Fetching market data…</string>
+    <string name="loading_ai_analysis">Running AI research (this may take 15–30 seconds)…</string>
+    <string name="error_empty_ticker">Please enter a ticker symbol</string>
+    <string name="error_invalid_ticker">Invalid ticker symbol. Please check and try again.</string>
+    <string name="error_network">No internet connection. Please check your network.</string>
+    <string name="error_rate_limit">Rate limit reached. Please wait a moment and retry.</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="disclaimer">For educational purposes only. Not financial advice.</string>
+</resources>
