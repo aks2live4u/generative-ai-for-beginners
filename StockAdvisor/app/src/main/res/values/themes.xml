@@ -5,7 +5,7 @@
     </style>
 
     <style name="Theme.StockAdvisor.SplashScreen" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#0D1117</item>
+        <item name="windowSplashScreenBackground">#0D2B7A</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
         <item name="postSplashScreenTheme">@style/Theme.StockAdvisor</item>
     </style>

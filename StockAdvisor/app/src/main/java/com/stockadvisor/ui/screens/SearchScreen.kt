@@ -1,5 +1,6 @@
 package com.stockadvisor.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,18 +8,19 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.stockadvisor.R
 import com.stockadvisor.ui.theme.*
 
 @Composable
@@ -36,17 +38,6 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             .fillMaxSize()
             .background(Background)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(GreenAccent.copy(alpha = 0.05f), Background)
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -54,30 +45,32 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = Icons.Default.TrendingUp,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = GreenAccent
+            // Logo
+            Image(
+                painter = painterResource(id = R.drawable.ic_indistock_logo),
+                contentDescription = "IndiStock Advisor",
+                modifier = Modifier
+                    .size(160.dp)
+                    .clip(RoundedCornerShape(28.dp))
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Stock Advisor",
-                style = MaterialTheme.typography.headlineLarge,
-                color = OnSurface,
+                text = "IndiStock Advisor",
+                style = MaterialTheme.typography.headlineMedium,
+                color = GoldAccent,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "AI-powered investment analysis",
+                text = "AI-powered investment research",
                 style = MaterialTheme.typography.bodyMedium,
                 color = OnSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             OutlinedTextField(
                 value = ticker,
@@ -87,13 +80,13 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text("Enter ticker (e.g. AAPL, VOO, FXAIX)", color = OnSurfaceVariant)
+                    Text("Enter ticker (e.g. RELIANCE, AAPL, VOO)", color = OnSurfaceVariant)
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
-                        tint = if (ticker.isNotEmpty()) GreenAccent else OnSurfaceVariant
+                        tint = if (ticker.isNotEmpty()) GoldAccent else OnSurfaceVariant
                     )
                 },
                 isError = showError,
@@ -108,13 +101,13 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                 ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = GreenAccent,
+                    focusedBorderColor = GoldAccent,
                     unfocusedBorderColor = SurfaceVariant,
                     focusedContainerColor = Surface,
                     unfocusedContainerColor = Surface,
                     focusedTextColor = OnSurface,
                     unfocusedTextColor = OnSurface,
-                    cursorColor = GreenAccent
+                    cursorColor = GoldAccent
                 ),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -122,7 +115,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("AAPL", "VOO", "BTC-USD", "FXAIX").forEach { example ->
+                listOf("RELIANCE", "NIFTY50", "AAPL", "VOO").forEach { example ->
                     SuggestionChip(
                         onClick = { ticker = example; showError = false },
                         label = { Text(example, style = MaterialTheme.typography.labelMedium) },
@@ -144,7 +137,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = GreenAccent,
+                    containerColor = GoldAccent,
                     contentColor = OnPrimary
                 )
             ) {
