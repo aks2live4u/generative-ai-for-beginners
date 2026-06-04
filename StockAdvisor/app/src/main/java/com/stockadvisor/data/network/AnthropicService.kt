@@ -24,10 +24,18 @@ class AnthropicService(private val apiKey: String) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
+    // Use claude-sonnet-4-6 — valid, supports web search
+    private val model = "claude-sonnet-4-6"
+
     @Throws(IOException::class)
     fun analyzeStock(stockData: StockData, decision: String): String {
+        if (apiKey.isBlank() || apiKey == "your_api_key_here") {
+            throw IOException("Invalid API key: please set ANTHROPIC_API_KEY in local.properties")
+        }
+
         val prompt = buildPrompt(stockData, decision)
 
+        // Web search tool — no beta header needed (GA as of 2025)
         val toolsArray = JsonArray().apply {
             add(JsonObject().apply {
                 addProperty("type", "web_search_20250305")
@@ -48,7 +56,7 @@ class AnthropicService(private val apiKey: String) {
         }
 
         val requestBody = JsonObject().apply {
-            addProperty("model", "claude-opus-4-5")
+            addProperty("model", model)
             addProperty("max_tokens", 2000)
             add("tools", toolsArray)
             add("messages", messagesArray)
@@ -59,7 +67,6 @@ class AnthropicService(private val apiKey: String) {
             .post(requestBody)
             .header("x-api-key", apiKey)
             .header("anthropic-version", "2023-06-01")
-            .header("anthropic-beta", "web-search-2025-03-05")
             .header("content-type", "application/json")
             .build()
 
@@ -70,6 +77,14 @@ class AnthropicService(private val apiKey: String) {
         when (response.code) {
             429 -> throw RateLimitException("Rate limit reached. Please wait a moment and retry.")
             401 -> throw IOException("Invalid API key. Please check your ANTHROPIC_API_KEY in local.properties.")
+            400 -> {
+                // Try to extract a helpful message from the 400 response
+                val errMsg = try {
+                    val json = JsonParser.parseString(responseBody).asJsonObject
+                    json.getAsJsonObject("error")?.get("message")?.asString ?: responseBody
+                } catch (_: Exception) { responseBody }
+                throw IOException("API error: $errMsg")
+            }
             else -> if (!response.isSuccessful) {
                 throw IOException("Anthropic API error ${response.code}: $responseBody")
             }
@@ -102,7 +117,7 @@ class AnthropicService(private val apiKey: String) {
         val volumeStr = formatLargeNumber(data.volume)
 
         return """
-You are a professional financial research analyst with access to real-time web search. A user wants to $decision ${data.symbol}.
+You are a professional financial research analyst. A user wants to $decision ${data.symbol}.
 
 Current Market Data:
 - Symbol: ${data.symbol}
@@ -120,11 +135,9 @@ Current Market Data:
 - Maximum Drawdown: ${maxDrawdown.roundToInt()}%
 - Monthly data points: ${data.priceHistory.size}
 
-Using your web search capability, research the latest news, analyst opinions, earnings reports, and market trends for ${data.symbol}.
+Please research the latest news and analyst opinions for ${data.symbol} and provide a comprehensive analysis of whether the user's decision to $decision ${data.symbol} is WISE, RISKY, or NEUTRAL.
 
-Provide a comprehensive analysis of whether the user's decision to $decision ${data.symbol} is WISE, RISKY, or NEUTRAL.
-
-Format your response EXACTLY as follows:
+Format your response EXACTLY as:
 
 VERDICT: [WISE/RISKY/NEUTRAL]
 
@@ -132,10 +145,10 @@ MARKET ANALYSIS:
 [2-3 paragraphs on current market conditions, recent news, and sector trends]
 
 TECHNICAL ANALYSIS:
-[Analysis of the 5-year price trend, momentum, support/resistance levels]
+[Analysis of the 5-year price trend, support/resistance, momentum]
 
 FUNDAMENTAL ANALYSIS:
-[PE ratio context, revenue/earnings growth, competitive position, valuation]
+[PE ratio context, growth, competitive position, valuation]
 
 RISK FACTORS:
 [3-5 key risks to this investment decision]

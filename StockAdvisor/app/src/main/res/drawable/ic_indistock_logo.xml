@@ -74,10 +74,5 @@
         android:fillColor="#00000000"
         android:pathData="M96,76 L118,76 M96,84 L118,84 M96,76 L96,106 M96,84 Q110,84 110,92 Q110,100 96,100 L114,106"/>
 
-    <!-- "INDISTOCK" text strip at bottom -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M0,148 L200,148 L200,168 L0,168 Z"
-        android:alpha="0.0"/>
 
 </vector>

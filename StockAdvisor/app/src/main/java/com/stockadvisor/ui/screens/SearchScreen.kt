@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -45,10 +46,11 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Logo
+            // Actual logo PNG
             Image(
-                painter = painterResource(id = R.drawable.ic_indistock_logo),
+                painter = painterResource(id = R.drawable.ic_logo_actual),
                 contentDescription = "IndiStock Advisor",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .size(160.dp)
                     .clip(RoundedCornerShape(28.dp))

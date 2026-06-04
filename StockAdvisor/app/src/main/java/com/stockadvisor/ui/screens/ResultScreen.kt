@@ -296,7 +296,7 @@ private fun ErrorContent(
             onClick = onAnalyzeAnother,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = OnSurface)
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = OnSurface)
         ) {
             Text("Search New Ticker")
         }
