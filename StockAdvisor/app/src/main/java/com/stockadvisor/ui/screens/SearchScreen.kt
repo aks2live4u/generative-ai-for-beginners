@@ -81,7 +81,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text("Enter ticker (e.g. RELIANCE, AAPL, VOO)", color = OnSurfaceVariant)
+                    Text("e.g. RELIANCE.NS  AAPL  ^NSEI  VOO", color = OnSurfaceVariant)
                 },
                 leadingIcon = {
                     Icon(
@@ -116,7 +116,8 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("RELIANCE", "NIFTY50", "AAPL", "VOO").forEach { example ->
+                // Indian stocks need .NS (NSE) suffix; indices use ^ prefix; US stocks bare
+                listOf("RELIANCE.NS", "TCS.NS", "AAPL", "^NSEI").forEach { example ->
                     SuggestionChip(
                         onClick = { ticker = example; showError = false },
                         label = { Text(example, style = MaterialTheme.typography.labelMedium) },
@@ -129,7 +130,16 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Indian stocks: add .NS (NSE) or .BO (BSE)  •  Index: ^NSEI",
+                style = MaterialTheme.typography.labelSmall,
+                color = OnSurfaceVariant.copy(alpha = 0.55f),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = { submit() },
