@@ -1,0 +1,3 @@
+-keep class com.notnow.app.data.entity.** { *; }
+-keep class com.notnow.app.service.** { *; }
+-keepclassmembers class * extends androidx.room.RoomDatabase { *; }

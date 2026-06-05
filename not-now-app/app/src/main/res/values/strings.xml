@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Not Now</string>
+    <string name="app_tagline">Get Off the Impulse Train</string>
+    <string name="accessibility_service_label">Not Now Guardrail</string>
+    <string name="accessibility_service_description">Monitors which app is in the foreground to apply behavioral guardrails and intentional friction before impulsive actions.</string>
+
+    <!-- Setup -->
+    <string name="setup_title">Setup Required</string>
+    <string name="grant_accessibility">Enable Accessibility Service</string>
+    <string name="grant_overlay">Allow Drawing Over Apps</string>
+    <string name="grant_usage_stats">Allow Usage Access</string>
+    <string name="grant_notifications">Allow Notifications</string>
+
+    <!-- Modes -->
+    <string name="focus_mode">Focus Mode</string>
+    <string name="life_mode">Life Mode</string>
+
+    <!-- Overlay -->
+    <string name="not_now">Not Now</string>
+    <string name="wait_message">Pause. Is this intentional?</string>
+    <string name="buy_now">Buy Now (wait %d min)</string>
+    <string name="save_for_later">Save For Later</string>
+    <string name="emergency_unlock">Emergency Unlock</string>
+    <string name="unlock_15min">Unlock for 15 minutes</string>
+    <string name="unlock_30min">Unlock for 30 minutes</string>
+
+    <!-- Shopping Vault -->
+    <string name="shopping_vault">Shopping Vault</string>
+    <string name="vault_empty">No items saved yet.\nNext time you reach for a shopping app, save it here first.</string>
+    <string name="still_want_it">You saved this %s ago. Do you still want it?</string>
+    <string name="yes_buy_it">Yes, Buy It</string>
+    <string name="no_remove">No, Remove It</string>
+
+    <!-- Future Messages -->
+    <string name="future_messages">Future Self Messages</string>
+    <string name="add_message">Add a message to your future self…</string>
+    <string name="messages_empty">No messages yet.\nWrite something during a clear-headed moment.</string>
+
+    <!-- Dashboard -->
+    <string name="weekly_review">Weekly Review</string>
+    <string name="protected_hours">Protected Hours</string>
+    <string name="spending_avoided">Potential Spending Avoided</string>
+    <string name="peak_trigger_time">Peak Trigger Time</string>
+    <string name="most_attempted">Most Attempted App</string>
+    <string name="emergency_unlocks">Emergency Unlocks This Week</string>
+
+    <!-- Night Lockdown -->
+    <string name="night_lockdown">Night Lockdown</string>
+    <string name="night_lockdown_active">Night Lockdown Active\n11 PM – 7 AM</string>
+    <string name="night_lockdown_desc">Prevents low-quality decisions during low-energy hours</string>
+
+    <!-- Notifications -->
+    <string name="channel_guardrail">Guardrail Active</string>
+    <string name="channel_reminders">Shopping Reminders</string>
+    <string name="vault_reminder_title">Still want this?</string>
+    <string name="vault_reminder_body">You saved "%s" yesterday. Do you still want it?</string>
+</resources>
