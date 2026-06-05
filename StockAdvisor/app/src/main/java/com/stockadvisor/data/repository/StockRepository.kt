@@ -15,9 +15,12 @@ class StockRepository(
     private val anthropicService: AnthropicService
 ) {
     suspend fun fetchStockData(symbol: String): StockData = withContext(Dispatchers.IO) {
-        // For mutual fund queries, try mfapi.in first
-        if (mfApiService.isMutualFundQuery(symbol)) {
-            val mfData = try { mfApiService.fetchMutualFundData(symbol) } catch (_: Exception) { null }
+        // Strip market-prefix encoding (IN: / US:) before passing to mutual fund detector
+        val rawQuery = symbol.removePrefix("IN:").removePrefix("US:").trim()
+        // For mutual fund queries (India market), try mfapi.in first
+        val isIndiaQuery = !symbol.startsWith("US:")
+        if (isIndiaQuery && mfApiService.isMutualFundQuery(rawQuery)) {
+            val mfData = try { mfApiService.fetchMutualFundData(rawQuery) } catch (_: Exception) { null }
             if (mfData != null) return@withContext mfData
         }
         yahooFinanceApi.fetchStockData(symbol)

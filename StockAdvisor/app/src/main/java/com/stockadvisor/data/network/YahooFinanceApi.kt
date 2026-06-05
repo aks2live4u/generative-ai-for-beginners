@@ -17,39 +17,80 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
     @Throws(IOException::class)
     fun fetchStockData(symbol: String): StockData {
-        val (resolvedSymbol, chartData) = resolveAndFetchChart(symbol)
+        // Strip market-prefix encoding before resolving (prefix is only routing metadata)
+        val cleanInput = symbol.trim()
+        val (resolvedSymbol, chartData) = resolveAndFetchChart(cleanInput)
         val quoteData: JsonObject? = try { fetchQuoteData(resolvedSymbol) } catch (_: Exception) { null }
         return mergeData(resolvedSymbol, chartData, quoteData)
     }
 
     /**
-     * Resolution order:
-     * 1. Explicit suffix/index → use directly.
-     * 2. Bare → .NS → .BO (fast path; validates actual chart data not just HTTP 200).
-     * 3. Yahoo Finance search API (handles renamed tickers, company names, ETF names).
+     * Resolution strategy:
+     *  IN:<sym>  → India mode  : .NS → .BO → search (NSE/BSE only)
+     *  US:<sym>  → US/Global   : bare → search (skip Indian exchanges)
+     *  <sym>     → Auto        : .NS → .BO → bare → search
+     *  <sym.XX>  → Explicit    : try directly → search same exchange on rename
+     *  ^<sym>    → Index       : try directly
      */
     private fun resolveAndFetchChart(input: String): Pair<String, JsonObject> {
-        if ('.' in input || input.startsWith("^")) {
-            return input to fetchChartData(input)
+
+        // ── India mode ─────────────────────────────────────────────────────
+        if (input.startsWith("IN:")) {
+            val sym = input.removePrefix("IN:")
+            for (candidate in listOf("$sym.NS", "$sym.BO")) {
+                tryChartData(candidate)?.let { return candidate to it }
+            }
+            // Renamed ticker (e.g. ZOMATO.NS → ETERNAL.NS) — search NSE/BSE only
+            searchForSymbol(sym, indiaOnly = true)?.let { found ->
+                tryChartData(found)?.let { return found to it }
+            }
+            throw IllegalArgumentException(
+                "'$sym' not found on NSE or BSE.\nTry the exact NSE ticker (e.g. ETERNAL for Zomato)."
+            )
         }
 
-        // Fast path — prefer Indian exchanges (.NS/.BO) over bare symbol
-        // so "ZOMATO", "ITC", "RELIANCE" etc. resolve to the correct NSE ticker
-        // and don't accidentally hit a foreign ticker with the same name.
-        // US/global tickers (AAPL, MSFT) fall through naturally since .NS/.BO won't exist.
+        // ── US / Global mode ───────────────────────────────────────────────
+        if (input.startsWith("US:")) {
+            val sym = input.removePrefix("US:")
+            tryChartData(sym)?.let { return sym to it }
+            searchForSymbol(sym, indiaOnly = false, globalOnly = true)?.let { found ->
+                tryChartData(found)?.let { return found to it }
+            }
+            throw IllegalArgumentException("'$sym' not found on US/global markets.")
+        }
+
+        // ── Explicit suffix (.NS, .BO) or index (^) ────────────────────────
+        if ('.' in input || input.startsWith("^")) {
+            tryChartData(input)?.let { return input to it }
+            // Handle renamed tickers — search constrained to same exchange
+            val suffix = when {
+                input.endsWith(".NS") -> ".NS"
+                input.endsWith(".BO") -> ".BO"
+                else -> null
+            }
+            if (suffix != null) {
+                val base = input.substringBeforeLast(".")
+                searchForSymbol(base, indiaOnly = true)?.let { found ->
+                    if (found.endsWith(suffix)) tryChartData(found)?.let { return found to it }
+                }
+            }
+            throw IllegalArgumentException("Could not find '$input'.")
+        }
+
+        // ── Auto mode — prefer Indian exchanges ────────────────────────────
+        // so "ZOMATO" / "ITC" / "RELIANCE" resolve to NSE/BSE before bare
         for (candidate in listOf("$input.NS", "$input.BO", input)) {
             tryChartData(candidate)?.let { return candidate to it }
         }
 
-        // Name-search fallback
-        val searched = searchForSymbol(input)
-        if (searched != null && searched != input) {
-            tryChartData(searched)?.let { return searched to it }
+        // Search fallback (handles renamed tickers, company names, ETF names)
+        searchForSymbol(input)?.let { found ->
+            tryChartData(found)?.let { return found to it }
         }
 
-        throw IOException(
+        throw IllegalArgumentException(
             "Could not find '$input'.\n" +
-            "Try the exact NSE ticker with .NS (e.g. ETERNAL.NS for Zomato, SILVERCASE.NS for Zerodha Silver ETF)."
+            "Try selecting a specific market (India / US) or use the exact ticker with suffix (e.g. ETERNAL.NS)."
         )
     }
 
@@ -67,7 +108,11 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         }
     }
 
-    private fun searchForSymbol(query: String): String? {
+    private fun searchForSymbol(
+        query: String,
+        indiaOnly: Boolean = false,
+        globalOnly: Boolean = false
+    ): String? {
         return try {
             val encoded = URLEncoder.encode(query, "UTF-8")
             val url = "https://query1.finance.yahoo.com/v1/finance/search" +
@@ -79,17 +124,40 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             val quotes = JsonParser.parseString(body).asJsonObject
                 .getAsJsonArray("quotes") ?: return null
 
-            // Prefer Indian exchange equity/ETF
-            for (quote in quotes) {
-                val obj = quote.asJsonObject
-                val sym = obj.get("symbol")?.asString ?: continue
-                val type = obj.get("quoteType")?.asString ?: ""
-                if ((sym.endsWith(".NS") || sym.endsWith(".BO")) &&
-                    type in listOf("EQUITY", "ETF", "MUTUALFUND", "INDEX")) {
-                    return sym
+            val validTypes = listOf("EQUITY", "ETF", "MUTUALFUND", "INDEX")
+
+            when {
+                indiaOnly -> {
+                    // Only return NSE (.NS) or BSE (.BO) results
+                    for (quote in quotes) {
+                        val obj = quote.asJsonObject
+                        val sym = obj.get("symbol")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val type = obj.get("quoteType")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        if ((sym.endsWith(".NS") || sym.endsWith(".BO")) && type in validTypes) return sym
+                    }
+                    null
+                }
+                globalOnly -> {
+                    // Prefer non-Indian results; skip .NS and .BO
+                    for (quote in quotes) {
+                        val obj = quote.asJsonObject
+                        val sym = obj.get("symbol")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val type = obj.get("quoteType")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        if (!sym.endsWith(".NS") && !sym.endsWith(".BO") && type in validTypes) return sym
+                    }
+                    quotes.firstOrNull()?.asJsonObject?.get("symbol")?.takeIf { !it.isJsonNull }?.asString
+                }
+                else -> {
+                    // Auto: prefer Indian exchanges first, then global
+                    for (quote in quotes) {
+                        val obj = quote.asJsonObject
+                        val sym = obj.get("symbol")?.takeIf { !it.isJsonNull }?.asString ?: continue
+                        val type = obj.get("quoteType")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        if ((sym.endsWith(".NS") || sym.endsWith(".BO")) && type in validTypes) return sym
+                    }
+                    quotes.firstOrNull()?.asJsonObject?.get("symbol")?.takeIf { !it.isJsonNull }?.asString
                 }
             }
-            quotes.firstOrNull()?.asJsonObject?.get("symbol")?.asString
         } catch (_: Exception) { null }
     }
 
