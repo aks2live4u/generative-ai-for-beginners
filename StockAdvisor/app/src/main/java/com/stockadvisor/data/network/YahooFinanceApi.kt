@@ -15,6 +15,30 @@ import java.util.TimeZone
 
 class YahooFinanceApi(private val client: OkHttpClient) {
 
+    companion object {
+        /**
+         * Hardcoded aliases for Indian companies that renamed/rebranded their NSE ticker.
+         * Users naturally search by the old popular name, so we map it to the current symbol.
+         */
+        private val INDIA_ALIASES: Map<String, String> = mapOf(
+            "ZOMATO"        to "ETERNAL.NS",   // Zomato Ltd → Eternal Ltd (2025)
+            "ETERNAL"       to "ETERNAL.NS",
+            "CAIRN"         to "VEDL.NS",       // Cairn India merged into Vedanta
+            "CAIRN INDIA"   to "VEDL.NS",
+            "BHARAT ROAD"   to "BRNL.NS",
+            "ALLAHABAD BANK" to "BANKBARODA.NS", // merged into Bank of Baroda
+            "ANDHRA BANK"   to "UNIONBANK.NS",  // merged into Union Bank
+            "CORPORATION BANK" to "UNIONBANK.NS",
+            "OBC"           to "PNB.NS",         // Oriental Bank → Punjab National Bank
+            "ORIENTAL BANK" to "PNB.NS",
+            "DEWAN HOUSING" to "PIRAMALENTERP.NS", // DHFL merged
+            "VIDEOCON"      to "VEDL.NS",
+            "IDEA"          to "IDEA.NS",        // keep for Vodafone Idea
+            "VODAFONE IDEA" to "IDEA.NS",
+            "HINDUSTHAN NATIONAL" to "HNG.NS",
+        )
+    }
+
     @Throws(IOException::class)
     fun fetchStockData(symbol: String): StockData {
         // Strip market-prefix encoding before resolving (prefix is only routing metadata)
@@ -36,16 +60,31 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
         // ── India mode ─────────────────────────────────────────────────────
         if (input.startsWith("IN:")) {
-            val sym = input.removePrefix("IN:")
+            val sym = input.removePrefix("IN:").uppercase()
+
+            // 1. Check hardcoded alias map first (handles renames like ZOMATO → ETERNAL.NS)
+            INDIA_ALIASES[sym]?.let { aliasSymbol ->
+                tryChartData(aliasSymbol)?.let { return aliasSymbol to it }
+            }
+
+            // 2. Direct ticker attempts (.NS / .BO)
             for (candidate in listOf("$sym.NS", "$sym.BO")) {
                 tryChartData(candidate)?.let { return candidate to it }
             }
-            // Renamed ticker (e.g. ZOMATO.NS → ETERNAL.NS) — search NSE/BSE only
+
+            // 3. Yahoo Finance search — constrained to NSE/BSE
             searchForSymbol(sym, indiaOnly = true)?.let { found ->
                 tryChartData(found)?.let { return found to it }
             }
+
+            // 4. Broader search: try "<name> NSE" to help Yahoo match company names
+            searchForSymbol("$sym NSE", indiaOnly = true)?.let { found ->
+                tryChartData(found)?.let { return found to it }
+            }
+
             throw IllegalArgumentException(
-                "'$sym' not found on NSE or BSE.\nTry the exact NSE ticker (e.g. ETERNAL for Zomato)."
+                "'$sym' not found on NSE or BSE.\n" +
+                "Try the current ticker (e.g. type ETERNAL for Zomato) or switch to Auto market."
             )
         }
 
@@ -78,19 +117,26 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         }
 
         // ── Auto mode — prefer Indian exchanges ────────────────────────────
-        // so "ZOMATO" / "ITC" / "RELIANCE" resolve to NSE/BSE before bare
+        val inputUpper = input.uppercase()
+
+        // Check alias map for known Indian renames before any network call
+        INDIA_ALIASES[inputUpper]?.let { aliasSymbol ->
+            tryChartData(aliasSymbol)?.let { return aliasSymbol to it }
+        }
+
+        // Try .NS → .BO → bare (so Indian names hit correct exchange first)
         for (candidate in listOf("$input.NS", "$input.BO", input)) {
             tryChartData(candidate)?.let { return candidate to it }
         }
 
-        // Search fallback (handles renamed tickers, company names, ETF names)
+        // Search fallback (handles company names, ETFs, partial matches)
         searchForSymbol(input)?.let { found ->
             tryChartData(found)?.let { return found to it }
         }
 
         throw IllegalArgumentException(
             "Could not find '$input'.\n" +
-            "Try selecting a specific market (India / US) or use the exact ticker with suffix (e.g. ETERNAL.NS)."
+            "Try selecting India market, or use the exact ticker (e.g. ETERNAL for Zomato)."
         )
     }
 
