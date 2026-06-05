@@ -33,8 +33,11 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             return input to fetchChartData(input)
         }
 
-        // Fast path
-        for (candidate in listOf(input, "$input.NS", "$input.BO")) {
+        // Fast path — prefer Indian exchanges (.NS/.BO) over bare symbol
+        // so "ZOMATO", "ITC", "RELIANCE" etc. resolve to the correct NSE ticker
+        // and don't accidentally hit a foreign ticker with the same name.
+        // US/global tickers (AAPL, MSFT) fall through naturally since .NS/.BO won't exist.
+        for (candidate in listOf("$input.NS", "$input.BO", input)) {
             tryChartData(candidate)?.let { return candidate to it }
         }
 
@@ -129,13 +132,14 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
         val meta = chartResult.getAsJsonObject("meta")
 
-        // Extract instrument name from metadata
-        val name = meta.get("longName")?.asString
-            ?: meta.get("shortName")?.asString
+        // takeIf { !it.isJsonNull } guards against JSON null values that Gson represents
+        // as JsonNull objects (non-null in Kotlin) — calling .asString on them throws.
+        val name = meta.get("longName")?.takeIf { !it.isJsonNull }?.asString
+            ?: meta.get("shortName")?.takeIf { !it.isJsonNull }?.asString
             ?: symbol
 
-        val instrumentType = meta.get("instrumentType")?.asString
-            ?: meta.get("quoteType")?.asString
+        val instrumentType = meta.get("instrumentType")?.takeIf { !it.isJsonNull }?.asString
+            ?: meta.get("quoteType")?.takeIf { !it.isJsonNull }?.asString
             ?: "EQUITY"
 
         val timestamps = chartResult.getAsJsonArray("timestamp")

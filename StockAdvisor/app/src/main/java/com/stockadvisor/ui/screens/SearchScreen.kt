@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,8 +100,14 @@ fun SearchScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text("e.g. Reliance, Zomato, Dixon Technologies, AAPL", color = OnSurfaceVariant)
+                    Text(
+                        "e.g. RELIANCE, ITC, AAPL, ^NSEI",
+                        color = OnSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 },
+                textStyle = TextStyle(textAlign = TextAlign.Center, color = OnSurface),
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
@@ -110,11 +117,11 @@ fun SearchScreen(
                 },
                 isError = showError,
                 supportingText = if (showError) {
-                    { Text("Please enter a ticker symbol", color = RedAccent) }
+                    { Text("Please enter a company name or ticker", color = RedAccent, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
                 } else null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
+                    capitalization = KeyboardCapitalization.Characters,
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done
                 ),
@@ -133,8 +140,12 @@ fun SearchScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("RELIANCE", "TCS", "AAPL", "^NSEI").forEach { example ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf("RELIANCE", "ITC", "AAPL", "^NSEI").forEach { example ->
                     SuggestionChip(
                         onClick = { ticker = example; showError = false },
                         label = { Text(example, style = MaterialTheme.typography.labelMedium) },
@@ -142,7 +153,8 @@ fun SearchScreen(
                             containerColor = SurfaceVariant,
                             labelColor = OnSurfaceVariant
                         ),
-                        border = null
+                        border = null,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
             }
@@ -150,7 +162,7 @@ fun SearchScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Type any company name or ticker — we search Yahoo Finance to find it",
+                text = "Type any company name or ticker symbol.\nWe'll find it on Yahoo Finance automatically.",
                 style = MaterialTheme.typography.labelSmall,
                 color = OnSurfaceVariant.copy(alpha = 0.55f),
                 textAlign = TextAlign.Center

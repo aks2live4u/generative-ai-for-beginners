@@ -288,8 +288,7 @@ private fun SuccessContent(
                 onClick = onAnalyzeAnother,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .navigationBarsPadding(),
+                    .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = GreenAccent,
@@ -299,7 +298,9 @@ private fun SuccessContent(
                 Text("Analyze Another", fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Extra space so button clears the phone's navigation bar when scrolled to bottom
+            Spacer(modifier = Modifier.navigationBarsPadding())
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
