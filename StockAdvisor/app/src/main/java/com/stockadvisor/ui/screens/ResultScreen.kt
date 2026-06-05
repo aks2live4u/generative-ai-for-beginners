@@ -33,7 +33,9 @@ private data class ParsedAnalysis(
     val position: List<Triple<String, String, String>> = emptyList(),
     val strengths: List<String> = emptyList(),
     val risks: List<String> = emptyList(),
-    val recommendation: String = "",
+    val adviceBuyToday: String = "",
+    val adviceLongTerm: String = "",
+    val adviceTrader: String = "",
     val dataSource: String = ""
 )
 
@@ -241,20 +243,34 @@ private fun SuccessContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ── Recommendation ────────────────────────────────────────────────
-            if (parsed.recommendation.isNotBlank()) {
-                SectionHeader("RECOMMENDATION")
-                Spacer(modifier = Modifier.height(6.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = verdictColor.copy(alpha = 0.08f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = parsed.recommendation,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnSurface,
-                        modifier = Modifier.padding(14.dp)
+            // ── Three-persona expert advice ───────────────────────────────────
+            if (parsed.adviceBuyToday.isNotBlank() || parsed.adviceLongTerm.isNotBlank() || parsed.adviceTrader.isNotBlank()) {
+                SectionHeader("EXPERT ADVICE")
+                Spacer(modifier = Modifier.height(8.dp))
+                if (parsed.adviceBuyToday.isNotBlank()) {
+                    AdviceCard(
+                        emoji = "🎯",
+                        title = "Buying Today",
+                        body = parsed.adviceBuyToday,
+                        accentColor = RiskyColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (parsed.adviceLongTerm.isNotBlank()) {
+                    AdviceCard(
+                        emoji = "🌱",
+                        title = "Long Term / SIP",
+                        body = parsed.adviceLongTerm,
+                        accentColor = WiseColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (parsed.adviceTrader.isNotBlank()) {
+                    AdviceCard(
+                        emoji = "⚡",
+                        title = "Short-Term Trader",
+                        body = parsed.adviceTrader,
+                        accentColor = AmberAccent
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -364,6 +380,42 @@ private fun MetricsTable(rows: List<Triple<String, String, String>>) {
 }
 
 @Composable
+private fun AdviceCard(
+    emoji: String,
+    title: String,
+    body: String,
+    accentColor: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = accentColor.copy(alpha = 0.08f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(emoji, fontSize = 20.sp)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = accentColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = OnSurface,
+                lineHeight = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun BulletCard(
     items: List<String>,
     bulletColor: Color,
@@ -419,50 +471,39 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
     val position = mutableListOf<Triple<String, String, String>>()
     val strengths = mutableListOf<String>()
     val risks = mutableListOf<String>()
-    val recommendation = StringBuilder()
+    val adviceBuyToday = StringBuilder()
+    val adviceLongTerm = StringBuilder()
+    val adviceTrader = StringBuilder()
     var dataSource = ""
 
     var section = ""
     for (line in lines) {
         val trimmed = line.trim()
         when {
-            trimmed.startsWith("VERDICT:") -> {
-                verdict = trimmed.removePrefix("VERDICT:").trim()
-                section = ""
-            }
-            trimmed.startsWith("CONFIDENCE:") -> {
-                confidence = trimmed.removePrefix("CONFIDENCE:").trim()
-                section = ""
-            }
-            trimmed.startsWith("INSTRUMENT:") -> {
-                instrument = trimmed.removePrefix("INSTRUMENT:").trim()
-                section = ""
-            }
+            trimmed.startsWith("VERDICT:") -> { verdict = trimmed.removePrefix("VERDICT:").trim(); section = "" }
+            trimmed.startsWith("CONFIDENCE:") -> { confidence = trimmed.removePrefix("CONFIDENCE:").trim(); section = "" }
+            trimmed.startsWith("INSTRUMENT:") -> { instrument = trimmed.removePrefix("INSTRUMENT:").trim(); section = "" }
             trimmed.startsWith("SUMMARY") && trimmed.endsWith(":") -> section = "SUMMARY"
-            trimmed == "METRICS:" || trimmed.startsWith("METRICS") && trimmed.endsWith(":") -> section = "METRICS"
-            trimmed == "YOUR POSITION:" || trimmed.startsWith("YOUR POSITION") -> section = "POSITION"
+            trimmed.startsWith("METRICS") && trimmed.endsWith(":") -> section = "METRICS"
+            trimmed.startsWith("YOUR POSITION") -> section = "POSITION"
             trimmed.startsWith("STRENGTHS") && trimmed.endsWith(":") -> section = "STRENGTHS"
             trimmed.startsWith("RISKS") && trimmed.endsWith(":") -> section = "RISKS"
-            trimmed.startsWith("RECOMMENDATION") && trimmed.endsWith(":") -> section = "RECOMMENDATION"
-            trimmed.startsWith("DATA:") -> {
-                dataSource = trimmed.removePrefix("DATA:").trim()
-                section = ""
-            }
+            trimmed.startsWith("EXPERT ADVICE") -> section = ""
+            trimmed.startsWith("ADVICE FOR BUYER TODAY") || trimmed.startsWith("ADVICE FOR BUYING TODAY") -> section = "ADVICE_BUY"
+            trimmed.startsWith("ADVICE FOR LONG TERM") || trimmed.startsWith("ADVICE FOR LONG-TERM") -> section = "ADVICE_LT"
+            trimmed.startsWith("ADVICE FOR SHORT-TERM") || trimmed.startsWith("ADVICE FOR TRADER") -> section = "ADVICE_TR"
+            trimmed.startsWith("DATA:") -> { dataSource = trimmed.removePrefix("DATA:").trim(); section = "" }
             trimmed.startsWith("DISCLAIMER:") -> section = ""
-            trimmed.isBlank() -> { /* keep section */ }
+            trimmed.isBlank() -> { /* preserve section */ }
             else -> when (section) {
-                "SUMMARY" -> if (trimmed.startsWith("•") || trimmed.startsWith("-"))
-                    summary.add(trimmed.trimStart('•', '-', ' '))
-                "METRICS" -> parseTableRow(trimmed)?.let { metrics.add(it) }
-                "POSITION" -> parseTableRow(trimmed)?.let { position.add(it) }
-                "STRENGTHS" -> if (trimmed.startsWith("•") || trimmed.startsWith("-"))
-                    strengths.add(trimmed.trimStart('•', '-', ' '))
-                "RISKS" -> if (trimmed.startsWith("•") || trimmed.startsWith("-"))
-                    risks.add(trimmed.trimStart('•', '-', ' '))
-                "RECOMMENDATION" -> {
-                    if (recommendation.isNotEmpty()) recommendation.append(" ")
-                    recommendation.append(trimmed)
-                }
+                "SUMMARY"   -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) summary.add(trimmed.trimStart('•', '-', ' '))
+                "METRICS"   -> parseTableRow(trimmed)?.let { metrics.add(it) }
+                "POSITION"  -> parseTableRow(trimmed)?.let { position.add(it) }
+                "STRENGTHS" -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) strengths.add(trimmed.trimStart('•', '-', ' '))
+                "RISKS"     -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) risks.add(trimmed.trimStart('•', '-', ' '))
+                "ADVICE_BUY" -> { if (adviceBuyToday.isNotEmpty()) adviceBuyToday.append(" "); adviceBuyToday.append(trimmed) }
+                "ADVICE_LT"  -> { if (adviceLongTerm.isNotEmpty()) adviceLongTerm.append(" ");  adviceLongTerm.append(trimmed) }
+                "ADVICE_TR"  -> { if (adviceTrader.isNotEmpty()) adviceTrader.append(" ");       adviceTrader.append(trimmed) }
             }
         }
     }
@@ -476,7 +517,9 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
         position = position,
         strengths = strengths,
         risks = risks,
-        recommendation = recommendation.toString().trim(),
+        adviceBuyToday = adviceBuyToday.toString().trim(),
+        adviceLongTerm = adviceLongTerm.toString().trim(),
+        adviceTrader = adviceTrader.toString().trim(),
         dataSource = dataSource
     )
 }

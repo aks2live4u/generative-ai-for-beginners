@@ -237,6 +237,13 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         val currency = meta.get("currency")?.asString ?: "USD"
 
         var peRatio: Double? = null
+        var pbRatio: Double? = null
+        var eps: Double? = null
+        var debtToEquity: Double? = null
+        var dividendYield: Double? = null
+        var roe: Double? = null
+        var revenueGrowth: Double? = null
+        var earningsGrowth: Double? = null
         var marketCap: Long? = null
         var volume: Long = 0L
 
@@ -248,9 +255,17 @@ class YahooFinanceApi(private val client: OkHttpClient) {
                     ?.takeIf { it.size() > 0 }
                     ?.get(0)?.asJsonObject
                 if (quoteResult != null) {
-                    peRatio = quoteResult.get("trailingPE")?.takeIf { !it.isJsonNull }?.asDouble
-                    marketCap = quoteResult.get("marketCap")?.takeIf { !it.isJsonNull }?.asLong
-                    volume = quoteResult.get("regularMarketVolume")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
+                    fun d(key: String) = quoteResult.get(key)?.takeIf { !it.isJsonNull }?.asDouble
+                    peRatio       = d("trailingPE")
+                    pbRatio       = d("priceToBook")
+                    eps           = d("trailingEps")
+                    debtToEquity  = d("debtToEquity")
+                    dividendYield = d("dividendYield")?.let { it * 100 }  // convert 0.02 → 2.0%
+                    roe           = d("returnOnEquity")?.let { it * 100 } // convert 0.15 → 15.0%
+                    revenueGrowth = d("revenueGrowth")?.let { it * 100 }
+                    earningsGrowth= d("earningsGrowth")?.let { it * 100 }
+                    marketCap     = quoteResult.get("marketCap")?.takeIf { !it.isJsonNull }?.asLong
+                    volume        = quoteResult.get("regularMarketVolume")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
                 }
             } catch (_: Exception) { }
         }
@@ -263,6 +278,13 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             fiftyTwoWeekHigh = high52,
             fiftyTwoWeekLow = low52,
             peRatio = peRatio,
+            pbRatio = pbRatio,
+            eps = eps,
+            debtToEquity = debtToEquity,
+            dividendYield = dividendYield,
+            roe = roe,
+            revenueGrowth = revenueGrowth,
+            earningsGrowth = earningsGrowth,
             volume = volume,
             marketCap = marketCap,
             priceHistory = priceHistory
