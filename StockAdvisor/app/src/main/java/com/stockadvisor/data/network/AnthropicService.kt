@@ -261,14 +261,32 @@ RISKS:
 
 EXPERT ADVICE:
 
-FOR BUYERS:
+${when (decision) {
+    "SELL" -> """FOR SELLERS:
+[2-3 sentences. Is now a good time to sell? Reference P&L, 52W position, and trend. If they are in a loss, explicitly say selling locks it in permanently. Be direct and honest about timing.]
+
+FOR WAITING:
+[2-3 sentences. What is the case for holding instead of selling? What price target or recovery signal would justify waiting? Use actual numbers from the data.]
+
+FOR EXIT:
+[1-2 sentences. If they must exit, what is the best approach? Mention any key support/resistance levels or stop-loss strategy.]"""
+    "HOLD" -> """FOR HOLDERS:
+[2-3 sentences. Is holding still the right call? Reference the fundamental strength and current price position. Be direct.]
+
+FOR AVERAGING:
+[2-3 sentences. Should they buy more at this price to average down? ${if (isIndian) "Would monthly SIP be better than a lump sum add?" else "Would dollar-cost averaging be a good approach?"} Use actual numbers.]
+
+FOR LEAVING:
+[1-2 sentences. At what price level or trigger signal should they seriously consider exiting this position?]"""
+    else -> """FOR BUYERS:
 [2-3 sentences. Should I buy a lump sum today? Reference the P/E, 3M trend, and 52W range position with actual numbers. Be direct and honest.]
 
 FOR LONG TERM:
 [2-3 sentences. Is this a good long-term hold or SIP candidate? ${if (isIndian) "Mention whether monthly SIP is better than a lump sum, and why." else "Discuss long-term investment strategy."} Use actual numbers.]
 
 FOR TRADERS:
-[1-2 sentences. Is the short-term momentum up or down? Reference the 3M trend. When to enter or stay away?]
+[1-2 sentences. Is the short-term momentum up or down? Reference the 3M trend. When to enter or stay away?]"""
+}}
 
 DATA: ${if (isMutualFund) "AMFI via mfapi.in" else "Yahoo Finance"} | Retrieved $today
 DISCLAIMER: Educational only. Not financial advice.

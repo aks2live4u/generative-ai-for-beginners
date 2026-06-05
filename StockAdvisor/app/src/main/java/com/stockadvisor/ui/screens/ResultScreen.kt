@@ -250,32 +250,47 @@ private fun SuccessContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ── Three-persona expert advice ───────────────────────────────────
+            // ── Three-persona expert advice (labels change based on decision) ──
             if (parsed.adviceBuyToday.isNotBlank() || parsed.adviceLongTerm.isNotBlank() || parsed.adviceTrader.isNotBlank()) {
                 SectionHeader("EXPERT ADVICE")
                 Spacer(modifier = Modifier.height(8.dp))
+                val (card1Emoji, card1Title, card1Color) = when (analysis.decision) {
+                    "SELL" -> Triple("💰", "Should You Sell?", RiskyColor)
+                    "HOLD" -> Triple("📊", "Is Holding Right?", NeutralColor)
+                    else   -> Triple("🎯", "Buying Today", RiskyColor)
+                }
+                val (card2Emoji, card2Title, card2Color) = when (analysis.decision) {
+                    "SELL" -> Triple("⏳", "Hold for Recovery", WiseColor)
+                    "HOLD" -> Triple("➕", "Average Down / SIP", WiseColor)
+                    else   -> Triple("🌱", "Long Term / SIP", WiseColor)
+                }
+                val (card3Emoji, card3Title, card3Color) = when (analysis.decision) {
+                    "SELL" -> Triple("📉", "Exit Strategy", AmberAccent)
+                    "HOLD" -> Triple("🚪", "When to Exit", AmberAccent)
+                    else   -> Triple("⚡", "Short-Term Trader", AmberAccent)
+                }
                 if (parsed.adviceBuyToday.isNotBlank()) {
                     AdviceCard(
-                        emoji = "🎯",
-                        title = "Buying Today",
+                        emoji = card1Emoji,
+                        title = card1Title,
                         body = parsed.adviceBuyToday,
-                        accentColor = RiskyColor
+                        accentColor = card1Color
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 if (parsed.adviceLongTerm.isNotBlank()) {
                     AdviceCard(
-                        emoji = "🌱",
-                        title = "Long Term / SIP",
+                        emoji = card2Emoji,
+                        title = card2Title,
                         body = parsed.adviceLongTerm,
-                        accentColor = WiseColor
+                        accentColor = card2Color
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 if (parsed.adviceTrader.isNotBlank()) {
                     AdviceCard(
-                        emoji = "⚡",
-                        title = "Short-Term Trader",
+                        emoji = card3Emoji,
+                        title = card3Title,
                         body = parsed.adviceTrader,
                         accentColor = AmberAccent
                     )
@@ -682,21 +697,28 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
         }
     }
 
-    // Advice sections use text-search which is immune to markdown headers and phrasing variants
+    // Advice sections — text-search handles markdown headers + all decision variants:
+    // BUY:  FOR BUYERS  / FOR LONG TERM / FOR TRADERS
+    // SELL: FOR SELLERS / FOR WAITING   / FOR EXIT
+    // HOLD: FOR HOLDERS / FOR AVERAGING / FOR LEAVING
+    val slot2Start = listOf("FOR LONG", "FOR SIP", "FOR WAITING", "FOR AVERAGING", "FOR AVERAGE", "FOR ADDING", "FOR HOLDING INSTEAD")
+    val slot3Start = listOf("FOR TRADERS", "FOR TRADER", "FOR SHORT", "FOR EXIT", "FOR LEAVING", "FOR LEAVE")
+    val terminalStart = listOf("DATA:", "DISCLAIMER:")
+
     val adviceBuyToday = extractAdviceSection(
         text = text,
-        startKeywords = listOf("FOR BUYERS", "FOR BUYER", "FOR BUYING", "ADVICE FOR BUYER"),
-        endKeywords = listOf("FOR LONG", "FOR SIP", "FOR TRAD", "FOR SHORT", "DATA:", "DISCLAIMER:")
+        startKeywords = listOf("FOR BUYERS", "FOR BUYER", "FOR BUYING", "FOR SELLERS", "FOR SELLER", "FOR HOLDERS", "FOR HOLDER", "ADVICE FOR BUYER"),
+        endKeywords = slot2Start + slot3Start + terminalStart
     )
     val adviceLongTerm = extractAdviceSection(
         text = text,
-        startKeywords = listOf("FOR LONG TERM", "FOR LONG-TERM", "FOR SIP", "FOR LONG", "ADVICE FOR LONG"),
-        endKeywords = listOf("FOR BUY", "FOR TRAD", "FOR SHORT", "DATA:", "DISCLAIMER:")
+        startKeywords = slot2Start + listOf("ADVICE FOR LONG"),
+        endKeywords = slot3Start + terminalStart
     )
     val adviceTrader = extractAdviceSection(
         text = text,
-        startKeywords = listOf("FOR TRADERS", "FOR TRADER", "FOR SHORT-TERM TRADER", "FOR SHORT", "ADVICE FOR SHORT"),
-        endKeywords = listOf("FOR BUY", "FOR LONG", "FOR SIP", "DATA:", "DISCLAIMER:")
+        startKeywords = slot3Start + listOf("ADVICE FOR SHORT"),
+        endKeywords = terminalStart
     )
 
     return ParsedAnalysis(
