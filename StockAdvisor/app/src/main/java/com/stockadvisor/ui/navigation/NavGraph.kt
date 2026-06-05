@@ -6,15 +6,18 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.stockadvisor.ui.screens.ApiKeySetupScreen
 import com.stockadvisor.ui.screens.DecisionScreen
 import com.stockadvisor.ui.screens.ResultScreen
 import com.stockadvisor.ui.screens.SearchScreen
 import com.stockadvisor.viewmodel.StockViewModel
 
 object Routes {
-    const val SEARCH = "search"
+    const val SETUP    = "setup"
+    const val SEARCH   = "search"
+    const val SETTINGS = "settings"
     const val DECISION = "decision/{symbol}"
-    const val RESULT = "result/{symbol}/{decision}"
+    const val RESULT   = "result/{symbol}/{decision}"
 
     fun decisionRoute(symbol: String) = "decision/$symbol"
     fun resultRoute(symbol: String, decision: String) = "result/$symbol/$decision"
@@ -25,14 +28,45 @@ fun StockAdvisorNavGraph(
     navController: NavHostController = rememberNavController(),
     viewModel: StockViewModel = viewModel()
 ) {
-    NavHost(navController = navController, startDestination = Routes.SEARCH) {
+    val startDestination = if (viewModel.hasApiKey()) Routes.SEARCH else Routes.SETUP
+
+    NavHost(navController = navController, startDestination = startDestination) {
+
+        composable(Routes.SETUP) {
+            ApiKeySetupScreen(
+                isUpdate = false,
+                onKeySaved = { key ->
+                    viewModel.saveApiKey(key)
+                    navController.navigate(Routes.SEARCH) {
+                        popUpTo(Routes.SETUP) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Routes.SETTINGS) {
+            ApiKeySetupScreen(
+                isUpdate = true,
+                currentKey = viewModel.getApiKey(),
+                onKeySaved = { key ->
+                    viewModel.saveApiKey(key)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.SEARCH) {
             SearchScreen(
                 onContinue = { symbol ->
                     navController.navigate(Routes.decisionRoute(symbol))
+                },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS)
                 }
             )
         }
+
         composable(Routes.DECISION) { backStackEntry ->
             val symbol = backStackEntry.arguments?.getString("symbol") ?: ""
             DecisionScreen(
@@ -46,6 +80,7 @@ fun StockAdvisorNavGraph(
                 onBack = { navController.popBackStack() }
             )
         }
+
         composable(Routes.RESULT) { backStackEntry ->
             val symbol = backStackEntry.arguments?.getString("symbol") ?: ""
             val decision = backStackEntry.arguments?.getString("decision") ?: ""

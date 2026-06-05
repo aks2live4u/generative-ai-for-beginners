@@ -3,11 +3,11 @@ package com.stockadvisor.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.stockadvisor.BuildConfig
 import com.stockadvisor.data.model.StockAnalysis
 import com.stockadvisor.data.network.AnthropicService
 import com.stockadvisor.data.network.RateLimitException
 import com.stockadvisor.data.network.YahooFinanceApi
+import com.stockadvisor.data.preferences.ApiKeyRepository
 import com.stockadvisor.data.repository.StockRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,18 +30,34 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow<AnalysisState>(AnalysisState.Idle)
     val state: StateFlow<AnalysisState> = _state
 
+    private val apiKeyRepo = ApiKeyRepository(application)
+
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val repository = StockRepository(
-        yahooFinanceApi = YahooFinanceApi(okHttpClient),
-        anthropicService = AnthropicService(BuildConfig.ANTHROPIC_API_KEY)
-    )
+    fun hasApiKey(): Boolean = apiKeyRepo.hasApiKey()
+    fun getApiKey(): String = apiKeyRepo.getApiKey()
+    fun saveApiKey(key: String) = apiKeyRepo.saveApiKey(key)
 
     fun analyzeStock(symbol: String, decision: String) {
         if (symbol.isBlank()) return
+
+        val apiKey = apiKeyRepo.getApiKey()
+        if (apiKey.isBlank()) {
+            _state.value = AnalysisState.Error(
+                "API key not set. Tap the settings icon to add your key.",
+                isRetryable = false
+            )
+            return
+        }
+
+        val repository = StockRepository(
+            yahooFinanceApi = YahooFinanceApi(okHttpClient),
+            anthropicService = AnthropicService(apiKey)
+        )
+
         viewModelScope.launch {
             try {
                 _state.value = AnalysisState.LoadingMarketData
@@ -63,12 +79,11 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } catch (e: IllegalArgumentException) {
                 _state.value = AnalysisState.Error(
-                    "Invalid ticker '${symbol}'. Please check the symbol and try again.",
+                    "Symbol '${symbol}' not found. Try adding .NS for Indian stocks (e.g. RELIANCE.NS).",
                     isRetryable = false
                 )
             } catch (e: IOException) {
-                val msg = e.message ?: "Network error"
-                _state.value = AnalysisState.Error(msg, isRetryable = true)
+                _state.value = AnalysisState.Error(e.message ?: "Network error", isRetryable = true)
             } catch (e: Exception) {
                 _state.value = AnalysisState.Error(
                     e.message ?: "Unexpected error",

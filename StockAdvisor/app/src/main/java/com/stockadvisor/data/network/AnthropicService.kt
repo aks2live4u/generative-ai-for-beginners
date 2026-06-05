@@ -27,7 +27,7 @@ class AnthropicService(private val apiKey: String) {
     @Throws(IOException::class)
     fun analyzeStock(stockData: StockData, decision: String): String {
         if (apiKey.isBlank() || apiKey == "your_api_key_here") {
-            throw IOException("Invalid API key: open local.properties and set ANTHROPIC_API_KEY=sk-ant-...")
+            throw IOException("API key not set. Tap the settings icon on the home screen to add your key.")
         }
 
         val prompt = buildPrompt(stockData, decision)
@@ -59,7 +59,7 @@ class AnthropicService(private val apiKey: String) {
 
         when (response.code) {
             200 -> { /* success, fall through */ }
-            401 -> throw IOException("Invalid API key. Please check ANTHROPIC_API_KEY in local.properties.")
+            401 -> throw IOException("Invalid API key. Please update it via the settings icon on the home screen.")
             429 -> throw RateLimitException("Rate limit reached. Please wait a moment and retry.")
             else -> {
                 val errMsg = try {

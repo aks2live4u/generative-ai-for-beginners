@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +25,10 @@ import com.stockadvisor.R
 import com.stockadvisor.ui.theme.*
 
 @Composable
-fun SearchScreen(onContinue: (String) -> Unit) {
+fun SearchScreen(
+    onContinue: (String) -> Unit,
+    onOpenSettings: () -> Unit
+) {
     var ticker by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
 
@@ -38,6 +42,20 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             .fillMaxSize()
             .background(Background)
     ) {
+        // Settings gear — top right corner
+        IconButton(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "API Key Settings",
+                tint = OnSurfaceVariant
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -45,7 +63,6 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Logo — uses Icon with Color.Unspecified to preserve all vector colors
             Icon(
                 painter = painterResource(id = R.drawable.ic_indistock_logo),
                 contentDescription = "IndiStock Advisor",
@@ -81,7 +98,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text("e.g. RELIANCE.NS  AAPL  ^NSEI  VOO", color = OnSurfaceVariant)
+                    Text("e.g. Reliance, TCS, AAPL, Nifty50", color = OnSurfaceVariant)
                 },
                 leadingIcon = {
                     Icon(
@@ -116,8 +133,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Indian stocks need .NS (NSE) suffix; indices use ^ prefix; US stocks bare
-                listOf("RELIANCE.NS", "TCS.NS", "AAPL", "^NSEI").forEach { example ->
+                listOf("RELIANCE", "TCS", "AAPL", "^NSEI").forEach { example ->
                     SuggestionChip(
                         onClick = { ticker = example; showError = false },
                         label = { Text(example, style = MaterialTheme.typography.labelMedium) },
@@ -133,7 +149,7 @@ fun SearchScreen(onContinue: (String) -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Indian stocks: add .NS (NSE) or .BO (BSE)  •  Index: ^NSEI",
+                text = "Just type the company name — we'll find the right exchange automatically",
                 style = MaterialTheme.typography.labelSmall,
                 color = OnSurfaceVariant.copy(alpha = 0.55f),
                 textAlign = TextAlign.Center
