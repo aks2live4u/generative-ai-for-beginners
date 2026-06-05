@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
@@ -25,24 +27,27 @@ class MainActivity : ComponentActivity() {
 
         val app = application as NotNowApplication
 
-        // Seed default rules and schedule workers on first launch
         lifecycleScope.launch {
-            if (app.preferences.isFirstLaunch.first()) {
+            val isFirst = app.preferences.isFirstLaunch.first()
+
+            // Run seed synchronously before showing UI so rules are ready
+            if (isFirst) {
                 app.appRuleRepository.seedDefaults()
                 app.preferences.setFirstLaunchDone()
                 BootReceiver.scheduleWorkers(applicationContext)
             }
-        }
 
-        lifecycleScope.launch {
-            val isFirst = app.preferences.isFirstLaunch.first()
             val startDest = if (isFirst) Route.Setup.path else Route.Home.path
 
             setContent {
                 NotNowTheme {
                     val navController = rememberNavController()
                     androidx.compose.foundation.layout.Box(
-                        modifier = Modifier.fillMaxSize().background(DeepNavy)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(DeepNavy)
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
                     ) {
                         AppNavigation(
                             navController = navController,

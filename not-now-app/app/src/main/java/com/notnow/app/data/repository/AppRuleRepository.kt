@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 class AppRuleRepository(private val dao: AppRuleDao) {
 
-    val allRules: Flow<List<AppRule>> = dao.observeAllEnabled()
+    val allRules: Flow<List<AppRule>> = dao.observeAll()
 
     suspend fun getRuleForPackage(packageName: String): AppRule? =
         dao.findByPackage(packageName)
@@ -17,6 +17,11 @@ class AppRuleRepository(private val dao: AppRuleDao) {
 
     suspend fun setEnabled(packageName: String, enabled: Boolean) =
         dao.setEnabled(packageName, enabled)
+
+    suspend fun resetToDefaults() {
+        seedDefaults()
+        dao.enableAll()
+    }
 
     suspend fun seedDefaults() {
         val defaults = listOf(

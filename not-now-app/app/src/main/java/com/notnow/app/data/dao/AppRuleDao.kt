@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AppRuleDao {
+    @Query("SELECT * FROM app_rules ORDER BY appName ASC")
+    fun observeAll(): Flow<List<AppRule>>
+
     @Query("SELECT * FROM app_rules WHERE isEnabled = 1")
     fun observeAllEnabled(): Flow<List<AppRule>>
 
@@ -29,4 +32,7 @@ interface AppRuleDao {
 
     @Query("UPDATE app_rules SET isEnabled = :enabled WHERE packageName = :pkg")
     suspend fun setEnabled(pkg: String, enabled: Boolean)
+
+    @Query("UPDATE app_rules SET isEnabled = 1")
+    suspend fun enableAll()
 }
