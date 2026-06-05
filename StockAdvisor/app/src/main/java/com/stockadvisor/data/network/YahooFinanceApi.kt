@@ -16,72 +16,71 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
     @Throws(IOException::class, IllegalArgumentException::class)
     fun fetchStockData(symbol: String): StockData {
-        // Resolve the actual Yahoo Finance symbol (may auto-append .NS for Indian stocks)
-        val resolvedSymbol = resolveSymbol(symbol)
-        val chartData = fetchChartData(resolvedSymbol)
-        val quoteData = fetchQuoteData(resolvedSymbol)
+        val (resolvedSymbol, chartData) = fetchChartWithAutoSuffix(symbol)
+        // Quote data is supplementary (PE, market cap) — never fail the whole request if it's unavailable
+        val quoteData: JsonObject? = try { fetchQuoteData(resolvedSymbol) } catch (_: Exception) { null }
         return mergeData(resolvedSymbol, chartData, quoteData)
     }
 
     /**
-     * Yahoo Finance requires exchange suffixes for non-US stocks.
-     * Indian stocks: RELIANCE.NS (NSE), RELIANCE.BO (BSE)
-     * Indices: ^NSEI (Nifty50), ^BSESN (Sensex), ^GSPC (S&P500)
-     * US stocks/ETFs: AAPL, VOO — no suffix needed
-     *
-     * Strategy: if the symbol has no dot or caret, try as-is first.
-     * On 404, retry with .NS suffix (catches most Indian NSE stocks).
+     * Tries the symbol as entered first, then appends .NS (NSE) and .BO (BSE) for Indian stocks.
+     * Validates that the chart response actually contains data — a bare Yahoo Finance 200 with
+     * null results (e.g. "ZOMATO" with no suffix) is treated the same as a 404.
      */
-    private fun resolveSymbol(symbol: String): String {
-        // Already has exchange suffix or is an index — use directly
-        if ('.' in symbol || symbol.startsWith("^")) return symbol
+    private fun fetchChartWithAutoSuffix(symbol: String): Pair<String, JsonObject> {
+        // User explicitly provided exchange suffix or index prefix — use exactly as-is
+        if ('.' in symbol || symbol.startsWith("^")) {
+            return symbol to fetchChartData(symbol)
+        }
 
-        // Try the bare symbol first (works for US stocks)
-        val bareOk = try { checkSymbolExists(symbol) } catch (_: IOException) { false }
-        if (bareOk) return symbol
+        val candidates = listOf(symbol, "$symbol.NS", "$symbol.BO")
 
-        // Try NSE suffix (most Indian stocks)
-        val nsSymbol = "$symbol.NS"
-        val nsOk = try { checkSymbolExists(nsSymbol) } catch (_: IOException) { false }
-        if (nsOk) return nsSymbol
+        for (candidate in candidates) {
+            try {
+                val json = fetchChartData(candidate)
+                val hasData = json.getAsJsonObject("chart")
+                    ?.getAsJsonArray("result")
+                    ?.let { it.size() > 0 } == true
+                if (hasData) return candidate to json
+                // 200 OK but null result — symbol doesn't exist under this suffix, try next
+            } catch (e: IOException) {
+                val msg = e.message ?: ""
+                // Auth / network errors mean the service itself is unavailable — stop retrying
+                if ("401" in msg || "403" in msg) throw e
+                // 404 or any other fetch error → try next suffix
+            }
+        }
 
-        // Try BSE suffix as last resort
-        val boSymbol = "$symbol.BO"
-        val boOk = try { checkSymbolExists(boSymbol) } catch (_: IOException) { false }
-        if (boOk) return boSymbol
-
-        // Fall through — fetchChartData will return a proper error
-        return symbol
-    }
-
-    private fun checkSymbolExists(symbol: String): Boolean {
-        val url = "https://query1.finance.yahoo.com/v8/finance/chart/$symbol?interval=1mo&range=1mo"
-        val request = buildRequest(url)
-        val response = client.newCall(request).execute()
-        response.body?.string() // consume body
-        return response.isSuccessful
+        throw IOException(
+            "'$symbol' not found on any exchange.\n" +
+            "For Indian NSE stocks add .NS (e.g. ${symbol}.NS).\n" +
+            "For Nifty50 index use ^NSEI."
+        )
     }
 
     private fun fetchChartData(symbol: String): JsonObject {
         val url = "https://query1.finance.yahoo.com/v8/finance/chart/$symbol?interval=1mo&range=5y"
         val response = client.newCall(buildRequest(url)).execute()
-        val body = response.body?.string() ?: throw IOException("Empty chart response")
+        val body = response.body?.string() ?: throw IOException("Empty chart response for $symbol")
         if (!response.isSuccessful) {
-            val hint = if (response.code == 404)
-                "Symbol '$symbol' not found. For Indian stocks use format: RELIANCE.NS or TCS.NS"
-            else
-                "Yahoo Finance error ${response.code} for '$symbol'"
-            throw IOException(hint)
+            throw IOException("Yahoo Finance chart error ${response.code} for $symbol")
         }
         return JsonParser.parseString(body).asJsonObject
     }
 
     private fun fetchQuoteData(symbol: String): JsonObject {
-        val url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=$symbol"
-        val response = client.newCall(buildRequest(url)).execute()
-        val body = response.body?.string() ?: throw IOException("Empty quote response")
-        if (!response.isSuccessful) throw IOException("Yahoo Finance quote error ${response.code}")
-        return JsonParser.parseString(body).asJsonObject
+        // Try query2 first — it is often less restricted than query1
+        for (host in listOf("query2", "query1")) {
+            try {
+                val url = "https://$host.finance.yahoo.com/v7/finance/quote?symbols=$symbol"
+                val response = client.newCall(buildRequest(url)).execute()
+                val body = response.body?.string()
+                if (response.isSuccessful && body != null) {
+                    return JsonParser.parseString(body).asJsonObject
+                }
+            } catch (_: Exception) { }
+        }
+        throw IOException("Quote data unavailable for $symbol")
     }
 
     private fun buildRequest(url: String): Request = Request.Builder()
@@ -93,7 +92,7 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         .header("Referer", "https://finance.yahoo.com/")
         .build()
 
-    private fun mergeData(symbol: String, chartJson: JsonObject, quoteJson: JsonObject): StockData {
+    private fun mergeData(symbol: String, chartJson: JsonObject, quoteJson: JsonObject?): StockData {
         val chartResult = chartJson
             .getAsJsonObject("chart")
             .getAsJsonArray("result")
@@ -131,19 +130,21 @@ class YahooFinanceApi(private val client: OkHttpClient) {
         var marketCap: Long? = null
         var volume: Long = 0L
 
-        try {
-            val quoteResult = quoteJson
-                .getAsJsonObject("quoteResponse")
-                .getAsJsonArray("result")
-                ?.takeIf { it.size() > 0 }
-                ?.get(0)?.asJsonObject
+        if (quoteJson != null) {
+            try {
+                val quoteResult = quoteJson
+                    .getAsJsonObject("quoteResponse")
+                    .getAsJsonArray("result")
+                    ?.takeIf { it.size() > 0 }
+                    ?.get(0)?.asJsonObject
 
-            if (quoteResult != null) {
-                peRatio = quoteResult.get("trailingPE")?.takeIf { !it.isJsonNull }?.asDouble
-                marketCap = quoteResult.get("marketCap")?.takeIf { !it.isJsonNull }?.asLong
-                volume = quoteResult.get("regularMarketVolume")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
-            }
-        } catch (_: Exception) { /* quote supplementary — ignore on failure */ }
+                if (quoteResult != null) {
+                    peRatio = quoteResult.get("trailingPE")?.takeIf { !it.isJsonNull }?.asDouble
+                    marketCap = quoteResult.get("marketCap")?.takeIf { !it.isJsonNull }?.asLong
+                    volume = quoteResult.get("regularMarketVolume")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
+                }
+            } catch (_: Exception) { /* supplementary — ignore on failure */ }
+        }
 
         return StockData(
             symbol = symbol.uppercase(),

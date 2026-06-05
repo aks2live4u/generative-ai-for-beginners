@@ -1,38 +1,28 @@
-# Stock Advisor Android App
+# IndiStock Advisor — Android App
 
-An AI-powered Android app that analyzes stock, ETF, and mutual fund investment decisions using Claude AI with live web search.
+AI-powered stock analysis app for Indian and global markets. Uses Claude AI for investment research and Yahoo Finance for live market data.
+
+## Getting Started
+
+1. Build the APK in Android Studio (or run `./gradlew assembleDebug`)
+2. Install on your device
+3. On first launch, enter your Anthropic API key (get one free at [console.anthropic.com](https://console.anthropic.com))
+4. Search any stock by name or ticker and get AI analysis
+
+The API key is stored only on your device. You can update it anytime via the settings icon on the home screen.
 
 ## Features
 
-- Enter any ticker symbol (AAPL, VOO, FXAIX, BTC-USD, etc.)
-- Choose your intended action: **BUY**, **SELL**, or **HOLD**
-- Receive a comprehensive AI analysis:
-  - Live market data from Yahoo Finance (no API key needed)
-  - Real-time web research via Claude's built-in web search tool
-  - Verdict: **WISE** / **RISKY** / **NEUTRAL**
-  - Sections: Market Analysis, Technical, Fundamental, Risk Factors, Recommendation
-
-## Setup
-
-1. Get a free Anthropic API key at https://console.anthropic.com
-2. Open `local.properties` and replace the placeholder:
-   ```
-   ANTHROPIC_API_KEY=sk-ant-...your-key-here...
-   ```
-3. Build the APK:
-   ```bash
-   ./gradlew assembleDebug
-   ```
-4. Install on your device:
-   ```bash
-   adb install app/build/outputs/apk/debug/app-debug.apk
-   ```
+- Search any ticker — Indian stocks (RELIANCE, TCS, ZOMATO), US stocks (AAPL), ETFs (VOO), or indices (^NSEI)
+- Choose action: **BUY**, **SELL**, or **HOLD**
+- AI verdict: **WISE** / **RISKY** / **NEUTRAL**
+- Full analysis: Market, Technical, Fundamental, Risk Factors, Recommendation
 
 ## Requirements
 
 - Android 8.0+ (API 26+)
 - Internet connection
-- Anthropic API key
+- Anthropic API key (free tier available)
 
 ## Project Structure
 
@@ -42,10 +32,11 @@ app/src/main/java/com/stockadvisor/
 ├── data/
 │   ├── model/          # StockData, StockAnalysis, Verdict
 │   ├── network/        # YahooFinanceApi, AnthropicService
+│   ├── preferences/    # ApiKeyRepository (on-device key storage)
 │   └── repository/     # StockRepository
 ├── ui/
 │   ├── navigation/     # NavGraph
-│   ├── screens/        # SearchScreen, DecisionScreen, ResultScreen
+│   ├── screens/        # SearchScreen, DecisionScreen, ResultScreen, ApiKeySetupScreen
 │   └── theme/          # Dark theme (Color, Type, Theme)
 └── viewmodel/          # StockViewModel + AnalysisState
 ```
@@ -56,15 +47,15 @@ app/src/main/java/com/stockadvisor/
 |-------|--------|
 | Language | Kotlin |
 | UI | Jetpack Compose + Material 3 |
-| AI | Claude API (claude-opus-4-5) with web_search tool |
-| Market Data | Yahoo Finance API (free, no key needed) |
+| AI | Claude API (claude-sonnet-4-6) |
+| Market Data | Yahoo Finance (free, no key needed) |
 | HTTP | OkHttp |
 | Architecture | MVVM + StateFlow |
 | Min SDK | 26 (Android 8.0) |
 
-## Cost Estimate
+## Cost
 
-~$0.003–$0.01 per analysis query. Essentially free for personal use.
+~$0.003–$0.01 per analysis query on the free Anthropic tier.
 
 ---
 
