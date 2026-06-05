@@ -110,18 +110,26 @@ class AnthropicService(private val apiKey: String) {
         val maxDrawdown = calculateMaxDrawdown(data.priceHistory)
         val vsHigh = if (data.fiftyTwoWeekHigh > 0)
             ((data.currentPrice - data.fiftyTwoWeekHigh) / data.fiftyTwoWeekHigh * 100).roundToInt() else 0
+        val vsLow = if (data.fiftyTwoWeekLow > 0)
+            ((data.currentPrice - data.fiftyTwoWeekLow) / data.fiftyTwoWeekLow * 100).roundToInt() else 100
+        // rangePosition: 0% = at 52W low, 100% = at 52W high
+        val rangePosition = if (data.fiftyTwoWeekHigh > data.fiftyTwoWeekLow)
+            ((data.currentPrice - data.fiftyTwoWeekLow) / (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow) * 100).roundToInt()
+            else 50
+
         val currencySymbol = if ("NS" in data.symbol || "BO" in data.symbol || data.symbol.startsWith("MF:")) "₹" else "$"
         val peStr = data.peRatio?.let { String.format("%.1f", it) } ?: "N/A"
         val marketCapStr = data.marketCap?.let { formatLargeNumber(it, currencySymbol) } ?: "N/A"
         val isMutualFund = data.assetType.contains("FUND", ignoreCase = true) || data.symbol.startsWith("MF:")
         val priceLabel = if (isMutualFund) "NAV" else "Price"
 
+        val pnlPct: Double?
         val positionSection = if ((decision == "SELL" || decision == "HOLD") && (quantity != null || avgBuyPrice != null)) {
             val qtyStr = quantity?.toString() ?: "?"
             val buyStr = avgBuyPrice?.let { "$currencySymbol${String.format("%.2f", it)}" } ?: "?"
             val pnl = if (avgBuyPrice != null && quantity != null)
                 (data.currentPrice - avgBuyPrice) * quantity else null
-            val pnlPct = if (avgBuyPrice != null && avgBuyPrice > 0)
+            pnlPct = if (avgBuyPrice != null && avgBuyPrice > 0)
                 ((data.currentPrice - avgBuyPrice) / avgBuyPrice * 100) else null
             val pnlStr = if (pnl != null) {
                 val sign = if (pnl >= 0) "+" else ""
@@ -135,7 +143,10 @@ USER'S CURRENT POSITION:
 - Current $priceLabel: $currencySymbol${String.format("%.2f", data.currentPrice)}
 - Unrealized P&L: $pnlStr
 """
-        } else ""
+        } else {
+            pnlPct = null
+            ""
+        }
 
         val instrumentTypeLabel = when {
             isMutualFund -> "Indian Mutual Fund"
@@ -144,30 +155,97 @@ USER'S CURRENT POSITION:
             else -> "Equity"
         }
 
-        return """
-You are a financial research assistant helping everyday investors. A user wants to $decision the following instrument.
+        // Context clues for the prompt so Claude can reason correctly
+        val pricePositionDesc = when {
+            rangePosition <= 10 -> "VERY NEAR 52-WEEK LOW ($rangePosition% of yearly range) — stock is at/near its lowest point this year"
+            rangePosition <= 25 -> "Near 52-week low ($rangePosition% of yearly range) — stock is in the lower quarter of its yearly range"
+            rangePosition >= 90 -> "VERY NEAR 52-WEEK HIGH ($rangePosition% of yearly range) — stock is near its highest point this year"
+            rangePosition >= 75 -> "Near 52-week high ($rangePosition% of yearly range) — stock is in the upper quarter of its yearly range"
+            else -> "Mid-range ($rangePosition% of yearly range)"
+        }
 
-INSTRUMENT DATA (source: ${if (isMutualFund) "AMFI/mfapi.in" else "Yahoo Finance"}, retrieved $today):
-- Symbol: ${data.symbol}
-- Full Name: ${data.name.ifBlank { data.symbol }}
-- Type: $instrumentTypeLabel
+        val sellContextNote = if (decision == "SELL") {
+            val lossNote = if (pnlPct != null && pnlPct < -15)
+                "\n- USER IS IN A LOSS OF ${String.format("%.1f", pnlPct)}% — selling now permanently locks in this loss."
+            else if (pnlPct != null && pnlPct >= 20)
+                "\n- USER IS IN A PROFIT OF ${String.format("%.1f", pnlPct)}% — selling takes a meaningful gain off the table."
+            else ""
+            "SELL CONTEXT: $pricePositionDesc$lossNote"
+        } else if (decision == "BUY") {
+            "BUY CONTEXT: $pricePositionDesc"
+        } else {
+            "HOLD CONTEXT: $pricePositionDesc"
+        }
+
+        return """
+You are a senior stock advisor at a reputable Indian investment firm. You think like Warren Buffett and Rakesh Jhunjhunwala — long-term, patient, fundamentals-first. A user is asking whether to $decision ${data.name.ifBlank { data.symbol }}.
+
+MARKET DATA (${if (isMutualFund) "AMFI/mfapi.in" else "Yahoo Finance"}, $today):
+- Name: ${data.name.ifBlank { data.symbol }}
+- Symbol: ${data.symbol} | Type: $instrumentTypeLabel
 - Current $priceLabel: $currencySymbol${String.format("%.2f", data.currentPrice)}
-- 52-Week High: $currencySymbol${String.format("%.2f", data.fiftyTwoWeekHigh)}
-- 52-Week Low: $currencySymbol${String.format("%.2f", data.fiftyTwoWeekLow)}
-- vs 52W High: $vsHigh%
-- P/E Ratio: $peStr
-- Market Cap / AUM: $marketCapStr
-- 5Y Return: $pctChange%
-- Max Drawdown (5Y): ${maxDrawdown.roundToInt()}%
+- 52-Week High: $currencySymbol${String.format("%.2f", data.fiftyTwoWeekHigh)}  |  52-Week Low: $currencySymbol${String.format("%.2f", data.fiftyTwoWeekLow)}
+- Price vs 52W High: $vsHigh%  |  Price vs 52W Low: +$vsLow%
+- Position in yearly range: $pricePositionDesc
+- 5-Year Return: $pctChange%
+- Max Single Drawdown (5Y): ${maxDrawdown.roundToInt()}%
+- P/E Ratio: $peStr  |  Market Cap: $marketCapStr
 $positionSection
-CRITICAL INSTRUCTIONS:
-1. You are analyzing ONLY the instrument listed above (${data.name.ifBlank { data.symbol }}). Do NOT invent data not provided here.
-2. If the instrument name does not match a typical $decision candidate, state this at the top.
-3. If data seems insufficient (e.g., a newly listed fund with little history), say so clearly.
-4. Keep every section SHORT — use bullet points, not paragraphs. Max 12 words per bullet.
-5. Follow the EXACT output format below. Do not add or rename sections.
-6. Write in very simple, plain English that a first-time investor can understand. Avoid financial jargon. If you must use a technical term, explain it in 3 words immediately after in brackets.
-7. In the SUMMARY and RECOMMENDATION, imagine you are explaining to a friend who has never invested before. Be direct: good, bad, or okay?
+$sellContextNote
+
+═══════════════════════════════════════════════════════════
+INVESTMENT LOGIC — APPLY THESE RULES STRICTLY:
+═══════════════════════════════════════════════════════════
+
+RULE 1 — NEVER RECOMMEND SELLING AT THE BOTTOM:
+If the stock is within 20% of its 52-week LOW (range position ≤ 25%), recommending SELL is almost always BAD advice. The investor would be selling at maximum pain, locking in peak losses. The stock has already fallen hard — the damage is done. The correct advice is usually HOLD and wait for recovery.
+Exception: only recommend selling near the low if there is strong evidence the company is going bankrupt or fundamentally broken.
+
+RULE 2 — DON'T CRYSTALLIZE LOSSES:
+If the user is in an unrealized loss (negative P&L), selling converts a "paper loss" into a permanent, real loss. Unless the company's future is genuinely broken, always lean toward HOLD. Market cycles recover. A -33% loss recovers fully once the stock goes back to the buy price.
+
+RULE 3 — A FALLING STOCK ≠ A BAD COMPANY:
+Stock prices go up and down with market sentiment, economic cycles, and sector rotations. A stock down 30-40% from its high but with a positive 5-year return is showing normal market volatility, NOT permanent value destruction. Treat it like a sale at a store — the business may still be good.
+
+RULE 4 — THE 52-WEEK RANGE TELLS THE STORY:
+• Price in bottom 0-25% of range: stock is beaten down — HOLD if fundamentals okay, RISKY to SELL, potential BUY opportunity
+• Price in middle 25-75% of range: neutral zone — use other metrics to decide
+• Price in top 75-100% of range: stock is extended — CAUTION on BUY, might be good time to take profits on SELL
+
+RULE 5 — 5-YEAR RETURN IS THE HEALTH CHECK:
+• Positive 5Y return (>0%) = business is still growing over time. Temporary dip is likely recoverable.
+• Negative 5Y return = business might be structurally declining. More caution warranted.
+
+RULE 6 — FOR BUY DECISIONS:
+• Near 52W Low + positive 5Y return = potentially good entry point (buying when others are fearful)
+• Near 52W High = paying a premium, higher risk of short-term pullback
+• High P/E (>40) = expensive stock, lower margin of safety
+
+RULE 7 — FOR SELL/HOLD WITH A LOSS:
+• Ask: "Has the reason I bought this stock changed?" If not, holding is almost always better than selling at a loss.
+• The recommendation should acknowledge the loss honestly but guide the user correctly: do NOT sell at the bottom.
+• If the stock has strong 5Y returns and is near its low → clearly say: "Hold and wait for recovery."
+
+RULE 8 — VERDICT GUIDELINES FOR $decision:
+${when (decision) {
+    "SELL" -> """• WISE to sell: stock is near 52W HIGH and user is in profit (>15%), OR company has major fundamental problems
+• NEUTRAL: stock is mid-range, user is in small profit/loss, unclear direction
+• RISKY to sell: stock is near 52W LOW, user is in loss — selling locks in maximum loss at the worst time"""
+    "BUY" -> """• WISE to buy: stock near 52W LOW with strong 5Y returns, reasonable P/E, established company
+• NEUTRAL: mid-range stock, moderate metrics, reasonable entry but not exceptional
+• RISKY to buy: stock near 52W HIGH, high P/E (>40), or major drawdown with negative 5Y returns"""
+    else -> """• WISE to hold: stock is fundamentally sound, temporary dip, user should wait for recovery
+• NEUTRAL: mixed signals, holding is reasonable but monitor closely
+• RISKY to hold: persistent negative 5Y returns, fundamental business problems"""
+}}
+═══════════════════════════════════════════════════════════
+
+FORMATTING INSTRUCTIONS:
+1. Use the rules above to reason about this specific stock's situation.
+2. Write in simple, plain English — imagine explaining to a friend.
+3. Be direct and honest. If the user is making a mistake (e.g., wanting to sell at the bottom), say so clearly and explain why.
+4. Max 12 words per bullet. No jargon. If technical term needed, explain in brackets.
+5. Follow the EXACT output format below.
 
 OUTPUT FORMAT — follow this EXACTLY:
 
@@ -177,36 +255,37 @@ CONFIDENCE: [HIGH/MEDIUM/LOW]
 INSTRUMENT: ${data.name.ifBlank { data.symbol }} | ${data.symbol} | $instrumentTypeLabel
 
 SUMMARY:
-• [key takeaway in simple everyday language — max 12 words]
-• [key takeaway in simple everyday language — max 12 words]
-• [key takeaway in simple everyday language — max 12 words]
+• [key takeaway — max 12 words, plain English]
+• [key takeaway — max 12 words, plain English]
+• [key takeaway — max 12 words, plain English]
 
 METRICS:
 Current $priceLabel | $currencySymbol${String.format("%.2f", data.currentPrice)} | -
 52W High | $currencySymbol${String.format("%.2f", data.fiftyTwoWeekHigh)} | -
 52W Low | $currencySymbol${String.format("%.2f", data.fiftyTwoWeekLow)} | -
 vs 52W High | $vsHigh% | [↑ GOOD if > -5%, ↓ CAUTION otherwise]
+vs 52W Low | +$vsLow% | [stock is ${if (vsLow <= 10) "↓ AT/NEAR BOTTOM" else if (vsLow <= 30) "→ RECOVERING" else "↑ WELL ABOVE LOW"}]
 5Y Return | $pctChange% | [↑ GOOD if > 50%, → NEUTRAL 10-50%, ↓ WEAK if < 10%]
 Max Drawdown | ${maxDrawdown.roundToInt()}% | [↓ HIGH RISK if > 40%, → MODERATE 20-40%, ↑ LOW if < 20%]
-P/E Ratio | $peStr | [↓ EXPENSIVE if > 40, → FAIR 15-40, ↑ CHEAP if < 15, N/A if unavailable]
+P/E Ratio | $peStr | [↓ EXPENSIVE if > 40, → FAIR 15-40, ↑ CHEAP if < 15]
 Market Cap | $marketCapStr | -
 ${if (positionSection.isNotBlank()) """
 YOUR POSITION:
 Avg Buy Price | [from position data] | -
 Unrealized P&L | [calculate from position data] | [↑ PROFIT or ↓ LOSS]
-P&L % | [calculate] | [↑ or ↓]""" else ""}
+P&L % | [calculate] | [note: selling locks this in permanently]""" else ""}
 STRENGTHS:
-• [positive factor in plain English — max 12 words]
-• [positive factor in plain English — max 12 words]
-• [positive factor in plain English — max 12 words]
+• [positive factor — max 12 words]
+• [positive factor — max 12 words]
+• [positive factor — max 12 words]
 
 RISKS:
-• [risk in plain English — max 12 words]
-• [risk in plain English — max 12 words]
-• [risk in plain English — max 12 words]
+• [risk factor — max 12 words]
+• [risk factor — max 12 words]
+• [risk factor — max 12 words]
 
 RECOMMENDATION:
-[2 sentences max. Use everyday words. Tell the user clearly what to do and why. No jargon. If SELL/HOLD, factor in their position profit/loss.]
+[2-3 sentences. Be a real advisor. Be honest. If the user is asking to sell at the bottom with a big loss, tell them clearly that is bad advice and why. Use the investment rules above. Plain English only.]
 
 DATA: ${if (isMutualFund) "AMFI via mfapi.in" else "Yahoo Finance"} | Retrieved $today
 DISCLAIMER: Educational only. Not financial advice.
