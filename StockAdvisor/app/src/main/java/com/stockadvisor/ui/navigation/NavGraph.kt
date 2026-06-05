@@ -61,9 +61,7 @@ fun StockAdvisorNavGraph(
                 onContinue = { symbol ->
                     navController.navigate(Routes.decisionRoute(symbol))
                 },
-                onOpenSettings = {
-                    navController.navigate(Routes.SETTINGS)
-                }
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
 
@@ -71,8 +69,8 @@ fun StockAdvisorNavGraph(
             val symbol = backStackEntry.arguments?.getString("symbol") ?: ""
             DecisionScreen(
                 symbol = symbol,
-                onDecision = { decision ->
-                    viewModel.analyzeStock(symbol, decision)
+                onDecision = { decision, quantity, avgBuyPrice ->
+                    viewModel.analyzeStock(symbol, decision, quantity, avgBuyPrice)
                     navController.navigate(Routes.resultRoute(symbol, decision)) {
                         popUpTo(Routes.SEARCH)
                     }

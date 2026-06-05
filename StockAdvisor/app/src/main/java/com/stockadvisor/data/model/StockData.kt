@@ -7,6 +7,8 @@ data class PricePoint(
 
 data class StockData(
     val symbol: String,
+    val name: String = "",
+    val assetType: String = "EQUITY",
     val currentPrice: Double,
     val fiftyTwoWeekHigh: Double,
     val fiftyTwoWeekLow: Double,

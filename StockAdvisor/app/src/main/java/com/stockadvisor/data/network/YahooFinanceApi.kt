@@ -24,40 +24,32 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
     /**
      * Resolution order:
-     * 1. If the user typed an explicit suffix (RELIANCE.NS) or index (^NSEI) → use directly.
-     * 2. Try bare symbol, then .NS, then .BO (fast path for simple tickers like RELIANCE, TCS).
-     * 3. If all fail → call Yahoo Finance search API with the full query to map company names
-     *    or outdated tickers to the current symbol (e.g. "Zomato" → "ETERNAL.NS",
-     *    "ZERODHA SILVER ETF" → "SILVERCASE.NS", "DIXON TECHNOLOGIES" → "DIXON.NS").
+     * 1. Explicit suffix/index → use directly.
+     * 2. Bare → .NS → .BO (fast path; validates actual chart data not just HTTP 200).
+     * 3. Yahoo Finance search API (handles renamed tickers, company names, ETF names).
      */
     private fun resolveAndFetchChart(input: String): Pair<String, JsonObject> {
-        // User already specified exchange suffix or index prefix — trust it exactly
         if ('.' in input || input.startsWith("^")) {
             return input to fetchChartData(input)
         }
 
-        // Fast path: try the ticker as entered, then with NSE and BSE suffixes
+        // Fast path
         for (candidate in listOf(input, "$input.NS", "$input.BO")) {
             tryChartData(candidate)?.let { return candidate to it }
         }
 
-        // Name-search fallback: ask Yahoo Finance search API for the correct symbol
+        // Name-search fallback
         val searched = searchForSymbol(input)
-        if (searched != null) {
+        if (searched != null && searched != input) {
             tryChartData(searched)?.let { return searched to it }
         }
 
         throw IOException(
             "Could not find '$input'.\n" +
-            "Tip: use the exact NSE ticker (e.g. ETERNAL.NS for Zomato, SILVERCASE.NS for Zerodha Silver ETF)."
+            "Try the exact NSE ticker with .NS (e.g. ETERNAL.NS for Zomato, SILVERCASE.NS for Zerodha Silver ETF)."
         )
     }
 
-    /**
-     * Returns chart JsonObject only if the response is successful AND contains actual result data.
-     * Returns null on 404 or empty result (try next candidate).
-     * Re-throws on auth errors (401/403) since retrying won't help.
-     */
     private fun tryChartData(symbol: String): JsonObject? {
         return try {
             val json = fetchChartData(symbol)
@@ -67,16 +59,11 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             if (hasData) json else null
         } catch (e: IOException) {
             val msg = e.message ?: ""
-            if ("401" in msg || "403" in msg) throw e  // auth failure — stop retrying
-            null  // 404 or other error — try next candidate
+            if ("401" in msg || "403" in msg) throw e
+            null
         }
     }
 
-    /**
-     * Uses Yahoo Finance's autocomplete/search endpoint to resolve a company name or
-     * outdated ticker to the current active symbol.
-     * Prefers Indian exchange symbols (.NS/.BO). Falls back to any first result.
-     */
     private fun searchForSymbol(query: String): String? {
         return try {
             val encoded = URLEncoder.encode(query, "UTF-8")
@@ -89,7 +76,7 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             val quotes = JsonParser.parseString(body).asJsonObject
                 .getAsJsonArray("quotes") ?: return null
 
-            // Prefer equity/ETF results on Indian exchanges
+            // Prefer Indian exchange equity/ETF
             for (quote in quotes) {
                 val obj = quote.asJsonObject
                 val sym = obj.get("symbol")?.asString ?: continue
@@ -99,11 +86,8 @@ class YahooFinanceApi(private val client: OkHttpClient) {
                     return sym
                 }
             }
-            // Fall back to first result (US stocks, etc.)
             quotes.firstOrNull()?.asJsonObject?.get("symbol")?.asString
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
     private fun fetchChartData(symbol: String): JsonObject {
@@ -144,6 +128,16 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             ?: throw IOException("No chart data returned for $symbol")
 
         val meta = chartResult.getAsJsonObject("meta")
+
+        // Extract instrument name from metadata
+        val name = meta.get("longName")?.asString
+            ?: meta.get("shortName")?.asString
+            ?: symbol
+
+        val instrumentType = meta.get("instrumentType")?.asString
+            ?: meta.get("quoteType")?.asString
+            ?: "EQUITY"
+
         val timestamps = chartResult.getAsJsonArray("timestamp")
         val closes = chartResult
             .getAsJsonObject("indicators")
@@ -168,6 +162,7 @@ class YahooFinanceApi(private val client: OkHttpClient) {
             ?: 0.0
         val high52 = meta.get("fiftyTwoWeekHigh")?.asDouble ?: 0.0
         val low52 = meta.get("fiftyTwoWeekLow")?.asDouble ?: 0.0
+        val currency = meta.get("currency")?.asString ?: "USD"
 
         var peRatio: Double? = null
         var marketCap: Long? = null
@@ -190,6 +185,8 @@ class YahooFinanceApi(private val client: OkHttpClient) {
 
         return StockData(
             symbol = symbol.uppercase(),
+            name = name,
+            assetType = instrumentType,
             currentPrice = currentPrice,
             fiftyTwoWeekHigh = high52,
             fiftyTwoWeekLow = low52,

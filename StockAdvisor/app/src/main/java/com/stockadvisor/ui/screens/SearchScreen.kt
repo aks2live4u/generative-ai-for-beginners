@@ -41,6 +41,7 @@ fun SearchScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
+            .statusBarsPadding()
     ) {
         // Settings gear — top right corner
         IconButton(
