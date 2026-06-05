@@ -2,7 +2,6 @@ package com.notnow.app.service
 
 import android.content.Context
 import android.graphics.PixelFormat
-import android.provider.Settings
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -36,11 +35,7 @@ class OverlayManager(
     private var currentLifecycle: ServiceLifecycleOwner? = null
 
     fun show(packageName: String, rule: AppRule, isNight: Boolean) {
-        // Already blocked — don't stack overlays
         if (currentView != null) return
-
-        // Permission guard: SYSTEM_ALERT_WINDOW must be granted
-        if (!Settings.canDrawOverlays(context)) return
 
         val lifecycle = ServiceLifecycleOwner()
         currentLifecycle = lifecycle
@@ -93,10 +88,11 @@ class OverlayManager(
             }
         }
 
+        // TYPE_ACCESSIBILITY_OVERLAY bypasses SYSTEM_ALERT_WINDOW; works for any active AccessibilityService
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.OPAQUE
@@ -105,9 +101,16 @@ class OverlayManager(
         try {
             wm.addView(view, params)
             currentView = view
-        } catch (e: Exception) {
-            lifecycle.destroy()
-            currentLifecycle = null
+        } catch (_: Exception) {
+            // Fall back to TYPE_APPLICATION_OVERLAY (requires SYSTEM_ALERT_WINDOW permission)
+            try {
+                params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                wm.addView(view, params)
+                currentView = view
+            } catch (e: Exception) {
+                lifecycle.destroy()
+                currentLifecycle = null
+            }
         }
     }
 

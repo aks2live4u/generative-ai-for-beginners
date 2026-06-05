@@ -22,7 +22,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         overlayManager = OverlayManager(
-            context     = applicationContext,
+            context     = this,
             scope       = scope,
             messageRepo = app.futureMessageRepository,
             prefs       = app.preferences,
@@ -74,6 +74,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         lastBlockedPackage = packageName
         lastBlockedTime = System.currentTimeMillis()
+
+        // Guaranteed block — sends user to home screen with zero permissions required.
+        // This fires even if the overlay fails for any reason.
+        performGlobalAction(GLOBAL_ACTION_HOME)
 
         // Must run on main thread — WindowManager requires it
         withContext(Dispatchers.Main) {
