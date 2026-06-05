@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions"
         xmlns:tools="http://schemas.android.com/tools" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".NotNowApplication"
@@ -21,6 +22,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NotNow">
 
+        <!-- Main Entry Point -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -31,22 +33,25 @@
             </intent-filter>
         </activity>
 
-        <!-- Fullscreen countdown shown over blocked apps -->
+        <!-- Countdown Overlay (shown over blocked apps) -->
         <activity
             android:name=".ui.screen.overlay.CountdownOverlayActivity"
             android:exported="false"
             android:excludeFromRecents="true"
-            android:showOnLockScreen="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
-        <!-- Shopping choice overlay (Buy Now / Save For Later) -->
+        <!-- Shopping Overlay -->
         <activity
             android:name=".ui.screen.overlay.ShoppingOverlayActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
-        <!-- Core accessibility service that detects app launches -->
+        <!-- Guardrail Accessibility Service -->
         <service
             android:name=".service.GuardrailAccessibilityService"
             android:exported="true"
@@ -60,15 +65,15 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- Boot Receiver -->
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="true">
-            <intent-filter android:priority="999">
+            <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
     </application>
-
 </manifest>

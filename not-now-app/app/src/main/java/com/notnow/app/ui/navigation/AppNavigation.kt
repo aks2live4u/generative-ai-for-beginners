@@ -4,67 +4,48 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.notnow.app.NotNowApplication
 import com.notnow.app.ui.screen.dashboard.WeeklyDashboardScreen
 import com.notnow.app.ui.screen.home.HomeScreen
 import com.notnow.app.ui.screen.messages.FutureMessagesScreen
 import com.notnow.app.ui.screen.setup.SetupScreen
 import com.notnow.app.ui.screen.vault.ShoppingVaultScreen
 
-object Routes {
-    const val SETUP = "setup"
-    const val HOME = "home"
-    const val VAULT = "vault"
-    const val MESSAGES = "messages"
-    const val DASHBOARD = "dashboard"
+sealed class Route(val path: String) {
+    object Setup   : Route("setup")
+    object Home    : Route("home")
+    object Vault   : Route("vault")
+    object Messages: Route("messages")
+    object Dashboard: Route("dashboard")
 }
 
 @Composable
-fun AppNavHost(
+fun AppNavigation(
     navController: NavHostController,
-    startDestination: String,
-    app: NotNowApplication
+    startDestination: String
 ) {
     NavHost(navController = navController, startDestination = startDestination) {
-
-        composable(Routes.SETUP) {
-            SetupScreen(
-                onSetupComplete = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.SETUP) { inclusive = true }
-                    }
+        composable(Route.Setup.path) {
+            SetupScreen(onSetupComplete = {
+                navController.navigate(Route.Home.path) {
+                    popUpTo(Route.Setup.path) { inclusive = true }
                 }
-            )
+            })
         }
-
-        composable(Routes.HOME) {
+        composable(Route.Home.path) {
             HomeScreen(
-                app = app,
-                onNavigateToVault = { navController.navigate(Routes.VAULT) },
-                onNavigateToMessages = { navController.navigate(Routes.MESSAGES) },
-                onNavigateToDashboard = { navController.navigate(Routes.DASHBOARD) }
+                onOpenVault     = { navController.navigate(Route.Vault.path) },
+                onOpenMessages  = { navController.navigate(Route.Messages.path) },
+                onOpenDashboard = { navController.navigate(Route.Dashboard.path) }
             )
         }
-
-        composable(Routes.VAULT) {
-            ShoppingVaultScreen(
-                app = app,
-                onBack = { navController.popBackStack() }
-            )
+        composable(Route.Vault.path) {
+            ShoppingVaultScreen(onBack = { navController.popBackStack() })
         }
-
-        composable(Routes.MESSAGES) {
-            FutureMessagesScreen(
-                app = app,
-                onBack = { navController.popBackStack() }
-            )
+        composable(Route.Messages.path) {
+            FutureMessagesScreen(onBack = { navController.popBackStack() })
         }
-
-        composable(Routes.DASHBOARD) {
-            WeeklyDashboardScreen(
-                app = app,
-                onBack = { navController.popBackStack() }
-            )
+        composable(Route.Dashboard.path) {
+            WeeklyDashboardScreen(onBack = { navController.popBackStack() })
         }
     }
 }

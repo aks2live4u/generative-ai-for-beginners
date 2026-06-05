@@ -5,93 +5,76 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "notnow_prefs")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 
-enum class OperatingMode { FOCUS, LIFE }
-
-class AppPreferences(private val context: Context) {
-
-    private object Keys {
-        val OPERATING_MODE = stringPreferencesKey("operating_mode")
-        val NIGHT_LOCKDOWN_ENABLED = booleanPreferencesKey("night_lockdown_enabled")
-        val NIGHT_LOCKDOWN_START_HOUR = intPreferencesKey("night_lockdown_start_hour")
-        val NIGHT_LOCKDOWN_END_HOUR = intPreferencesKey("night_lockdown_end_hour")
-        val NIGHT_LOCKDOWN_ACTIVE = booleanPreferencesKey("night_lockdown_active")
-        val EMERGENCY_UNLOCK_UNTIL = longPreferencesKey("emergency_unlock_until")
-        val GUARDRAIL_ENABLED = booleanPreferencesKey("guardrail_enabled")
-        val SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
-    }
-
-    val operatingMode: Flow<OperatingMode> = context.dataStore.data.map { prefs ->
-        OperatingMode.valueOf(prefs[Keys.OPERATING_MODE] ?: OperatingMode.LIFE.name)
-    }
-
-    val nightLockdownEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[Keys.NIGHT_LOCKDOWN_ENABLED] ?: true
-    }
-
-    val nightLockdownStartHour: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[Keys.NIGHT_LOCKDOWN_START_HOUR] ?: 23
-    }
-
-    val nightLockdownEndHour: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[Keys.NIGHT_LOCKDOWN_END_HOUR] ?: 7
-    }
-
-    val nightLockdownActive: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[Keys.NIGHT_LOCKDOWN_ACTIVE] ?: false
-    }
-
-    val emergencyUnlockUntil: Flow<Long> = context.dataStore.data.map { prefs ->
-        prefs[Keys.EMERGENCY_UNLOCK_UNTIL] ?: 0L
-    }
-
-    val guardrailEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[Keys.GUARDRAIL_ENABLED] ?: true
-    }
-
-    val setupComplete: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[Keys.SETUP_COMPLETE] ?: false
-    }
-
-    suspend fun setOperatingMode(mode: OperatingMode) {
-        context.dataStore.edit { it[Keys.OPERATING_MODE] = mode.name }
-    }
-
-    suspend fun setNightLockdownEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.NIGHT_LOCKDOWN_ENABLED] = enabled }
-    }
-
-    suspend fun setNightLockdownSchedule(startHour: Int, endHour: Int) {
-        context.dataStore.edit {
-            it[Keys.NIGHT_LOCKDOWN_START_HOUR] = startHour
-            it[Keys.NIGHT_LOCKDOWN_END_HOUR] = endHour
-        }
-    }
-
-    suspend fun setNightLockdownActive(active: Boolean) {
-        context.dataStore.edit { it[Keys.NIGHT_LOCKDOWN_ACTIVE] = active }
-    }
-
-    suspend fun setEmergencyUnlockUntil(timestamp: Long) {
-        context.dataStore.edit { it[Keys.EMERGENCY_UNLOCK_UNTIL] = timestamp }
-    }
-
-    suspend fun setGuardrailEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.GUARDRAIL_ENABLED] = enabled }
-    }
-
-    suspend fun setSetupComplete(complete: Boolean) {
-        context.dataStore.edit { it[Keys.SETUP_COMPLETE] = complete }
-    }
+class AppPreferences(context: Context) {
+    private val store = context.applicationContext.dataStore
 
     companion object {
-        @Volatile private var instance: AppPreferences? = null
-        fun getInstance(context: Context): AppPreferences =
-            instance ?: synchronized(this) {
-                instance ?: AppPreferences(context.applicationContext).also { instance = it }
-            }
+        val KEY_OPERATING_MODE = stringPreferencesKey("operating_mode")
+        val KEY_NIGHT_LOCKDOWN_ENABLED = booleanPreferencesKey("night_lockdown_enabled")
+        val KEY_NIGHT_START_HOUR = intPreferencesKey("night_start_hour")
+        val KEY_NIGHT_END_HOUR = intPreferencesKey("night_end_hour")
+        val KEY_EMERGENCY_UNLOCK_UNTIL = longPreferencesKey("emergency_unlock_until")
+        val KEY_IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
+        val KEY_PROTECTED_TIME_SECONDS = longPreferencesKey("protected_time_seconds")
+        val KEY_SPENDING_AVOIDED = longPreferencesKey("spending_avoided_paise")
+    }
+
+    val operatingMode: Flow<String> = store.data.safeCatch().map {
+        it[KEY_OPERATING_MODE] ?: "LIFE"
+    }
+
+    val nightLockdownEnabled: Flow<Boolean> = store.data.safeCatch().map {
+        it[KEY_NIGHT_LOCKDOWN_ENABLED] ?: true
+    }
+
+    val nightStartHour: Flow<Int> = store.data.safeCatch().map {
+        it[KEY_NIGHT_START_HOUR] ?: 23
+    }
+
+    val nightEndHour: Flow<Int> = store.data.safeCatch().map {
+        it[KEY_NIGHT_END_HOUR] ?: 7
+    }
+
+    val emergencyUnlockUntil: Flow<Long> = store.data.safeCatch().map {
+        it[KEY_EMERGENCY_UNLOCK_UNTIL] ?: 0L
+    }
+
+    val isFirstLaunch: Flow<Boolean> = store.data.safeCatch().map {
+        it[KEY_IS_FIRST_LAUNCH] ?: true
+    }
+
+    suspend fun setOperatingMode(mode: String) = store.edit {
+        it[KEY_OPERATING_MODE] = mode
+    }
+
+    suspend fun setNightLockdownEnabled(enabled: Boolean) = store.edit {
+        it[KEY_NIGHT_LOCKDOWN_ENABLED] = enabled
+    }
+
+    suspend fun setNightHours(start: Int, end: Int) = store.edit {
+        it[KEY_NIGHT_START_HOUR] = start
+        it[KEY_NIGHT_END_HOUR] = end
+    }
+
+    suspend fun setEmergencyUnlockUntil(timestampMs: Long) = store.edit {
+        it[KEY_EMERGENCY_UNLOCK_UNTIL] = timestampMs
+    }
+
+    suspend fun setFirstLaunchDone() = store.edit {
+        it[KEY_IS_FIRST_LAUNCH] = false
+    }
+
+    suspend fun addProtectedTimeSeconds(seconds: Long) = store.edit { prefs ->
+        prefs[KEY_PROTECTED_TIME_SECONDS] = (prefs[KEY_PROTECTED_TIME_SECONDS] ?: 0L) + seconds
+    }
+
+    private fun Flow<Preferences>.safeCatch() = catch { e ->
+        if (e is IOException) emit(emptyPreferences()) else throw e
     }
 }

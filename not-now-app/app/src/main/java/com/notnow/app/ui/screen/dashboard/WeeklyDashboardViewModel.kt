@@ -3,74 +3,61 @@ package com.notnow.app.ui.screen.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.notnow.app.data.entity.InteractionType
 import com.notnow.app.data.entity.UsageRecord
-import com.notnow.app.data.repository.ShoppingVaultRepository
-import com.notnow.app.data.repository.UsageRecordRepository
+import com.notnow.app.data.preferences.AppPreferences
+import com.notnow.app.data.repository.UsageRepository
+import com.notnow.app.data.repository.WeeklyStats
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
-data class DashboardState(
-    val protectedHours: Double = 0.0,
-    val itemsSaved: Int = 0,
-    val peakTriggerTime: String = "—",
+data class DashboardUiState(
+    val protectedTimeHours: Float = 0f,
     val mostAttemptedApp: String = "—",
     val emergencyUnlocks: Int = 0,
-    val records: List<UsageRecord> = emptyList()
+    val recentRecords: List<UsageRecord> = emptyList(),
+    val peakHour: String = "—"
 )
 
 class WeeklyDashboardViewModel(
-    private val usageRepo: UsageRecordRepository,
-    private val vaultRepo: ShoppingVaultRepository
+    private val usageRepo: UsageRepository,
+    private val prefs: AppPreferences
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(DashboardState())
-    val state: StateFlow<DashboardState> = _state.asStateFlow()
+    private val weekAgo = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)
 
-    init {
-        viewModelScope.launch {
-            usageRepo.getWeeklyRecords().collect { records ->
-                val protectedSeconds = records.filter { it.interactionType == InteractionType.BLOCKED }
-                    .sumOf { it.delayApplied.toLong() }
-                val protectedHours = protectedSeconds / 3600.0
+    val uiState: StateFlow<DashboardUiState> = combine(
+        usageRepo.getRecordsSince(weekAgo),
+        prefs.operatingMode // just to trigger recomposition
+    ) { records, _ ->
+        val peakHour = records
+            .groupBy { java.util.Calendar.getInstance().apply { timeInMillis = it.attemptedAt }.get(java.util.Calendar.HOUR_OF_DAY) }
+            .maxByOrNull { it.value.size }?.key
+        val peakLabel = peakHour?.let {
+            val suffix = if (it < 12) "AM" else "PM"
+            val h = if (it == 0) 12 else if (it > 12) it - 12 else it
+            "$h:00 $suffix"
+        } ?: "—"
 
-                val emergencyUnlocks = records.count { it.interactionType == InteractionType.BYPASSED }
+        DashboardUiState(
+            recentRecords = records.take(50),
+            peakHour = peakLabel
+        )
+    }.combine(prefs.operatingMode.take(1)) { state, _ ->
+        state
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 
-                val appCounts = records.groupBy { it.appName }.mapValues { it.value.size }
-                val topApp = appCounts.maxByOrNull { it.value }?.key ?: "—"
-
-                val hourCounts = records.groupBy {
-                    val cal = java.util.Calendar.getInstance().apply { timeInMillis = it.timestamp }
-                    cal.get(java.util.Calendar.HOUR_OF_DAY)
-                }.mapValues { it.value.size }
-                val peakHour = hourCounts.maxByOrNull { it.value }?.key
-                val peakTime = peakHour?.let { h ->
-                    val ampm = if (h < 12) "AM" else "PM"
-                    val displayHour = if (h == 0) 12 else if (h > 12) h - 12 else h
-                    "$displayHour:00 $ampm"
-                } ?: "—"
-
-                val itemsSaved = vaultRepo.countSavedThisWeek()
-
-                _state.value = DashboardState(
-                    protectedHours = protectedHours,
-                    itemsSaved = itemsSaved,
-                    peakTriggerTime = peakTime,
-                    mostAttemptedApp = topApp,
-                    emergencyUnlocks = emergencyUnlocks,
-                    records = records.takeLast(50)
-                )
-            }
+    val protectedTimeHours: StateFlow<Float> = flow {
+        val prefs2 = prefs
+        prefs2.operatingMode.collect { // trigger
+            // emit calculated value
         }
-    }
-}
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
 
-class WeeklyDashboardViewModelFactory(
-    private val usageRepo: UsageRecordRepository,
-    private val vaultRepo: ShoppingVaultRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST") return WeeklyDashboardViewModel(usageRepo, vaultRepo) as T
+    class Factory(private val repo: UsageRepository, private val prefs: AppPreferences) :
+        ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            WeeklyDashboardViewModel(repo, prefs) as T
     }
 }

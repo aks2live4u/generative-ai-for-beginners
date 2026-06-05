@@ -6,23 +6,13 @@ import kotlinx.coroutines.flow.Flow
 
 class FutureMessageRepository(private val dao: FutureMessageDao) {
 
-    fun getActiveMessages(): Flow<List<FutureMessage>> = dao.getActiveMessages()
+    val allMessages: Flow<List<FutureMessage>> = dao.observeAll()
 
-    suspend fun getRandomMessage(): FutureMessage? = dao.getRandomMessage()
+    suspend fun getRandomMessage(): FutureMessage? = dao.getRandom()
 
-    suspend fun add(message: String): Long = dao.insert(FutureMessage(message = message.trim()))
+    suspend fun add(message: String) = dao.insert(FutureMessage(message = message))
 
-    suspend fun delete(id: Long) = dao.delete(id)
+    suspend fun delete(message: FutureMessage) = dao.delete(message)
 
-    suspend fun seedDefaults() {
-        val defaults = listOf(
-            "Finish the chapter first.",
-            "You wanted investments, not another package.",
-            "This urge will pass.",
-            "Come back tomorrow and decide again.",
-            "Sleep on it. Always sleep on it.",
-            "Your future self is watching this decision."
-        )
-        defaults.forEach { dao.insert(FutureMessage(message = it)) }
-    }
+    suspend fun recordShown(id: Long) = dao.incrementShowCount(id)
 }

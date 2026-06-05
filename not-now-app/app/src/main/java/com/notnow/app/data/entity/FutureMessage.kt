@@ -8,5 +8,5 @@ data class FutureMessage(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val message: String,
     val createdAt: Long = System.currentTimeMillis(),
-    val isActive: Boolean = true
+    val showCount: Int = 0
 )

@@ -1,5 +1,6 @@
 package com.notnow.app.ui.screen.setup
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -10,178 +11,140 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.notnow.app.data.preferences.AppPreferences
-import kotlinx.coroutines.launch
+import com.notnow.app.service.GuardrailAccessibilityService
+import com.notnow.app.ui.theme.*
 
 @Composable
 fun SetupScreen(onSetupComplete: () -> Unit) {
     val context = LocalContext.current
+    var accessibilityOk by remember { mutableStateOf(false) }
+    var overlayOk       by remember { mutableStateOf(false) }
+    var usageOk         by remember { mutableStateOf(false) }
 
-    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    var accessibilityGranted by remember {
-        mutableStateOf(isAccessibilityEnabled(context))
-    }
-    var usageStatsGranted by remember { mutableStateOf(isUsageStatsGranted(context)) }
-
-    val overlayLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        overlayGranted = Settings.canDrawOverlays(context)
-    }
-    val accessibilityLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        accessibilityGranted = isAccessibilityEnabled(context)
-    }
-    val usageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        usageStatsGranted = isUsageStatsGranted(context)
+    fun refresh() {
+        accessibilityOk = GuardrailAccessibilityService.isEnabled(context)
+        overlayOk       = Settings.canDrawOverlays(context)
+        usageOk         = hasUsageStatsPermission(context)
     }
 
-    val allGranted = overlayGranted && accessibilityGranted && usageStatsGranted
-    val prefs = remember { AppPreferences.getInstance(context) }
-    val scope = rememberCoroutineScope()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        refresh()
+    }
 
-    Box(
+    LaunchedEffect(Unit) { refresh() }
+
+    val allDone = accessibilityOk && overlayOk && usageOk
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0D0D0D)),
-        contentAlignment = Alignment.Center
+            .background(DeepNavy)
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Text("NOT NOW", color = Color(0xFFE85D04), fontSize = 13.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-            Text("Setup Required", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "Three permissions are needed. None collect your data — everything stays on your phone.",
-                color = Color(0xFF888888),
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center
-            )
+        Text("👋", fontSize = 56.sp)
+        Spacer(Modifier.height(16.dp))
+        Text("Set Up Not Now", style = MaterialTheme.typography.headlineLarge, color = TextPrimary, textAlign = TextAlign.Center)
+        Text(
+            "Three quick permissions — all on-device, nothing leaves your phone.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
-            Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(32.dp))
 
-            PermissionRow(
-                title = "Draw Over Apps",
-                description = "Shows the countdown overlay when you open a restricted app",
-                granted = overlayGranted,
-                onClick = {
-                    overlayLauncher.launch(
-                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
-                    )
-                }
-            )
-
-            PermissionRow(
-                title = "Accessibility Service",
-                description = "Detects which app is in the foreground — the core guardrail mechanism",
-                granted = accessibilityGranted,
-                onClick = {
-                    accessibilityLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                }
-            )
-
-            PermissionRow(
-                title = "Usage Access",
-                description = "Tracks usage patterns for the weekly reflection dashboard",
-                granted = usageStatsGranted,
-                onClick = {
-                    usageLauncher.launch(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    scope.launch { prefs.setSetupComplete(true) }
-                    onSetupComplete()
-                },
-                enabled = allGranted,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE85D04),
-                    disabledContainerColor = Color(0xFF2A2A2A)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    if (allGranted) "Start Not Now" else "Grant all permissions above",
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    color = if (allGranted) Color.White else Color(0xFF555555)
-                )
+        PermissionItem(
+            title = "Accessibility Service",
+            subtitle = "Detects when a restricted app opens",
+            granted = accessibilityOk,
+            onClick = {
+                launcher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             }
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionItem(
+            title = "Draw Over Apps",
+            subtitle = "Shows the countdown on top of blocked apps",
+            granted = overlayOk,
+            onClick = {
+                launcher.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+            }
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionItem(
+            title = "Usage Access",
+            subtitle = "Tracks which apps you tried to open (locally only)",
+            granted = usageOk,
+            onClick = {
+                launcher.launch(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        Button(
+            onClick = { if (allDone) onSetupComplete() else refresh() },
+            enabled = allDone,
+            colors = ButtonDefaults.buttonColors(containerColor = AccentAmber),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            Text(
+                if (allDone) "All Set — Let's Go" else "Grant All Three Above",
+                color = DeepNavy,
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }
 
 @Composable
-private fun PermissionRow(
-    title: String,
-    description: String,
-    granted: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1A))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+private fun PermissionItem(title: String, subtitle: String, granted: Boolean, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = CardDark,
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (granted) Color(0xFF1A3A1A) else Color(0xFF2A2A2A)),
-            contentAlignment = Alignment.Center
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (granted) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (granted) AccentGreen.copy(alpha = 0.2f) else BorderDark,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (granted) Icon(Icons.Default.Check, null, tint = AccentGreen, modifier = Modifier.size(20.dp))
+                }
             }
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            Text(description, color = Color(0xFF666666), fontSize = 12.sp)
-        }
-
-        if (!granted) {
-            TextButton(onClick = onClick) {
-                Text("Grant", color = Color(0xFFE85D04), fontSize = 13.sp)
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             }
+            if (!granted) Icon(Icons.Default.ChevronRight, null, tint = TextSecondary)
         }
     }
 }
 
-private fun isAccessibilityEnabled(context: android.content.Context): Boolean {
-    val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-    return enabled?.contains(context.packageName) == true
-}
-
-private fun isUsageStatsGranted(context: android.content.Context): Boolean {
+private fun hasUsageStatsPermission(context: Context): Boolean {
     return try {
-        val appOps = context.getSystemService(android.content.Context.APP_OPS_SERVICE) as android.app.AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-            android.os.Process.myUid(),
-            context.packageName
-        )
-        mode == android.app.AppOpsManager.MODE_ALLOWED
-    } catch (e: Exception) {
-        false
-    }
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+        val stats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+            System.currentTimeMillis() - 1000, System.currentTimeMillis())
+        stats != null && stats.isNotEmpty()
+    } catch (e: Exception) { false }
 }

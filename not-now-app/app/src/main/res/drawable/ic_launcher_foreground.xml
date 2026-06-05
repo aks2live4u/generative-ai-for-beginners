@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hand/stop icon representing "Not Now" -->
+    <path
+        android:fillColor="#F0B429"
+        android:pathData="M54,20 C44.6,20 37,27.6 37,37 L37,54 C37,63.4 44.6,71 54,71 C63.4,71 71,63.4 71,54 L71,37 C71,27.6 63.4,20 54,20 Z M54,26 C60.1,26 65,30.9 65,37 L65,54 C65,60.1 60.1,65 54,65 C47.9,65 43,60.1 43,54 L43,37 C43,30.9 47.9,26 54,26 Z"/>
+    <path
+        android:fillColor="#F0B429"
+        android:pathData="M54,73 C42.4,73 33,82.4 33,94 L75,94 C75,82.4 65.6,73 54,73 Z"/>
+</vector>

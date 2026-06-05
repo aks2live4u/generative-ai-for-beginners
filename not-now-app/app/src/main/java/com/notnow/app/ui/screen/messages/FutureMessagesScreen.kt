@@ -5,115 +5,141 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.FutureMessage
+import com.notnow.app.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FutureMessagesScreen(app: NotNowApplication, onBack: () -> Unit) {
-    val vm: FutureMessagesViewModel = viewModel(factory = FutureMessagesViewModelFactory(app.futureMessageRepository))
+fun FutureMessagesScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val app = context.applicationContext as NotNowApplication
+    val vm: FutureMessagesViewModel = viewModel(factory = FutureMessagesViewModel.Factory(app.futureMessageRepository))
+
     val messages by vm.messages.collectAsStateWithLifecycle()
-    var newMessage by remember { mutableStateOf("") }
+    var showAddDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D0D)).statusBarsPadding()
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Future Self Messages", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("Shown during unlock requests", color = Color(0xFF666666), fontSize = 12.sp)
-            }
-        }
-
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            OutlinedTextField(
-                value = newMessage,
-                onValueChange = { newMessage = it },
-                placeholder = { Text("Write something during a clear-headed moment…", color = Color(0xFF555555)) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFE85D04),
-                    unfocusedBorderColor = Color(0xFF333333),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Color(0xFFE85D04)
-                ),
-                maxLines = 3,
-                trailingIcon = {
-                    if (newMessage.isNotBlank()) {
-                        IconButton(onClick = { vm.add(newMessage); newMessage = "" }) {
-                            Icon(Icons.Default.Send, contentDescription = "Add", tint = Color(0xFFE85D04))
-                        }
+    Scaffold(
+        containerColor = DeepNavy,
+        topBar = {
+            TopAppBar(
+                title = { Text("Future Self Messages", color = TextPrimary) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = TextPrimary) }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DeepNavy),
+                actions = {
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, null, tint = AccentAmber)
                     }
                 }
             )
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (messages.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    "No messages yet.\n\nWrite something honest\nto your future self.",
-                    color = Color(0xFF555555),
-                    textAlign = TextAlign.Center,
-                    fontSize = 15.sp
-                )
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(messages, key = { it.id }) { message ->
-                    MessageCard(message = message, onDelete = { vm.delete(message.id) })
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                    Text(
+                        "Write messages to yourself during moments of clarity. They appear on the countdown screen when you try to open a restricted app.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
-                item { Spacer(modifier = Modifier.height(32.dp)) }
+            }
+
+            if (messages.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("💬", style = MaterialTheme.typography.headlineLarge)
+                        Text("No messages yet", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+                        Text("Write something to your future self.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center)
+                        Button(onClick = { showAddDialog = true }, colors = ButtonDefaults.buttonColors(containerColor = AccentAmber)) {
+                            Text("Write First Message", color = DeepNavy)
+                        }
+                    }
+                }
+            }
+
+            items(messages, key = { it.id }) { msg ->
+                MessageCard(msg = msg, onDelete = { vm.delete(msg) })
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        AddMessageDialog(
+            onDismiss = { showAddDialog = false },
+            onSave = { text ->
+                vm.addMessage(text)
+                showAddDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun MessageCard(msg: FutureMessage, onDelete: () -> Unit) {
+    Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
+            Text("\"", style = MaterialTheme.typography.headlineMedium, color = AccentAmber, modifier = Modifier.padding(end = 8.dp, top = 2.dp))
+            Text(msg.message, style = MaterialTheme.typography.bodyLarge, color = TextPrimary, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.DeleteOutline, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
 
 @Composable
-private fun MessageCard(message: FutureMessage, onDelete: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF1A1A1A))
-            .padding(16.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            "\"${message.message}\"",
-            color = Color(0xFFDDDDDD),
-            fontSize = 14.sp,
-            fontStyle = FontStyle.Italic,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color(0xFF444444), modifier = Modifier.size(18.dp))
-        }
-    }
+private fun AddMessageDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardDark,
+        title = { Text("Write to Future Self", color = TextPrimary) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Your message…") },
+                modifier = Modifier.fillMaxWidth().height(140.dp),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentAmber, unfocusedBorderColor = BorderDark,
+                    focusedLabelColor = AccentAmber, unfocusedLabelColor = TextSecondary
+                ),
+                placeholder = { Text("e.g. \"Finish the chapter first.\"", color = TextSecondary) }
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onSave(text) }, enabled = text.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentAmber)) {
+                Text("Save", color = DeepNavy)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) } }
+    )
 }

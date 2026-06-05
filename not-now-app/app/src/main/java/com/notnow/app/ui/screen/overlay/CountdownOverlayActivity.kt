@@ -1,163 +1,123 @@
 package com.notnow.app.ui.screen.overlay
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
-import android.os.CountDownTimer
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
 import com.notnow.app.NotNowApplication
-import com.notnow.app.data.entity.FrictionLevel
-import com.notnow.app.data.entity.InteractionType
-import com.notnow.app.data.preferences.AppPreferences
-import com.notnow.app.ui.theme.NotNowTheme
-import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
+import com.notnow.app.data.entity.AccessOutcome
+import com.notnow.app.ui.theme.*
+import kotlinx.coroutines.*
 
 class CountdownOverlayActivity : ComponentActivity() {
 
-    companion object {
-        const val EXTRA_PACKAGE_NAME = "package_name"
-        const val EXTRA_APP_NAME = "app_name"
-        const val EXTRA_DELAY_SECONDS = "delay_seconds"
-        const val EXTRA_FRICTION_LEVEL = "friction_level"
-        const val EXTRA_IS_NIGHT_LOCKDOWN = "is_night_lockdown"
-    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: ""
-        val appName = intent.getStringExtra(EXTRA_APP_NAME) ?: "App"
-        val delaySeconds = intent.getIntExtra(EXTRA_DELAY_SECONDS, 30)
-        val frictionLevel = FrictionLevel.valueOf(
-            intent.getStringExtra(EXTRA_FRICTION_LEVEL) ?: FrictionLevel.LEVEL_1_DISTRACTION.name
-        )
-        val isNightLockdown = intent.getBooleanExtra(EXTRA_IS_NIGHT_LOCKDOWN, false)
-
-        val app = application as NotNowApplication
-        val usageRepo = app.usageRecordRepository
-        val messageRepo = app.futureMessageRepository
-        val prefs = AppPreferences.getInstance(applicationContext)
+        val packageName = intent.getStringExtra("package_name") ?: run { finish(); return }
+        val appName     = intent.getStringExtra("app_name") ?: packageName
+        val delaySec    = intent.getLongExtra("delay_seconds", 30L)
+        val isNight     = intent.getBooleanExtra("is_night_block", false)
+        val app         = application as NotNowApplication
 
         setContent {
             NotNowTheme {
-                var secondsLeft by remember { mutableIntStateOf(delaySeconds) }
-                var isComplete by remember { mutableStateOf(delaySeconds == 0) }
-                var futureMessage by remember { mutableStateOf<String?>(null) }
-                var showEmergencyDialog by remember { mutableStateOf(false) }
-
-                LaunchedEffect(Unit) {
-                    futureMessage = messageRepo.getRandomMessage()?.message
-                }
-
-                LaunchedEffect(Unit) {
-                    if (delaySeconds > 0) {
-                        object : CountDownTimer(delaySeconds * 1000L, 1000L) {
-                            override fun onTick(millisUntilFinished: Long) {
-                                secondsLeft = (millisUntilFinished / 1000).toInt() + 1
-                            }
-                            override fun onFinish() {
-                                isComplete = true
-                                lifecycleScope.launch {
-                                    usageRepo.record(packageName, appName, InteractionType.BLOCKED, delaySeconds)
-                                }
-                            }
-                        }.start()
-                    }
-                }
-
-                BackHandler {
-                    lifecycleScope.launch {
-                        usageRepo.record(packageName, appName, InteractionType.ABANDONED, delaySeconds)
-                    }
-                    finish()
-                }
-
-                if (showEmergencyDialog) {
-                    EmergencyUnlockDialog(
-                        onUnlock15 = {
-                            lifecycleScope.launch {
-                                val until = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(15)
-                                prefs.setEmergencyUnlockUntil(until)
-                                usageRepo.record(packageName, appName, InteractionType.BYPASSED, 0)
-                                finish()
-                            }
-                        },
-                        onUnlock30 = {
-                            lifecycleScope.launch {
-                                val until = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(30)
-                                prefs.setEmergencyUnlockUntil(until)
-                                usageRepo.record(packageName, appName, InteractionType.BYPASSED, 0)
-                                finish()
-                            }
-                        },
-                        onDismiss = { showEmergencyDialog = false }
-                    )
-                }
-
-                CountdownScreen(
-                    appName = appName,
-                    secondsLeft = secondsLeft,
-                    totalSeconds = delaySeconds,
-                    isComplete = isComplete,
-                    isNightLockdown = isNightLockdown,
-                    futureMessage = futureMessage,
-                    onDone = { finish() },
-                    onGoBack = {
-                        lifecycleScope.launch {
-                            usageRepo.record(packageName, appName, InteractionType.ABANDONED, delaySeconds)
+                if (isNight) {
+                    NightBlockScreen(appName = appName, onBack = {
+                        scope.launch {
+                            app.usageRepository.record(packageName, appName, AccessOutcome.NIGHT_BLOCKED)
                         }
                         finish()
-                    },
-                    onEmergencyUnlock = { showEmergencyDialog = true }
-                )
+                    })
+                } else {
+                    CountdownScreen(
+                        appName    = appName,
+                        totalSec   = delaySec,
+                        onComplete = {
+                            scope.launch {
+                                app.usageRepository.record(packageName, appName, AccessOutcome.WAITED, delaySec)
+                                app.preferences.addProtectedTimeSeconds(delaySec)
+                            }
+                            finish()
+                        },
+                        onGoBack = {
+                            scope.launch {
+                                app.usageRepository.record(packageName, appName, AccessOutcome.WENT_BACK)
+                            }
+                            finish()
+                        },
+                        onEmergency = {
+                            scope.launch {
+                                // 15-minute emergency unlock
+                                app.preferences.setEmergencyUnlockUntil(System.currentTimeMillis() + 15 * 60 * 1000L)
+                                app.usageRepository.record(packageName, appName, AccessOutcome.EMERGENCY_UNLOCKED)
+                            }
+                            finish()
+                        },
+                        messageRepo = app.futureMessageRepository
+                    )
+                }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
     }
 }
 
 @Composable
 private fun CountdownScreen(
     appName: String,
-    secondsLeft: Int,
-    totalSeconds: Int,
-    isComplete: Boolean,
-    isNightLockdown: Boolean,
-    futureMessage: String?,
-    onDone: () -> Unit,
+    totalSec: Long,
+    onComplete: () -> Unit,
     onGoBack: () -> Unit,
-    onEmergencyUnlock: () -> Unit
+    onEmergency: () -> Unit,
+    messageRepo: com.notnow.app.data.repository.FutureMessageRepository
 ) {
-    val progress = if (totalSeconds > 0) secondsLeft.toFloat() / totalSeconds else 0f
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(900, easing = LinearEasing),
-        label = "progress"
-    )
+    var remaining by remember { mutableLongStateOf(totalSec) }
+    var futureMsg by remember { mutableStateOf("") }
+    var showEmergencyConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        futureMsg = messageRepo.getRandomMessage()?.message ?: ""
+    }
+
+    LaunchedEffect(remaining) {
+        if (remaining <= 0) {
+            onComplete()
+            return@LaunchedEffect
+        }
+        delay(1000L)
+        remaining--
+    }
+
+    val progress = if (totalSec > 0) remaining.toFloat() / totalSec.toFloat() else 0f
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0D0D0D)),
+            .background(DeepNavy.copy(alpha = 0.97f)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -165,107 +125,105 @@ private fun CountdownScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
             modifier = Modifier.padding(32.dp)
         ) {
-            Text(
-                text = if (isNightLockdown) "Night Lockdown" else "Not Now",
-                color = Color(0xFF888888),
-                fontSize = 13.sp,
-                letterSpacing = 2.sp
-            )
+            Text("Not Now", style = MaterialTheme.typography.labelLarge, color = AccentAmber)
+
+            Spacer(Modifier.height(8.dp))
 
             Text(
-                text = appName,
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
+                "Take a breath.",
+                style = MaterialTheme.typography.headlineLarge,
+                color = TextPrimary,
                 textAlign = TextAlign.Center
             )
 
-            if (!isComplete && totalSeconds > 0) {
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        progress = { animatedProgress },
-                        modifier = Modifier.size(140.dp),
-                        color = Color(0xFFE85D04),
-                        trackColor = Color(0xFF2A2A2A),
-                        strokeWidth = 8.dp
-                    )
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = formatTime(secondsLeft),
-                            color = Color.White,
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(text = "remaining", color = Color(0xFF888888), fontSize = 12.sp)
-                    }
-                }
+            Text(
+                "You were about to open $appName",
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
 
-                Text(
-                    text = "Pause. Is this intentional?",
-                    color = Color(0xFF888888),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center
+            Spacer(Modifier.height(8.dp))
+
+            // Circular progress countdown
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(140.dp),
+                    color = AccentAmber,
+                    trackColor = BorderDark,
+                    strokeWidth = 6.dp
                 )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val mins = remaining / 60
+                    val secs = remaining % 60
+                    Text(
+                        if (mins > 0) "%d:%02d".format(mins, secs) else "$secs",
+                        fontSize = 42.sp,
+                        color = TextPrimary,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    Text("seconds", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                }
             }
 
-            if (isNightLockdown && totalSeconds == 0) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (futureMsg.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = CardDark,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = "11 PM – 7 AM", color = Color(0xFFE85D04), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = "Low-energy hours. Poor decisions happen here.\nCome back in the morning.",
-                        color = Color(0xFF888888),
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center
+                        "\"$futureMsg\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
 
-            futureMessage?.let { msg ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1A))
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "\"$msg\"",
-                        color = Color(0xFFCCCCCC),
-                        fontSize = 14.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        textAlign = TextAlign.Center
-                    )
-                }
+            Text(
+                "If you still want it after the timer, it's yours.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Button(
+                onClick = onGoBack,
+                colors = ButtonDefaults.buttonColors(containerColor = CardDark),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = null, tint = TextPrimary)
+                Spacer(Modifier.width(8.dp))
+                Text("Go Back", color = TextPrimary)
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (isComplete) {
-                Button(
-                    onClick = onDone,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE85D04))
-                ) {
-                    Text("Open $appName", color = Color.White, fontWeight = FontWeight.Bold)
+            if (!showEmergencyConfirm) {
+                TextButton(onClick = { showEmergencyConfirm = true }) {
+                    Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
                 }
-            }
-
-            if (!isNightLockdown) {
-                OutlinedButton(
-                    onClick = onGoBack,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF888888))
-                ) {
-                    Text("Go Back")
-                }
-            }
-
-            if (!isComplete) {
-                TextButton(onClick = onEmergencyUnlock) {
-                    Text("Emergency Unlock", color = Color(0xFF444444), fontSize = 12.sp)
+            } else {
+                Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Are you sure? This unlocks everything for 15 minutes.", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { showEmergencyConfirm = false }) {
+                                Text("Cancel", color = TextSecondary)
+                            }
+                            Button(
+                                onClick = onEmergency,
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
+                            ) {
+                                Text("Unlock", color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -273,43 +231,29 @@ private fun CountdownScreen(
 }
 
 @Composable
-private fun EmergencyUnlockDialog(
-    onUnlock15: () -> Unit,
-    onUnlock30: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF1A1A1A),
-        title = { Text("Emergency Unlock", color = Color.White) },
-        text = {
-            Text(
-                "This is for genuine emergencies only.\nRestrictions return automatically.",
-                color = Color(0xFF888888)
-            )
-        },
-        confirmButton = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onUnlock15,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE85D04))
-                ) { Text("Unlock for 15 minutes") }
-                OutlinedButton(
-                    onClick = onUnlock30,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Unlock for 30 minutes") }
-                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text("Cancel", color = Color(0xFF888888))
-                }
+private fun NightBlockScreen(appName: String, onBack: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepNavy.copy(alpha = 0.97f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text("🌙", fontSize = 64.sp)
+            Text("Night Lockdown", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, textAlign = TextAlign.Center)
+            Text("$appName is locked until 7:00 AM.\nRest well.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = CardDark),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Go Back", color = TextPrimary)
             }
-        },
-        dismissButton = {}
-    )
-}
-
-private fun formatTime(totalSeconds: Int): String {
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return if (minutes > 0) "${minutes}m ${seconds}s" else "${seconds}s"
+        }
+    }
 }

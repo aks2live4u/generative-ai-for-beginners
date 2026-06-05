@@ -11,283 +11,171 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.AppCategory
 import com.notnow.app.data.entity.AppRule
 import com.notnow.app.data.entity.FrictionLevel
-import com.notnow.app.data.preferences.OperatingMode
-import com.notnow.app.service.GuardrailAccessibilityService
+import com.notnow.app.ui.theme.*
 
 @Composable
 fun HomeScreen(
-    app: NotNowApplication,
-    onNavigateToVault: () -> Unit,
-    onNavigateToMessages: () -> Unit,
-    onNavigateToDashboard: () -> Unit
+    onOpenVault: () -> Unit,
+    onOpenMessages: () -> Unit,
+    onOpenDashboard: () -> Unit
 ) {
-    val vm: HomeViewModel = viewModel(
-        factory = HomeViewModelFactory(app.appRuleRepository, app.appPreferences)
-    )
-    val state by vm.state.collectAsStateWithLifecycle()
-    val serviceRunning = GuardrailAccessibilityService.isRunning
+    val context = LocalContext.current
+    val app = context.applicationContext as NotNowApplication
+    val vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory(app.appRuleRepository, app.preferences))
+
+    val mode by vm.operatingMode.collectAsStateWithLifecycle()
+    val nightOn by vm.nightLockdownEnabled.collectAsStateWithLifecycle()
+    val rules by vm.rules.collectAsStateWithLifecycle()
+    val emergencyUntil by vm.emergencyUnlockUntil.collectAsStateWithLifecycle()
+    val isEmergencyActive = emergencyUntil > System.currentTimeMillis()
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0D0D0D))
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().background(DeepNavy),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("NOT NOW", color = Color(0xFFE85D04), fontSize = 11.sp, letterSpacing = 3.sp)
-                    Text("Guardrail", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (serviceRunning) Color(0xFF1A3A1A) else Color(0xFF3A1A1A))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        if (serviceRunning) "Active" else "Inactive",
-                        color = if (serviceRunning) Color(0xFF4CAF50) else Color(0xFFE85D04),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
+            Text("Not Now", style = MaterialTheme.typography.headlineLarge, color = AccentAmber)
+            Text("Get Off the Impulse Train", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
 
-        if (state.emergencyUnlockActive) {
+        // Emergency unlock banner
+        if (isEmergencyActive) {
             item {
-                EmergencyUnlockBanner(
-                    minutesLeft = state.emergencyUnlockMinutesLeft,
-                    onCancel = { vm.cancelEmergencyUnlock() }
-                )
+                Surface(shape = RoundedCornerShape(12.dp), color = AccentRed.copy(alpha = 0.15f)) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Emergency Unlock Active", style = MaterialTheme.typography.titleMedium, color = AccentRed)
+                            Text("All restrictions lifted for 15 min", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        }
+                        TextButton(onClick = { vm.clearEmergencyUnlock() }) {
+                            Text("End Early", color = AccentRed)
+                        }
+                    }
+                }
             }
         }
 
-        if (state.nightLockdownActive) {
-            item { NightLockdownBanner() }
-        }
-
-        item { ModeToggle(mode = state.operatingMode, onModeChange = { vm.setOperatingMode(it) }) }
-
+        // Mode selector
         item {
-            SectionCard(title = "Controls") {
-                ToggleRow("Guardrail System", "Master on/off switch", state.guardrailEnabled) {
-                    vm.toggleGuardrail(it)
-                }
-                HorizontalDivider(color = Color(0xFF222222))
-                ToggleRow("Night Lockdown", "11 PM – 7 AM blocking", state.nightLockdownEnabled) {
-                    vm.toggleNightLockdown(it)
-                }
-            }
+            ModeSelector(current = mode, onSelect = vm::setMode)
         }
 
+        // Night lockdown toggle
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickNavCard("Shopping\nVault", Icons.Default.ShoppingCart, Color(0xFF1E3A5F), Modifier.weight(1f)) {
-                    onNavigateToVault()
-                }
-                QuickNavCard("Future\nMessages", Icons.Default.Message, Color(0xFF1A2A1A), Modifier.weight(1f)) {
-                    onNavigateToMessages()
-                }
-                QuickNavCard("Weekly\nReview", Icons.Default.BarChart, Color(0xFF2A1A2A), Modifier.weight(1f)) {
-                    onNavigateToDashboard()
+            Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Nightlight, null, tint = AccentAmber, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Night Lockdown", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                        Text("11 PM – 7 AM: blocks social, shopping & entertainment", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    }
+                    Switch(checked = nightOn, onCheckedChange = vm::toggleNightLockdown,
+                        colors = SwitchDefaults.colors(checkedThumbColor = AccentAmber, checkedTrackColor = AccentAmber.copy(alpha = 0.3f)))
                 }
             }
         }
 
+        // Quick nav cards
         item {
-            Text("App Rules", color = Color(0xFF888888), fontSize = 12.sp, letterSpacing = 1.sp, modifier = Modifier.padding(top = 8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                NavCard("🛍️", "Shopping\nVault", Modifier.weight(1f), onOpenVault)
+                NavCard("💬", "Future\nMessages", Modifier.weight(1f), onOpenMessages)
+                NavCard("📊", "Weekly\nReview", Modifier.weight(1f), onOpenDashboard)
+            }
         }
 
-        items(state.rules) { rule ->
-            AppRuleRow(rule = rule, onToggle = { vm.toggleAppRule(rule.packageName, it) })
+        // App rules
+        item {
+            Text("Friction Rules", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
         }
 
-        item { Spacer(modifier = Modifier.height(32.dp)) }
-    }
-}
+        items(rules, key = { it.packageName }) { rule ->
+            AppRuleRow(rule = rule, onToggle = { enabled -> vm.toggleRule(rule.packageName, enabled) })
+        }
 
-@Composable
-private fun EmergencyUnlockBanner(minutesLeft: Int, onCancel: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF3A2000))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.LockOpen, contentDescription = null, tint = Color(0xFFE85D04), modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Emergency unlock — $minutesLeft min left", color = Color(0xFFFFAA55), fontSize = 13.sp, modifier = Modifier.weight(1f))
-        TextButton(onClick = onCancel) { Text("End", color = Color(0xFFE85D04), fontSize = 13.sp) }
-    }
-}
-
-@Composable
-private fun NightLockdownBanner() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A2A))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.Nightlight, contentDescription = null, tint = Color(0xFF6666CC), modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Night Lockdown active — 11 PM to 7 AM", color = Color(0xFF8888CC), fontSize = 13.sp)
-    }
-}
-
-@Composable
-private fun ModeToggle(mode: OperatingMode, onModeChange: (OperatingMode) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1A))
-            .padding(4.dp)
-    ) {
-        listOf(OperatingMode.FOCUS to "Focus Mode", OperatingMode.LIFE to "Life Mode").forEach { (m, label) ->
-            Button(
-                onClick = { onModeChange(m) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (mode == m) Color(0xFFE85D04) else Color.Transparent,
-                    contentColor = if (mode == m) Color.White else Color(0xFF666666)
-                ),
-                elevation = ButtonDefaults.buttonElevation(0.dp)
-            ) {
-                Text(label, fontWeight = FontWeight.SemiBold)
+        if (rules.isEmpty()) {
+            item {
+                Text("No rules yet — restart the app to load defaults.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
             }
         }
     }
 }
 
 @Composable
-private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1A))
-    ) {
-        Text(title, color = Color(0xFF666666), fontSize = 11.sp, letterSpacing = 1.sp, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
-        content()
-    }
-}
-
-@Composable
-private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = Color(0xFF666666), fontSize = 12.sp)
+private fun ModeSelector(current: String, onSelect: (String) -> Unit) {
+    Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ModeButton("FOCUS", "Focus", current == "FOCUS", Icons.Default.CenterFocusStrong, Modifier.weight(1f)) { onSelect("FOCUS") }
+            ModeButton("LIFE",  "Life",  current == "LIFE",  Icons.Default.Balance,            Modifier.weight(1f)) { onSelect("LIFE") }
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFFE85D04),
-                uncheckedThumbColor = Color(0xFF666666),
-                uncheckedTrackColor = Color(0xFF2A2A2A)
-            )
-        )
     }
 }
 
 @Composable
-private fun QuickNavCard(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, bgColor: Color, modifier: Modifier, onClick: () -> Unit) {
-    Card(
+private fun ModeButton(mode: String, label: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    Button(
         onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        shape = RoundedCornerShape(12.dp)
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) AccentAmber else DeepNavy,
+            contentColor   = if (selected) DeepNavy    else TextSecondary
+        ),
+        shape = RoundedCornerShape(8.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Icon(icon, null, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun NavCard(emoji: String, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Surface(shape = RoundedCornerShape(12.dp), color = CardDark, onClick = onClick, modifier = modifier) {
+        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(emoji, style = MaterialTheme.typography.headlineMedium)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = TextSecondary, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
 private fun AppRuleRow(rule: AppRule, onToggle: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF1A1A1A))
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(rule.appName, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Text(
-                "${rule.category.name.lowercase().replace('_', ' ')} · ${rule.frictionLevel.label}",
-                color = frictionColor(rule.frictionLevel),
-                fontSize = 11.sp
+    Surface(shape = RoundedCornerShape(10.dp), color = SurfaceDark) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(rule.appName, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                Text(rule.frictionLevel.label(), style = MaterialTheme.typography.bodyMedium, color = frictionColor(rule.frictionLevel))
+            }
+            Switch(
+                checked = rule.isEnabled, onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(checkedThumbColor = AccentAmber, checkedTrackColor = AccentAmber.copy(0.3f))
             )
         }
-        Switch(
-            checked = rule.isEnabled,
-            onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = frictionColor(rule.frictionLevel),
-                uncheckedThumbColor = Color(0xFF444444),
-                uncheckedTrackColor = Color(0xFF222222)
-            )
-        )
     }
 }
 
-private fun frictionColor(level: FrictionLevel) = when (level) {
-    FrictionLevel.LEVEL_1_DISTRACTION -> Color(0xFF888888)
-    FrictionLevel.LEVEL_2_ATTENTION_TRAP -> Color(0xFFE8A504)
-    FrictionLevel.LEVEL_3_SPENDING -> Color(0xFFE85D04)
-    FrictionLevel.LEVEL_4_BLOCKED -> Color(0xFFCF6679)
+private fun FrictionLevel.label() = when(this) {
+    FrictionLevel.LEVEL_1_MINOR     -> "30 sec delay"
+    FrictionLevel.LEVEL_2_ATTENTION -> "10 min delay"
+    FrictionLevel.LEVEL_3_SPENDING  -> "60 min delay"
+    FrictionLevel.LEVEL_4_BLOCKED   -> "Always blocked"
 }
 
-class HomeViewModelFactory(
-    private val ruleRepo: com.notnow.app.data.repository.AppRuleRepository,
-    private val prefs: com.notnow.app.data.preferences.AppPreferences
-) : androidx.lifecycle.ViewModelProvider.Factory {
-    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST")
-        return HomeViewModel(ruleRepo, prefs) as T
-    }
+@Composable
+private fun frictionColor(level: FrictionLevel) = when(level) {
+    FrictionLevel.LEVEL_1_MINOR     -> AccentGreen
+    FrictionLevel.LEVEL_2_ATTENTION -> AccentAmber
+    FrictionLevel.LEVEL_3_SPENDING  -> AccentRed
+    FrictionLevel.LEVEL_4_BLOCKED   -> AccentRed
 }

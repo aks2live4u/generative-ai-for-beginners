@@ -5,35 +5,33 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.notnow.app.data.entity.ShoppingVaultItem
 import com.notnow.app.data.repository.ShoppingVaultRepository
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class ShoppingVaultViewModel(private val repo: ShoppingVaultRepository) : ViewModel() {
 
-    val items: StateFlow<List<ShoppingVaultItem>> = repo.getActiveItems()
+    val activeItems: StateFlow<List<ShoppingVaultItem>> = repo.activeItems
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun markPurchased(id: Long) = viewModelScope.launch { repo.markPurchased(id) }
-    fun remove(id: Long) = viewModelScope.launch { repo.markRemoved(id) }
-    fun add(title: String, price: String = "", url: String = "") = viewModelScope.launch {
-        repo.save(ShoppingVaultItem(title = title, price = price, url = url))
+    val purchasedItems: StateFlow<List<ShoppingVaultItem>> = repo.purchasedItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addItem(title: String, url: String, price: String) = viewModelScope.launch {
+        repo.save(ShoppingVaultItem(title = title, url = url, price = price))
     }
 
-    fun ageLabel(savedAt: Long): String {
-        val diff = System.currentTimeMillis() - savedAt
-        val days = TimeUnit.MILLISECONDS.toDays(diff)
-        val hours = TimeUnit.MILLISECONDS.toHours(diff)
-        return when {
-            days >= 1 -> "$days day${if (days > 1) "s" else ""} ago"
-            hours >= 1 -> "$hours hour${if (hours > 1) "s" else ""} ago"
-            else -> "just now"
-        }
+    fun markPurchased(id: Long) = viewModelScope.launch {
+        repo.markPurchased(id)
     }
-}
 
-class ShoppingVaultViewModelFactory(private val repo: ShoppingVaultRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST") return ShoppingVaultViewModel(repo) as T
+    fun delete(item: ShoppingVaultItem) = viewModelScope.launch {
+        repo.delete(item)
+    }
+
+    class Factory(private val repo: ShoppingVaultRepository) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T = ShoppingVaultViewModel(repo) as T
     }
 }

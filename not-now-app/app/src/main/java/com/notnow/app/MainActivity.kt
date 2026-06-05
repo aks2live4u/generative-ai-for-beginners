@@ -4,11 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
-import com.notnow.app.ui.navigation.AppNavHost
-import com.notnow.app.ui.navigation.Routes
+import com.notnow.app.receiver.BootReceiver
+import com.notnow.app.ui.navigation.AppNavigation
+import com.notnow.app.ui.navigation.Route
+import com.notnow.app.ui.theme.DeepNavy
 import com.notnow.app.ui.theme.NotNowTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -21,22 +25,30 @@ class MainActivity : ComponentActivity() {
 
         val app = application as NotNowApplication
 
-        setContent {
-            NotNowTheme {
-                var startDestination by remember { mutableStateOf<String?>(null) }
+        // Seed default rules and schedule workers on first launch
+        lifecycleScope.launch {
+            if (app.preferences.isFirstLaunch.first()) {
+                app.appRuleRepository.seedDefaults()
+                app.preferences.setFirstLaunchDone()
+                BootReceiver.scheduleWorkers(applicationContext)
+            }
+        }
 
-                LaunchedEffect(Unit) {
-                    val setupComplete = app.appPreferences.setupComplete.first()
-                    startDestination = if (setupComplete) Routes.HOME else Routes.SETUP
-                }
+        lifecycleScope.launch {
+            val isFirst = app.preferences.isFirstLaunch.first()
+            val startDest = if (isFirst) Route.Setup.path else Route.Home.path
 
-                startDestination?.let { start ->
+            setContent {
+                NotNowTheme {
                     val navController = rememberNavController()
-                    AppNavHost(
-                        navController = navController,
-                        startDestination = start,
-                        app = app
-                    )
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier.fillMaxSize().background(DeepNavy)
+                    ) {
+                        AppNavigation(
+                            navController = navController,
+                            startDestination = startDest
+                        )
+                    }
                 }
             }
         }

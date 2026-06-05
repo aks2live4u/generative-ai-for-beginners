@@ -10,14 +10,12 @@ import com.notnow.app.data.dao.*
 import com.notnow.app.data.entity.*
 
 class Converters {
-    @TypeConverter fun fromFrictionLevel(v: FrictionLevel): String = v.name
-    @TypeConverter fun toFrictionLevel(v: String): FrictionLevel = FrictionLevel.valueOf(v)
-
-    @TypeConverter fun fromAppCategory(v: AppCategory): String = v.name
-    @TypeConverter fun toAppCategory(v: String): AppCategory = AppCategory.valueOf(v)
-
-    @TypeConverter fun fromInteractionType(v: InteractionType): String = v.name
-    @TypeConverter fun toInteractionType(v: String): InteractionType = InteractionType.valueOf(v)
+    @TypeConverter fun fromFriction(v: FrictionLevel) = v.name
+    @TypeConverter fun toFriction(v: String) = FrictionLevel.valueOf(v)
+    @TypeConverter fun fromCategory(v: AppCategory) = v.name
+    @TypeConverter fun toCategory(v: String) = AppCategory.valueOf(v)
+    @TypeConverter fun fromOutcome(v: AccessOutcome) = v.name
+    @TypeConverter fun toOutcome(v: String) = AccessOutcome.valueOf(v)
 }
 
 @Database(
@@ -33,15 +31,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun usageRecordDao(): UsageRecordDao
 
     companion object {
-        @Volatile private var instance: AppDatabase? = null
+        @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getInstance(context: Context): AppDatabase =
-            instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "notnow.db"
-                ).build().also { instance = it }
+                ).build().also { INSTANCE = it }
             }
     }
 }

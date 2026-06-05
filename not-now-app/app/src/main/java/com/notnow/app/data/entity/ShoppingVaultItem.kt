@@ -9,10 +9,8 @@ data class ShoppingVaultItem(
     val title: String,
     val url: String = "",
     val price: String = "",
-    val notes: String = "",
-    val sourceApp: String = "",
+    val note: String = "",
     val savedAt: Long = System.currentTimeMillis(),
     val reminderSentAt: Long = 0L,
-    val isPurchased: Boolean = false,
-    val isRemoved: Boolean = false
+    val isPurchased: Boolean = false
 )

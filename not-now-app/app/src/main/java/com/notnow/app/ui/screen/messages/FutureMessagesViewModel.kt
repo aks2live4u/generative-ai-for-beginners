@@ -5,23 +5,26 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.notnow.app.data.entity.FutureMessage
 import com.notnow.app.data.repository.FutureMessageRepository
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class FutureMessagesViewModel(private val repo: FutureMessageRepository) : ViewModel() {
 
-    val messages: StateFlow<List<FutureMessage>> = repo.getActiveMessages()
+    val messages: StateFlow<List<FutureMessage>> = repo.allMessages
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun add(message: String) = viewModelScope.launch {
-        if (message.isNotBlank()) repo.add(message)
+    fun addMessage(text: String) = viewModelScope.launch {
+        if (text.isNotBlank()) repo.add(text.trim())
     }
 
-    fun delete(id: Long) = viewModelScope.launch { repo.delete(id) }
-}
+    fun delete(message: FutureMessage) = viewModelScope.launch {
+        repo.delete(message)
+    }
 
-class FutureMessagesViewModelFactory(private val repo: FutureMessageRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST") return FutureMessagesViewModel(repo) as T
+    class Factory(private val repo: FutureMessageRepository) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T = FutureMessagesViewModel(repo) as T
     }
 }
