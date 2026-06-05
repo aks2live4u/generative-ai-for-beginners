@@ -98,7 +98,7 @@ fun SearchScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text("e.g. Reliance, TCS, AAPL, Nifty50", color = OnSurfaceVariant)
+                    Text("e.g. Reliance, Zomato, Dixon Technologies, AAPL", color = OnSurfaceVariant)
                 },
                 leadingIcon = {
                     Icon(
@@ -113,8 +113,8 @@ fun SearchScreen(
                 } else null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    keyboardType = KeyboardType.Ascii,
+                    capitalization = KeyboardCapitalization.Words,
+                    keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -149,7 +149,7 @@ fun SearchScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Just type the company name — we'll find the right exchange automatically",
+                text = "Type any company name or ticker — we search Yahoo Finance to find it",
                 style = MaterialTheme.typography.labelSmall,
                 color = OnSurfaceVariant.copy(alpha = 0.55f),
                 textAlign = TextAlign.Center
