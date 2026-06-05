@@ -635,75 +635,69 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
     val summary = mutableListOf<String>()
     val strengths = mutableListOf<String>()
     val risks = mutableListOf<String>()
-    val adviceBuyToday = StringBuilder()
-    val adviceLongTerm = StringBuilder()
-    val adviceTrader = StringBuilder()
     var dataSource = ""
-
     var section = ""
+
     for (line in lines) {
         val trimmed = line.trim()
+        // Strip markdown bold/italic so **HEADER:** is treated the same as HEADER:
+        val hdr = trimmed.replace("**", "").replace("*", "").replace("_", "").trim().uppercase()
+
         when {
-            trimmed.startsWith("VERDICT:") -> {
-                verdict = trimmed.removePrefix("VERDICT:").trim(); section = ""
+            hdr.startsWith("VERDICT:") -> { verdict = hdr.removePrefix("VERDICT:").trim(); section = "" }
+            hdr.startsWith("CONFIDENCE:") -> { confidence = hdr.removePrefix("CONFIDENCE:").trim(); section = "" }
+            hdr.startsWith("INSTRUMENT:") -> {
+                instrument = trimmed.replace("**", "").replace("*", "").replace("_", "").trim()
+                    .removePrefix("INSTRUMENT:").removePrefix("instrument:").trim()
+                section = ""
             }
-            trimmed.startsWith("CONFIDENCE:") -> {
-                confidence = trimmed.removePrefix("CONFIDENCE:").trim(); section = ""
-            }
-            trimmed.startsWith("INSTRUMENT:") -> {
-                instrument = trimmed.removePrefix("INSTRUMENT:").trim(); section = ""
-            }
-            trimmed.uppercase().startsWith("SUMMARY") && trimmed.endsWith(":") -> section = "SUMMARY"
-            trimmed.uppercase().startsWith("STRENGTHS") && trimmed.endsWith(":") -> section = "STRENGTHS"
-            trimmed.uppercase().startsWith("RISKS") && trimmed.endsWith(":") -> section = "RISKS"
-            trimmed.uppercase().startsWith("EXPERT ADVICE") -> section = ""
-            // Short advice headers (new format)
-            trimmed.uppercase().startsWith("FOR BUYERS") -> section = "ADVICE_BUY"
-            trimmed.uppercase().startsWith("FOR LONG TERM") -> section = "ADVICE_LT"
-            trimmed.uppercase().startsWith("FOR TRADERS") -> section = "ADVICE_TR"
-            // Legacy advice headers (fallback for any cached output)
-            trimmed.uppercase().startsWith("ADVICE FOR BUYER") -> section = "ADVICE_BUY"
-            trimmed.uppercase().startsWith("ADVICE FOR LONG") -> section = "ADVICE_LT"
-            trimmed.uppercase().startsWith("ADVICE FOR SHORT") -> section = "ADVICE_TR"
-            trimmed.startsWith("DATA:") -> {
-                dataSource = trimmed.removePrefix("DATA:").trim(); section = ""
-            }
-            trimmed.startsWith("DISCLAIMER:") -> section = ""
+            hdr.startsWith("SUMMARY") -> section = "SUMMARY"
+            hdr.startsWith("STRENGTHS") -> section = "STRENGTHS"
+            hdr.startsWith("RISKS") -> section = "RISKS"
+            // Expert advice section — handled separately via text-search below
+            hdr.startsWith("EXPERT ADVICE") || hdr.startsWith("FOR BUY") ||
+            hdr.startsWith("FOR LONG") || hdr.startsWith("FOR TRAD") ||
+            hdr.startsWith("FOR SHORT") || hdr.startsWith("ADVICE FOR") -> section = ""
+            hdr.startsWith("DATA:") -> { dataSource = hdr.removePrefix("DATA:").trim(); section = "" }
+            hdr.startsWith("DISCLAIMER:") -> section = ""
             trimmed.isBlank() -> { /* keep current section */ }
             else -> when (section) {
-                "SUMMARY"    -> {
+                "SUMMARY" -> {
+                    val t = trimmed.trimStart('•', '-', ' ')
+                    if (t.isNotBlank()) summary.add(t)
+                }
+                "STRENGTHS" -> {
                     if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
-                        val text = trimmed.trimStart('•', '-', ' ')
-                        if (text.isNotBlank()) summary.add(text)
+                        val t = trimmed.trimStart('•', '-', ' ')
+                        if (t.isNotBlank()) strengths.add(t)
                     }
                 }
-                "STRENGTHS"  -> {
+                "RISKS" -> {
                     if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
-                        val text = trimmed.trimStart('•', '-', ' ')
-                        if (text.isNotBlank()) strengths.add(text)
+                        val t = trimmed.trimStart('•', '-', ' ')
+                        if (t.isNotBlank()) risks.add(t)
                     }
-                }
-                "RISKS"      -> {
-                    if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
-                        val text = trimmed.trimStart('•', '-', ' ')
-                        if (text.isNotBlank()) risks.add(text)
-                    }
-                }
-                "ADVICE_BUY" -> {
-                    if (adviceBuyToday.isNotEmpty()) adviceBuyToday.append(" ")
-                    adviceBuyToday.append(trimmed)
-                }
-                "ADVICE_LT"  -> {
-                    if (adviceLongTerm.isNotEmpty()) adviceLongTerm.append(" ")
-                    adviceLongTerm.append(trimmed)
-                }
-                "ADVICE_TR"  -> {
-                    if (adviceTrader.isNotEmpty()) adviceTrader.append(" ")
-                    adviceTrader.append(trimmed)
                 }
             }
         }
     }
+
+    // Advice sections use text-search which is immune to markdown headers and phrasing variants
+    val adviceBuyToday = extractAdviceSection(
+        text = text,
+        startKeywords = listOf("FOR BUYERS", "FOR BUYER", "FOR BUYING", "ADVICE FOR BUYER"),
+        endKeywords = listOf("FOR LONG", "FOR SIP", "FOR TRAD", "FOR SHORT", "DATA:", "DISCLAIMER:")
+    )
+    val adviceLongTerm = extractAdviceSection(
+        text = text,
+        startKeywords = listOf("FOR LONG TERM", "FOR LONG-TERM", "FOR SIP", "FOR LONG", "ADVICE FOR LONG"),
+        endKeywords = listOf("FOR BUY", "FOR TRAD", "FOR SHORT", "DATA:", "DISCLAIMER:")
+    )
+    val adviceTrader = extractAdviceSection(
+        text = text,
+        startKeywords = listOf("FOR TRADERS", "FOR TRADER", "FOR SHORT-TERM TRADER", "FOR SHORT", "ADVICE FOR SHORT"),
+        endKeywords = listOf("FOR BUY", "FOR LONG", "FOR SIP", "DATA:", "DISCLAIMER:")
+    )
 
     return ParsedAnalysis(
         verdict = verdict,
@@ -712,11 +706,53 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
         summary = summary,
         strengths = strengths,
         risks = risks,
-        adviceBuyToday = adviceBuyToday.toString().trim(),
-        adviceLongTerm = adviceLongTerm.toString().trim(),
-        adviceTrader = adviceTrader.toString().trim(),
+        adviceBuyToday = adviceBuyToday,
+        adviceLongTerm = adviceLongTerm,
+        adviceTrader = adviceTrader,
         dataSource = dataSource
     )
+}
+
+/**
+ * Finds the first line starting with any of [startKeywords] (after stripping markdown),
+ * then collects subsequent lines as body until an [endKeywords] line is encountered.
+ * Handles inline content after the colon on the header line.
+ */
+private fun extractAdviceSection(
+    text: String,
+    startKeywords: List<String>,
+    endKeywords: List<String>
+): String {
+    val textLines = text.lines()
+    var startLineIdx = -1
+
+    for (i in textLines.indices) {
+        val clean = textLines[i].replace("**", "").replace("*", "").replace("_", "").trim()
+        val upper = clean.uppercase()
+        if (startKeywords.any { upper.startsWith(it) }) {
+            startLineIdx = i
+            break
+        }
+    }
+    if (startLineIdx < 0) return ""
+
+    // Capture any text after the colon on the header line itself
+    val headerClean = textLines[startLineIdx].replace("**", "").replace("*", "").replace("_", "").trim()
+    val colonIdx = headerClean.indexOf(':')
+    val inlineContent = if (colonIdx in 0 until headerClean.lastIndex)
+        headerClean.substring(colonIdx + 1).trim() else ""
+
+    // Collect body lines until an end-keyword line is found
+    val bodyLines = mutableListOf<String>()
+    for (i in (startLineIdx + 1) until textLines.size) {
+        val clean = textLines[i].replace("**", "").replace("*", "").replace("_", "").trim()
+        val upper = clean.uppercase()
+        if (endKeywords.any { upper.startsWith(it) }) break
+        if (clean.isNotBlank()) bodyLines.add(clean)
+    }
+
+    val body = bodyLines.joinToString(" ")
+    return listOf(inlineContent, body).filter { it.isNotBlank() }.joinToString(" ").trim()
 }
 
 // ─── Error ────────────────────────────────────────────────────────────────────
