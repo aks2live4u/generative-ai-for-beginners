@@ -1,0 +1,12 @@
+# Gradle build cache and generated outputs
+.gradle/
+build/
+app/build/
+
+# Local configuration
+local.properties
+
+# IDE files
+.idea/
+*.iml
+.DS_Store
