@@ -6,5 +6,8 @@ data class StockAnalysis(
     val symbol: String,
     val decision: String,
     val analysisText: String,
-    val verdict: Verdict
+    val verdict: Verdict,
+    val stockData: StockData,
+    val quantity: Int? = null,
+    val avgBuyPrice: Double? = null
 )

@@ -38,7 +38,10 @@ class StockRepository(
             symbol = stockData.name.ifBlank { stockData.symbol },
             decision = decision,
             analysisText = analysisText,
-            verdict = verdict
+            verdict = verdict,
+            stockData = stockData,
+            quantity = quantity,
+            avgBuyPrice = avgBuyPrice
         )
     }
 

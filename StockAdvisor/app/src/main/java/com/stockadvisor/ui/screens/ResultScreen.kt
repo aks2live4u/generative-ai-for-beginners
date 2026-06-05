@@ -17,20 +17,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stockadvisor.data.model.StockAnalysis
+import com.stockadvisor.data.model.StockData
 import com.stockadvisor.data.model.Verdict
 import com.stockadvisor.ui.theme.*
 import com.stockadvisor.viewmodel.AnalysisState
 import com.stockadvisor.viewmodel.StockViewModel
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
-// ─── Parsed data model ────────────────────────────────────────────────────────
+// ─── Parsed text model (only the AI-written sections) ────────────────────────
 
 private data class ParsedAnalysis(
     val verdict: String = "",
     val confidence: String = "",
     val instrument: String = "",
     val summary: List<String> = emptyList(),
-    val metrics: List<Triple<String, String, String>> = emptyList(),
-    val position: List<Triple<String, String, String>> = emptyList(),
     val strengths: List<String> = emptyList(),
     val risks: List<String> = emptyList(),
     val adviceBuyToday: String = "",
@@ -64,7 +66,7 @@ fun ResultScreen(
             is AnalysisState.LoadingMarketData -> LoadingContent("Fetching market data…")
             is AnalysisState.LoadingAIAnalysis ->
                 LoadingContent("Running AI research…\nThis may take 15–30 seconds.")
-            is AnalysisState.Success -> SuccessContent(s.analysis.analysisText, s.analysis.verdict, onAnalyzeAnother)
+            is AnalysisState.Success -> SuccessContent(s.analysis, onAnalyzeAnother)
             is AnalysisState.Error -> ErrorContent(s.message, onAnalyzeAnother) {
                 viewModel.analyzeStock(symbol, decision)
             }
@@ -101,11 +103,16 @@ private fun LoadingContent(message: String) {
 
 @Composable
 private fun SuccessContent(
-    analysisText: String,
-    verdict: Verdict,
+    analysis: StockAnalysis,
     onAnalyzeAnother: () -> Unit
 ) {
-    val parsed = remember(analysisText) { parseStructuredAnalysis(analysisText) }
+    val parsed = remember(analysis.analysisText) { parseStructuredAnalysis(analysis.analysisText) }
+    val metricsRows = remember(analysis.stockData) { buildMetricsRows(analysis.stockData) }
+    val positionRows = remember(analysis.stockData, analysis.avgBuyPrice, analysis.quantity) {
+        buildPositionRows(analysis.stockData, analysis.avgBuyPrice, analysis.quantity)
+    }
+
+    val verdict = analysis.verdict
     val verdictColor = when (verdict) {
         Verdict.WISE -> WiseColor
         Verdict.RISKY -> RiskyColor
@@ -138,7 +145,7 @@ private fun SuccessContent(
                     val instrumentLabel = parsed.instrument.split("|").firstOrNull()?.trim()
                         ?: parsed.instrument
                     Text(
-                        text = instrumentLabel.ifBlank { "Analysis" },
+                        text = instrumentLabel.ifBlank { analysis.symbol },
                         style = MaterialTheme.typography.titleLarge,
                         color = OnSurface,
                         fontWeight = FontWeight.Bold
@@ -193,19 +200,19 @@ private fun SuccessContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ── Metrics table ─────────────────────────────────────────────────
-            if (parsed.metrics.isNotEmpty()) {
+            // ── Metrics table (always built from StockData) ───────────────────
+            if (metricsRows.isNotEmpty()) {
                 SectionHeader("METRICS")
                 Spacer(modifier = Modifier.height(6.dp))
-                MetricsTable(rows = parsed.metrics)
+                MetricsTable(rows = metricsRows)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ── Position table (SELL / HOLD) ──────────────────────────────────
-            if (parsed.position.isNotEmpty()) {
+            // ── Position table (SELL / HOLD with avgBuyPrice) ─────────────────
+            if (positionRows.isNotEmpty()) {
                 SectionHeader("YOUR POSITION")
                 Spacer(modifier = Modifier.height(6.dp))
-                MetricsTable(rows = parsed.position)
+                MetricsTable(rows = positionRows)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -314,11 +321,167 @@ private fun SuccessContent(
                 Text("Analyze Another", fontWeight = FontWeight.Bold)
             }
 
-            // Extra space so button clears the phone's navigation bar when scrolled to bottom
             Spacer(modifier = Modifier.navigationBarsPadding())
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
+}
+
+// ─── Metrics builder — always computed from StockData ────────────────────────
+
+private fun buildMetricsRows(stockData: StockData): List<Triple<String, String, String>> {
+    val currency = if ("NS" in stockData.symbol || "BO" in stockData.symbol ||
+        stockData.symbol.startsWith("MF:")) "₹" else "$"
+    val isMf = stockData.assetType.contains("FUND", ignoreCase = true) || stockData.symbol.startsWith("MF:")
+    val priceLabel = if (isMf) "NAV" else "Price"
+
+    fun fmt2(v: Double) = String.format("%.2f", v)
+    fun fmt1(v: Double) = String.format("%.1f", v)
+
+    val prices = stockData.priceHistory
+    val startPrice = prices.firstOrNull()?.closePrice ?: stockData.currentPrice
+    val pctChange = if (startPrice > 0)
+        ((stockData.currentPrice - startPrice) / startPrice * 100).roundToInt() else 0
+
+    val maxDrawdown: Double = run {
+        if (prices.isEmpty()) return@run 0.0
+        var peak = prices.first().closePrice
+        var maxDD = 0.0
+        for (p in prices) {
+            if (p.closePrice > peak) peak = p.closePrice
+            val dd = if (peak > 0) (peak - p.closePrice) / peak * 100 else 0.0
+            if (dd > maxDD) maxDD = dd
+        }
+        maxDD
+    }
+
+    val n = prices.size
+    val recentTrend3M = if (n >= 4) {
+        val p3m = prices[n - 4].closePrice
+        val pNow = prices.last().closePrice
+        if (p3m > 0) ((pNow - p3m) / p3m * 100).roundToInt() else 0
+    } else 0
+
+    val vsHigh = if (stockData.fiftyTwoWeekHigh > 0)
+        ((stockData.currentPrice - stockData.fiftyTwoWeekHigh) / stockData.fiftyTwoWeekHigh * 100).roundToInt() else 0
+    val vsLow = if (stockData.fiftyTwoWeekLow > 0)
+        ((stockData.currentPrice - stockData.fiftyTwoWeekLow) / stockData.fiftyTwoWeekLow * 100).roundToInt() else 100
+
+    val trendLabel = when {
+        recentTrend3M >= 10  -> "↑ Uptrend (+$recentTrend3M%)"
+        recentTrend3M <= -10 -> "↓ Downtrend ($recentTrend3M%)"
+        else                 -> "→ Sideways ($recentTrend3M%)"
+    }
+    val trendSignal = when {
+        recentTrend3M >= 10  -> "↑ BULLISH"
+        recentTrend3M <= -10 -> "↓ BEARISH"
+        else                 -> "→ NEUTRAL"
+    }
+
+    val rows = mutableListOf<Triple<String, String, String>>()
+    rows += Triple("Current $priceLabel", "$currency${fmt2(stockData.currentPrice)}", "-")
+    rows += Triple("52W High", "$currency${fmt2(stockData.fiftyTwoWeekHigh)}", "-")
+    rows += Triple("52W Low",  "$currency${fmt2(stockData.fiftyTwoWeekLow)}", "-")
+    rows += Triple("vs 52W High", "$vsHigh%",
+        if (vsHigh > -5) "↑ GOOD" else "↓ CAUTION")
+    rows += Triple("vs 52W Low", "+$vsLow%", when {
+        vsLow < 10 -> "↓ AT BOTTOM"
+        vsLow < 30 -> "→ RECOVERING"
+        else       -> "↑ ABOVE"
+    })
+    rows += Triple("3M Trend", trendLabel, trendSignal)
+    rows += Triple("5Y Return", "$pctChange%", when {
+        pctChange > 50 -> "↑ STRONG"
+        pctChange > 10 -> "→ MODERATE"
+        else           -> "↓ WEAK"
+    })
+    rows += Triple("Max Drawdown", "${maxDrawdown.roundToInt()}%", when {
+        maxDrawdown > 40 -> "↓ HIGH RISK"
+        maxDrawdown > 20 -> "→ MODERATE"
+        else             -> "↑ LOW"
+    })
+
+    stockData.peRatio?.let { pe ->
+        rows += Triple("P/E (TTM)", fmt1(pe), when {
+            pe > 80 -> "↓ EXPENSIVE"
+            pe < 20 -> "↑ CHEAP"
+            else    -> "→ FAIR"
+        })
+    }
+    stockData.pbRatio?.let { pb ->
+        rows += Triple("P/B Ratio", fmt1(pb), when {
+            pb > 5  -> "↓ PRICEY"
+            pb < 1  -> "↑ CHEAP"
+            else    -> "→ FAIR"
+        })
+    }
+    stockData.eps?.let { eps ->
+        rows += Triple("EPS (TTM)", "$currency${fmt2(eps)}", "-")
+    }
+    stockData.roe?.let { roe ->
+        rows += Triple("ROE", "${fmt1(roe)}%", when {
+            roe > 15 -> "↑ GOOD"
+            roe > 8  -> "→ OK"
+            else     -> "↓ POOR"
+        })
+    }
+    stockData.debtToEquity?.let { de ->
+        rows += Triple("Debt/Equity", fmt1(de), when {
+            de < 0.5 -> "↑ LOW RISK"
+            de < 1.5 -> "→ MODERATE"
+            else     -> "↓ HIGH"
+        })
+    }
+    stockData.dividendYield?.let { dy ->
+        rows += Triple("Div Yield", "${fmt1(dy)}%", "-")
+    }
+    stockData.revenueGrowth?.let { rg ->
+        val sign = if (rg >= 0) "+" else ""
+        rows += Triple("Revenue Growth", "$sign${fmt1(rg)}% YoY",
+            if (rg > 0) "↑ GROWING" else "↓ SHRINKING")
+    }
+    stockData.marketCap?.let { mc ->
+        val cap = when {
+            mc >= 1_000_000_000_000L -> "$currency${"%.2f".format(mc / 1_000_000_000_000.0)}T"
+            mc >= 1_000_000_000L     -> "$currency${"%.2f".format(mc / 1_000_000_000.0)}B"
+            mc >= 1_000_000L         -> "$currency${"%.2f".format(mc / 1_000_000.0)}M"
+            else                     -> "$currency$mc"
+        }
+        rows += Triple("Market Cap", cap, "-")
+    }
+
+    return rows
+}
+
+private fun buildPositionRows(
+    stockData: StockData,
+    avgBuyPrice: Double?,
+    quantity: Int?
+): List<Triple<String, String, String>> {
+    if (avgBuyPrice == null && quantity == null) return emptyList()
+    val currency = if ("NS" in stockData.symbol || "BO" in stockData.symbol ||
+        stockData.symbol.startsWith("MF:")) "₹" else "$"
+    val rows = mutableListOf<Triple<String, String, String>>()
+    if (avgBuyPrice != null) {
+        rows += Triple("Avg Buy Price", "$currency${String.format("%.2f", avgBuyPrice)}", "-")
+    }
+    if (avgBuyPrice != null && quantity != null) {
+        val pnl = (stockData.currentPrice - avgBuyPrice) * quantity
+        val pnlPct = if (avgBuyPrice > 0) (stockData.currentPrice - avgBuyPrice) / avgBuyPrice * 100 else 0.0
+        val sign = if (pnl >= 0) "+" else ""
+        val pctSign = if (pnlPct >= 0) "+" else ""
+        rows += Triple(
+            "Unrealized P&L",
+            "$sign$currency${String.format("%.0f", abs(pnl))}",
+            if (pnl >= 0) "↑ PROFIT" else "↓ LOSS"
+        )
+        rows += Triple(
+            "P&L %",
+            "$pctSign${String.format("%.1f", pnlPct)}%",
+            if (pnlPct >= 0) "↑ PROFIT" else "↓ LOSS"
+        )
+    }
+    return rows
 }
 
 // ─── Composable helpers ───────────────────────────────────────────────────────
@@ -455,20 +618,21 @@ private fun BulletCard(
 private fun signalColor(signal: String): Color {
     val s = signal.uppercase()
     return when {
-        "↑" in s || "WISE" in s || "GOOD" in s || "PROFIT" in s || "VALUE" in s || "LOW RISK" in s -> WiseColor
-        "↓" in s || "RISKY" in s || "CAUTION" in s || "LOSS" in s || "HIGH RISK" in s || "WEAK" in s -> RiskyColor
+        "↑" in s || "WISE" in s || "GOOD" in s || "PROFIT" in s || "GROWING" in s ||
+            "LOW RISK" in s || "BULLISH" in s || "CHEAP" in s -> WiseColor
+        "↓" in s || "RISKY" in s || "CAUTION" in s || "LOSS" in s || "HIGH RISK" in s ||
+            "WEAK" in s || "BEARISH" in s || "EXPENSIVE" in s || "PRICEY" in s ||
+            "SHRINKING" in s || "POOR" in s -> RiskyColor
         else -> NeutralColor
     }
 }
 
-// ─── Parser ───────────────────────────────────────────────────────────────────
+// ─── Parser — only parses AI-written text sections ───────────────────────────
 
 private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
     val lines = text.lines()
     var verdict = ""; var confidence = ""; var instrument = ""
     val summary = mutableListOf<String>()
-    val metrics = mutableListOf<Triple<String, String, String>>()
-    val position = mutableListOf<Triple<String, String, String>>()
     val strengths = mutableListOf<String>()
     val risks = mutableListOf<String>()
     val adviceBuyToday = StringBuilder()
@@ -480,30 +644,63 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
     for (line in lines) {
         val trimmed = line.trim()
         when {
-            trimmed.startsWith("VERDICT:") -> { verdict = trimmed.removePrefix("VERDICT:").trim(); section = "" }
-            trimmed.startsWith("CONFIDENCE:") -> { confidence = trimmed.removePrefix("CONFIDENCE:").trim(); section = "" }
-            trimmed.startsWith("INSTRUMENT:") -> { instrument = trimmed.removePrefix("INSTRUMENT:").trim(); section = "" }
-            trimmed.startsWith("SUMMARY") && trimmed.endsWith(":") -> section = "SUMMARY"
-            trimmed.startsWith("METRICS") && trimmed.endsWith(":") -> section = "METRICS"
-            trimmed.startsWith("YOUR POSITION") -> section = "POSITION"
-            trimmed.startsWith("STRENGTHS") && trimmed.endsWith(":") -> section = "STRENGTHS"
-            trimmed.startsWith("RISKS") && trimmed.endsWith(":") -> section = "RISKS"
-            trimmed.startsWith("EXPERT ADVICE") -> section = ""
-            trimmed.startsWith("ADVICE FOR BUYER TODAY") || trimmed.startsWith("ADVICE FOR BUYING TODAY") -> section = "ADVICE_BUY"
-            trimmed.startsWith("ADVICE FOR LONG TERM") || trimmed.startsWith("ADVICE FOR LONG-TERM") -> section = "ADVICE_LT"
-            trimmed.startsWith("ADVICE FOR SHORT-TERM") || trimmed.startsWith("ADVICE FOR TRADER") -> section = "ADVICE_TR"
-            trimmed.startsWith("DATA:") -> { dataSource = trimmed.removePrefix("DATA:").trim(); section = "" }
+            trimmed.startsWith("VERDICT:") -> {
+                verdict = trimmed.removePrefix("VERDICT:").trim(); section = ""
+            }
+            trimmed.startsWith("CONFIDENCE:") -> {
+                confidence = trimmed.removePrefix("CONFIDENCE:").trim(); section = ""
+            }
+            trimmed.startsWith("INSTRUMENT:") -> {
+                instrument = trimmed.removePrefix("INSTRUMENT:").trim(); section = ""
+            }
+            trimmed.uppercase().startsWith("SUMMARY") && trimmed.endsWith(":") -> section = "SUMMARY"
+            trimmed.uppercase().startsWith("STRENGTHS") && trimmed.endsWith(":") -> section = "STRENGTHS"
+            trimmed.uppercase().startsWith("RISKS") && trimmed.endsWith(":") -> section = "RISKS"
+            trimmed.uppercase().startsWith("EXPERT ADVICE") -> section = ""
+            // Short advice headers (new format)
+            trimmed.uppercase().startsWith("FOR BUYERS") -> section = "ADVICE_BUY"
+            trimmed.uppercase().startsWith("FOR LONG TERM") -> section = "ADVICE_LT"
+            trimmed.uppercase().startsWith("FOR TRADERS") -> section = "ADVICE_TR"
+            // Legacy advice headers (fallback for any cached output)
+            trimmed.uppercase().startsWith("ADVICE FOR BUYER") -> section = "ADVICE_BUY"
+            trimmed.uppercase().startsWith("ADVICE FOR LONG") -> section = "ADVICE_LT"
+            trimmed.uppercase().startsWith("ADVICE FOR SHORT") -> section = "ADVICE_TR"
+            trimmed.startsWith("DATA:") -> {
+                dataSource = trimmed.removePrefix("DATA:").trim(); section = ""
+            }
             trimmed.startsWith("DISCLAIMER:") -> section = ""
-            trimmed.isBlank() -> { /* preserve section */ }
+            trimmed.isBlank() -> { /* keep current section */ }
             else -> when (section) {
-                "SUMMARY"   -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) summary.add(trimmed.trimStart('•', '-', ' '))
-                "METRICS"   -> parseTableRow(trimmed)?.let { metrics.add(it) }
-                "POSITION"  -> parseTableRow(trimmed)?.let { position.add(it) }
-                "STRENGTHS" -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) strengths.add(trimmed.trimStart('•', '-', ' '))
-                "RISKS"     -> if (trimmed.startsWith("•") || trimmed.startsWith("-")) risks.add(trimmed.trimStart('•', '-', ' '))
-                "ADVICE_BUY" -> { if (adviceBuyToday.isNotEmpty()) adviceBuyToday.append(" "); adviceBuyToday.append(trimmed) }
-                "ADVICE_LT"  -> { if (adviceLongTerm.isNotEmpty()) adviceLongTerm.append(" ");  adviceLongTerm.append(trimmed) }
-                "ADVICE_TR"  -> { if (adviceTrader.isNotEmpty()) adviceTrader.append(" ");       adviceTrader.append(trimmed) }
+                "SUMMARY"    -> {
+                    if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+                        val text = trimmed.trimStart('•', '-', ' ')
+                        if (text.isNotBlank()) summary.add(text)
+                    }
+                }
+                "STRENGTHS"  -> {
+                    if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+                        val text = trimmed.trimStart('•', '-', ' ')
+                        if (text.isNotBlank()) strengths.add(text)
+                    }
+                }
+                "RISKS"      -> {
+                    if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+                        val text = trimmed.trimStart('•', '-', ' ')
+                        if (text.isNotBlank()) risks.add(text)
+                    }
+                }
+                "ADVICE_BUY" -> {
+                    if (adviceBuyToday.isNotEmpty()) adviceBuyToday.append(" ")
+                    adviceBuyToday.append(trimmed)
+                }
+                "ADVICE_LT"  -> {
+                    if (adviceLongTerm.isNotEmpty()) adviceLongTerm.append(" ")
+                    adviceLongTerm.append(trimmed)
+                }
+                "ADVICE_TR"  -> {
+                    if (adviceTrader.isNotEmpty()) adviceTrader.append(" ")
+                    adviceTrader.append(trimmed)
+                }
             }
         }
     }
@@ -513,8 +710,6 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
         confidence = confidence,
         instrument = instrument,
         summary = summary,
-        metrics = metrics,
-        position = position,
         strengths = strengths,
         risks = risks,
         adviceBuyToday = adviceBuyToday.toString().trim(),
@@ -522,15 +717,6 @@ private fun parseStructuredAnalysis(text: String): ParsedAnalysis {
         adviceTrader = adviceTrader.toString().trim(),
         dataSource = dataSource
     )
-}
-
-private fun parseTableRow(line: String): Triple<String, String, String>? {
-    val parts = line.split("|").map { it.trim() }
-    if (parts.size < 2) return null
-    val label = parts[0].ifBlank { return null }
-    val value = parts.getOrElse(1) { "" }
-    val signal = parts.getOrElse(2) { "" }
-    return Triple(label, value, signal)
 }
 
 // ─── Error ────────────────────────────────────────────────────────────────────

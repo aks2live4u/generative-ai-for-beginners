@@ -50,7 +50,7 @@ class AnthropicService(private val apiKey: String) {
 
         val requestBody = JsonObject().apply {
             addProperty("model", "claude-sonnet-4-6")
-            addProperty("max_tokens", 1500)
+            addProperty("max_tokens", 2000)
             add("messages", messagesArray)
         }.toString().toRequestBody(jsonMediaType)
 
@@ -249,30 +249,8 @@ SUMMARY:
 • [second key point — plain English, max 14 words]
 • [third key point — plain English, max 14 words]
 
-METRICS:
-Current $priceLabel | $currencySymbol${String.format("%.2f", data.currentPrice)} | -
-52W High | $currencySymbol${String.format("%.2f", data.fiftyTwoWeekHigh)} | -
-52W Low | $currencySymbol${String.format("%.2f", data.fiftyTwoWeekLow)} | -
-vs 52W High | $vsHigh% | [↑ GOOD if > -5%, ↓ CAUTION otherwise]
-vs 52W Low | +$vsLow% | [↓ AT BOTTOM if < 10%, → RECOVERING if 10-30%, ↑ ABOVE if >30%]
-3M Trend | $trendDesc | [momentum direction]
-5Y Return | $pctChange% | [↑ STRONG >50%, → MODERATE 10-50%, ↓ WEAK <10%]
-Max Drawdown | ${maxDrawdown.roundToInt()}% | [↓ HIGH RISK >40%, → MODERATE 20-40%, ↑ LOW <20%]
-P/E (TTM) | $peStr | [↓ EXPENSIVE >80, → FAIR 20-80, ↑ CHEAP <20]
-P/B Ratio | $pbStr | [↓ PRICEY >5, → FAIR 1-5, ↑ CHEAP <1]
-EPS (TTM) | $epsStr | [earnings per share — higher is better]
-ROE | $roeStr | [↑ GOOD >15%, → OK 8-15%, ↓ POOR <8%]
-Debt/Equity | $deStr | [↑ LOW RISK <0.5, → MODERATE 0.5-1.5, ↓ HIGH >1.5]
-Div Yield | $divStr | [income from holding the stock]
-Revenue Growth | $revGStr | [is the business growing?]
-Market Cap | $marketCapStr | -
-${if (positionSection.isNotBlank()) """
-YOUR POSITION:
-Avg Buy Price | [value] | -
-Unrealized P&L | [calculate] | [↑ PROFIT or ↓ LOSS]
-P&L % | [calculate] | [selling now makes this permanent]""" else ""}
 STRENGTHS:
-• [specific strength with a number where possible — max 14 words]
+• [specific strength with a number — max 14 words]
 • [specific strength — max 14 words]
 • [specific strength — max 14 words]
 
@@ -283,14 +261,14 @@ RISKS:
 
 EXPERT ADVICE:
 
-ADVICE FOR BUYER TODAY:
-[2-3 sentences. Should I buy a lump sum today? Reference the P/E, trend, and 52W position with actual numbers. Be direct.]
+FOR BUYERS:
+[2-3 sentences. Should I buy a lump sum today? Reference the P/E, 3M trend, and 52W range position with actual numbers. Be direct and honest.]
 
-ADVICE FOR LONG TERM (SIP):
-[2-3 sentences. Is this a good long-term hold? ${if (isIndian) "Mention whether SIP (buying fixed amount every month) is better than a lump sum purchase, and why." else "Discuss long-term investment strategy."} Use actual numbers.]
+FOR LONG TERM:
+[2-3 sentences. Is this a good long-term hold or SIP candidate? ${if (isIndian) "Mention whether monthly SIP is better than a lump sum, and why." else "Discuss long-term investment strategy."} Use actual numbers.]
 
-ADVICE FOR SHORT-TERM TRADER:
-[1-2 sentences. Is the momentum up or down? Reference the 3M trend and 52W range. When to enter or stay away?]
+FOR TRADERS:
+[1-2 sentences. Is the short-term momentum up or down? Reference the 3M trend. When to enter or stay away?]
 
 DATA: ${if (isMutualFund) "AMFI via mfapi.in" else "Yahoo Finance"} | Retrieved $today
 DISCLAIMER: Educational only. Not financial advice.
