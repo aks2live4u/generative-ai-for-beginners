@@ -25,6 +25,7 @@ fun CountdownContent(
     appName: String,
     totalSec: Long,
     messageRepo: FutureMessageRepository,
+    emergencyAvailable: Boolean,
     onOpen: () -> Unit,
     onGoBack: () -> Unit,
     onEmergency: () -> Unit
@@ -129,7 +130,14 @@ fun CountdownContent(
                     Text("Go Back", color = TextPrimary)
                 }
 
-                if (!showEmergencyConfirm) {
+                if (!emergencyAvailable) {
+                    Text(
+                        "Emergency unlock already used — available again in 8 hours.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                } else if (!showEmergencyConfirm) {
                     TextButton(onClick = { showEmergencyConfirm = true }) {
                         Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
                     }

@@ -39,6 +39,8 @@ class OverlayManager(
         val lifecycle = ServiceLifecycleOwner()
         currentLifecycle = lifecycle
 
+        val emergencyAvailable = !GuardrailAccessibilityService.isEmergencyOnCooldown()
+
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             setViewTreeLifecycleOwner(lifecycle)
@@ -69,19 +71,19 @@ class OverlayManager(
                             onGoBack = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) }
                         )
                         else -> CountdownContent(
-                            appName     = rule.appName,
-                            totalSec    = rule.frictionLevel.delaySeconds,
-                            messageRepo = messageRepo,
+                            appName            = rule.appName,
+                            totalSec           = rule.frictionLevel.delaySeconds,
+                            messageRepo        = messageRepo,
+                            emergencyAvailable = emergencyAvailable,
                             onOpen      = {
                                 // Grant 30-minute session so the app stays unblocked
                                 GuardrailAccessibilityService.grantSession(packageName)
                                 recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds)
-                                // Re-launch the app (or browser) so the user doesn't have to go back manually
                                 launchApp(packageName)
                             },
                             onGoBack    = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
                             onEmergency = {
-                                // Grant 15-minute access only for this specific app
+                                // Grant 15-minute access for this app only; starts 8-hour cooldown
                                 GuardrailAccessibilityService.grantEmergency(packageName)
                                 recordAndDismiss(packageName, rule.appName, AccessOutcome.EMERGENCY_UNLOCKED, 0)
                                 launchApp(packageName)

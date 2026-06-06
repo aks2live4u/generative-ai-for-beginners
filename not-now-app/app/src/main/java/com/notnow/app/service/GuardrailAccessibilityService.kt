@@ -45,13 +45,22 @@ class GuardrailAccessibilityService : AccessibilityService() {
         private val emergencyGrants = ConcurrentHashMap<String, Long>()
         private const val EMERGENCY_MS = 15 * 60 * 1000L
 
+        // Global 8-hour cooldown — once emergency is used, it cannot be used again for 8 hours.
+        @Volatile private var emergencyUsedAt = 0L
+        private const val EMERGENCY_COOLDOWN_MS = 8 * 60 * 60 * 1000L
+
         fun grantSession(key: String) {
             sessionGrants[key] = System.currentTimeMillis()
         }
 
         fun grantEmergency(key: String) {
-            emergencyGrants[key] = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            emergencyGrants[key] = now
+            emergencyUsedAt = now
         }
+
+        fun isEmergencyOnCooldown(): Boolean =
+            System.currentTimeMillis() - emergencyUsedAt < EMERGENCY_COOLDOWN_MS
 
         fun hasEmergencyGrant(key: String): Boolean {
             val t = emergencyGrants[key] ?: return false
