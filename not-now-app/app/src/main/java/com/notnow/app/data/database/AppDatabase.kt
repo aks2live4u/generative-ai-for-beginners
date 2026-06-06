@@ -1,11 +1,9 @@
 package com.notnow.app.data.database
 
 import android.content.Context
-import androidx.room.Database
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.TypeConverter
-import androidx.room.TypeConverters
+import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.notnow.app.data.dao.*
 import com.notnow.app.data.entity.*
 
@@ -19,8 +17,8 @@ class Converters {
 }
 
 @Database(
-    entities = [AppRule::class, ShoppingVaultItem::class, FutureMessage::class, UsageRecord::class],
-    version = 1,
+    entities = [AppRule::class, ShoppingVaultItem::class, FutureMessage::class, UsageRecord::class, BlockedWebsite::class],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -29,9 +27,25 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun shoppingVaultDao(): ShoppingVaultDao
     abstract fun futureMessageDao(): FutureMessageDao
     abstract fun usageRecordDao(): UsageRecordDao
+    abstract fun blockedWebsiteDao(): BlockedWebsiteDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS blocked_websites (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        domain TEXT NOT NULL,
+                        label TEXT NOT NULL,
+                        frictionLevel TEXT NOT NULL,
+                        isEnabled INTEGER NOT NULL,
+                        addedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
 
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
@@ -39,7 +53,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "notnow.db"
-                ).build().also { INSTANCE = it }
+                )
+                .addMigrations(MIGRATION_1_2)
+                .build().also { INSTANCE = it }
             }
     }
 }

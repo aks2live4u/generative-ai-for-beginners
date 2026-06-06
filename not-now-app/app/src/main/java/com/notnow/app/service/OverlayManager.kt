@@ -74,7 +74,11 @@ class OverlayManager(
                             appName    = rule.appName,
                             totalSec   = rule.frictionLevel.delaySeconds,
                             messageRepo = messageRepo,
-                            onComplete = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds) },
+                            onComplete = {
+                                // Grant a 45-second window so the app/site opens without re-blocking
+                                GuardrailAccessibilityService.allowTemporarily(packageName)
+                                recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds)
+                            },
                             onGoBack   = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
                             onEmergency = {
                                 scope.launch {

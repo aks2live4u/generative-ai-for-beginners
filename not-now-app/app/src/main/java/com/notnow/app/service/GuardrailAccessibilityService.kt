@@ -4,28 +4,58 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.view.accessibility.AccessibilityEvent
 import com.notnow.app.NotNowApplication
+import com.notnow.app.data.entity.AppCategory
 import com.notnow.app.data.entity.AppRule
+import com.notnow.app.data.entity.BlockedWebsite
 import com.notnow.app.data.entity.FrictionLevel
 import kotlinx.coroutines.*
 import java.util.Calendar
+import java.util.concurrent.ConcurrentHashMap
 
 class GuardrailAccessibilityService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var overlayManager: OverlayManager? = null
 
-    // Cached state — updated by background collectors so onAccessibilityEvent() is fully synchronous
+    // In-memory caches updated by background collectors — onAccessibilityEvent() stays synchronous
     @Volatile private var ruleCache: Map<String, AppRule> = emptyMap()
+    @Volatile private var websiteCache: Map<String, BlockedWebsite> = emptyMap()
     @Volatile private var currentMode = "LIFE"
     @Volatile private var nightLockdownOn = true
     @Volatile private var nightStartHour = 23
     @Volatile private var nightEndHour = 7
     @Volatile private var emergencyUnlockUntil = 0L
 
-    private var lastBlockedPackage = ""
+    private var lastBlockedKey = ""
     private var lastBlockedTime = 0L
+    private var lastCheckedUrl = ""
 
     private val app get() = application as NotNowApplication
+
+    private val browserPackages = setOf(
+        "com.android.chrome",
+        "com.chrome.beta",
+        "com.chrome.dev",
+        "org.mozilla.firefox",
+        "com.brave.browser",
+        "com.microsoft.emmx",
+        "com.opera.browser",
+        "com.sec.android.app.sbrowser",
+        "com.UCMobile.intl",
+        "com.uc.browser.en",
+    )
+
+    // View IDs for the URL bar in each browser
+    private val browserUrlBarId = mapOf(
+        "com.android.chrome"              to "com.android.chrome:id/url_bar",
+        "com.chrome.beta"                 to "com.chrome.beta:id/url_bar",
+        "com.chrome.dev"                  to "com.chrome.dev:id/url_bar",
+        "org.mozilla.firefox"             to "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
+        "com.brave.browser"               to "com.brave.browser:id/url_bar",
+        "com.microsoft.emmx"              to "com.microsoft.emmx:id/url_bar",
+        "com.opera.browser"               to "com.opera.browser:id/url_field",
+        "com.sec.android.app.sbrowser"    to "com.sec.android.app.sbrowser:id/location_bar_edit_text",
+    )
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -43,11 +73,9 @@ class GuardrailAccessibilityService : AccessibilityService() {
     }
 
     private fun seedAndObserve() {
-        // Rules
         scope.launch {
             try {
                 val a = app
-                // Re-seed if the DB was cleared (e.g. app data wipe)
                 if (a.appRuleRepository.getRuleForPackage("com.google.android.youtube") == null) {
                     a.appRuleRepository.seedDefaults()
                 }
@@ -56,38 +84,43 @@ class GuardrailAccessibilityService : AccessibilityService() {
                 }
             } catch (_: Exception) {}
         }
-        // Preferences — one collector per key so they update independently
         scope.launch {
-            try { app.preferences.operatingMode.collect { currentMode = it } } catch (_: Exception) {}
+            try {
+                app.blockedWebsiteRepository.allSites.collect { list ->
+                    websiteCache = list.filter { it.isEnabled }.associateBy { it.domain }
+                }
+            } catch (_: Exception) {}
         }
-        scope.launch {
-            try { app.preferences.nightLockdownEnabled.collect { nightLockdownOn = it } } catch (_: Exception) {}
-        }
-        scope.launch {
-            try { app.preferences.nightStartHour.collect { nightStartHour = it } } catch (_: Exception) {}
-        }
-        scope.launch {
-            try { app.preferences.nightEndHour.collect { nightEndHour = it } } catch (_: Exception) {}
-        }
-        scope.launch {
-            try { app.preferences.emergencyUnlockUntil.collect { emergencyUnlockUntil = it } } catch (_: Exception) {}
-        }
+        scope.launch { try { app.preferences.operatingMode.collect          { currentMode         = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightLockdownEnabled.collect   { nightLockdownOn      = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightStartHour.collect         { nightStartHour       = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightEndHour.collect           { nightEndHour         = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.emergencyUnlockUntil.collect   { emergencyUnlockUntil = it } } catch (_: Exception) {} }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val pkg = event.packageName?.toString() ?: return
+        val type = event?.eventType ?: return
+        val pkg  = event.packageName?.toString() ?: return
 
-        // Skip our own app and core system UI
+        when (type) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED   -> handleAppSwitch(pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> if (pkg in browserPackages) checkBrowserUrl(pkg)
+        }
+    }
+
+    private fun handleAppSwitch(pkg: String) {
         if (pkg == packageName) return
         if (pkg == "android" || pkg == "com.android.systemui") return
-        // Skip system packages (com.android.*) but not YouTube (com.google.android.youtube)
         if (pkg.startsWith("com.android.") && !pkg.contains("youtube")) return
 
-        // Fast synchronous lookup from in-memory cache — no DB/DataStore reads
-        val rule = ruleCache[pkg] ?: return
+        // Temporary allow window set after countdown completes
+        val expiry = tempAllowed[pkg]
+        if (expiry != null) {
+            if (System.currentTimeMillis() < expiry) { tempAllowed.remove(pkg); return }
+            tempAllowed.remove(pkg)
+        }
 
-        // Emergency unlock bypass
+        val rule = ruleCache[pkg] ?: return
         if (System.currentTimeMillis() < emergencyUnlockUntil) return
 
         val isNight = nightLockdownOn && isNightTime(nightStartHour, nightEndHour)
@@ -99,21 +132,66 @@ class GuardrailAccessibilityService : AccessibilityService() {
         }
         if (!shouldBlock) return
 
-        // 1-second debounce — prevents duplicate events, but short enough to re-block quickly
         val now = System.currentTimeMillis()
-        if (pkg == lastBlockedPackage && now - lastBlockedTime < 1000L) return
-        lastBlockedPackage = pkg
+        if (pkg == lastBlockedKey && now - lastBlockedTime < 1000L) return
+        lastBlockedKey = pkg
         lastBlockedTime = now
 
-        // Send to home IMMEDIATELY — fires right here on the event thread, zero coroutine delay
         performGlobalAction(GLOBAL_ACTION_HOME)
 
-        // Show the guardrail overlay on the Main thread
         val showNight = isNight && rule.blockedAtNight
         scope.launch(Dispatchers.Main) {
             overlayManager?.show(pkg, rule, isNight = showNight)
         }
     }
+
+    private fun checkBrowserUrl(browserPkg: String) {
+        try {
+            val root = rootInActiveWindow ?: return
+            val viewId = browserUrlBarId[browserPkg] ?: return
+            val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
+            val urlText = nodes?.firstOrNull()?.text?.toString()?.trim() ?: return
+            root.recycle()
+
+            if (urlText == lastCheckedUrl) return
+            lastCheckedUrl = urlText
+
+            val domain = extractDomain(urlText) ?: return
+
+            // Temp allow for this website (set after its countdown finishes)
+            val webKey = "web:$domain"
+            val expiry = tempAllowed[webKey]
+            if (expiry != null) {
+                if (System.currentTimeMillis() < expiry) { tempAllowed.remove(webKey); return }
+                tempAllowed.remove(webKey)
+            }
+
+            val site = websiteCache[domain] ?: return
+            if (System.currentTimeMillis() < emergencyUnlockUntil) return
+
+            val now = System.currentTimeMillis()
+            if (webKey == lastBlockedKey && now - lastBlockedTime < 1000L) return
+            lastBlockedKey = webKey
+            lastBlockedTime = now
+
+            performGlobalAction(GLOBAL_ACTION_HOME)
+
+            val fakeRule = AppRule(
+                packageName  = webKey,
+                appName      = site.label,
+                category     = AppCategory.OTHER,
+                frictionLevel = site.frictionLevel
+            )
+            scope.launch(Dispatchers.Main) {
+                overlayManager?.show(webKey, fakeRule, isNight = false)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun extractDomain(url: String): String? = try {
+        val normalized = if (url.startsWith("http")) url else "https://$url"
+        android.net.Uri.parse(normalized).host?.lowercase()?.removePrefix("www.")
+    } catch (_: Exception) { null }
 
     private fun isNightTime(startHour: Int, endHour: Int): Boolean {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -130,6 +208,13 @@ class GuardrailAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        // Set when a countdown finishes — grants 45s to open the app/site without re-blocking
+        private val tempAllowed = ConcurrentHashMap<String, Long>()
+
+        fun allowTemporarily(key: String, durationMs: Long = 45_000L) {
+            tempAllowed[key] = System.currentTimeMillis() + durationMs
+        }
+
         fun isEnabled(context: Context): Boolean {
             val enabled = android.provider.Settings.Secure.getString(
                 context.contentResolver,

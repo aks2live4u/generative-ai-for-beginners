@@ -29,7 +29,9 @@ import com.notnow.app.ui.theme.*
 fun HomeScreen(
     onOpenVault: () -> Unit,
     onOpenMessages: () -> Unit,
-    onOpenDashboard: () -> Unit
+    onOpenDashboard: () -> Unit,
+    onOpenCustomRules: () -> Unit,
+    onOpenWebsites: () -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as NotNowApplication
@@ -184,12 +186,20 @@ fun HomeScreen(
             }
         }
 
-        // Quick nav cards
+        // Quick nav cards — row 1
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 NavCard("🛍️", "Shopping\nVault", Modifier.weight(1f), onOpenVault)
                 NavCard("💬", "Future\nMessages", Modifier.weight(1f), onOpenMessages)
                 NavCard("📊", "Weekly\nReview", Modifier.weight(1f), onOpenDashboard)
+            }
+        }
+
+        // Quick nav cards — row 2 (new features)
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                NavCard("📱", "Block\nApps", Modifier.weight(1f), onOpenCustomRules)
+                NavCard("🌐", "Block\nSites", Modifier.weight(1f), onOpenWebsites)
             }
         }
 

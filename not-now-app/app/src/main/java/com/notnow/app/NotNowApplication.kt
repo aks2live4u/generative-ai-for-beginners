@@ -17,6 +17,7 @@ class NotNowApplication : Application() {
     val shoppingVaultRepository by lazy { ShoppingVaultRepository(database.shoppingVaultDao()) }
     val futureMessageRepository by lazy { FutureMessageRepository(database.futureMessageDao()) }
     val usageRepository by lazy { UsageRepository(database.usageRecordDao()) }
+    val blockedWebsiteRepository by lazy { BlockedWebsiteRepository(database.blockedWebsiteDao()) }
 
     override fun onCreate() {
         super.onCreate()
