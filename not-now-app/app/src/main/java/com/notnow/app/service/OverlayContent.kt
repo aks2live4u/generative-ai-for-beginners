@@ -32,6 +32,8 @@ fun CountdownContent(
     var remaining by remember { mutableLongStateOf(totalSec) }
     var futureMsg by remember { mutableStateOf("") }
     var showEmergencyConfirm by remember { mutableStateOf(false) }
+    var emergencyPassword by remember { mutableStateOf("") }
+    var emergencyPasswordError by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         futureMsg = messageRepo.getRandomMessage()?.message ?: ""
@@ -133,14 +135,53 @@ fun CountdownContent(
                     }
                 } else {
                     Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
-                        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Unlock everything for 15 minutes?", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(12.dp))
+                        Column(
+                            Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Emergency Unlock", color = AccentRed, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Type the password to unlock everything for 15 minutes.",
+                                color = TextSecondary,
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            OutlinedTextField(
+                                value = emergencyPassword,
+                                onValueChange = { emergencyPassword = it; emergencyPasswordError = false },
+                                placeholder = { Text("Password", color = TextSecondary) },
+                                singleLine = true,
+                                isError = emergencyPasswordError,
+                                modifier = Modifier.fillMaxWidth(),
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AccentRed,
+                                    unfocusedBorderColor = BorderDark,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                )
+                            )
+                            if (emergencyPasswordError) {
+                                Text("Wrong password", color = AccentRed, style = MaterialTheme.typography.bodySmall)
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(onClick = { showEmergencyConfirm = false }) { Text("Cancel", color = TextSecondary) }
-                                Button(onClick = onEmergency, colors = ButtonDefaults.buttonColors(containerColor = AccentRed)) {
-                                    Text("Unlock", color = Color.White)
-                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        showEmergencyConfirm = false
+                                        emergencyPassword = ""
+                                        emergencyPasswordError = false
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Cancel", color = TextSecondary) }
+                                Button(
+                                    onClick = {
+                                        if (emergencyPassword == "Areyousure?") onEmergency()
+                                        else emergencyPasswordError = true
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Unlock", color = Color.White) }
                             }
                         }
                     }
