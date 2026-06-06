@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI Cosmetic Scientist</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a14;--surface:#12121e;--card:#1c1c2e;--elevated:#242436;
+  --primary:#d94fa0;--primary-dark:#a03070;--secondary:#7c3aed;
+  --accent:#06b6d4;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;
+  --text:#f0f0f8;--sub:#8888aa;--border:#2a2a3e;
+  --radius:14px;--radius-sm:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;min-height:100vh;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit;font-size:inherit}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;min-height:100vh}
+.screen{display:none;flex:1;flex-direction:column;padding-bottom:72px;overflow-y:auto}
+.screen.active{display:flex}
+.content{padding:16px;flex:1}
+
+/* ── Top Bar ── */
+.topbar{padding:48px 16px 12px;background:linear-gradient(180deg,#0a0a14 0%,transparent 100%);position:sticky;top:0;z-index:10}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar p{color:var(--sub);font-size:13px;margin-top:2px}
+.topbar-row{display:flex;align-items:center;justify-content:space-between}
+.back-btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:var(--radius-sm);font-size:14px;display:flex;align-items:center;gap:6px}
+
+/* ── Bottom Nav ── */
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 8px;gap:3px;color:var(--sub);font-size:10px;font-weight:500;transition:color .2s}
+.nav-item.active{color:var(--primary)}
+.nav-item svg{width:22px;height:22px}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card-sm{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;border-radius:var(--radius-sm);font-weight:600;font-size:15px;transition:opacity .2s,transform .15s;width:100%}
+.btn:active{transform:scale(0.97);opacity:.85}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff}
+.btn-secondary{background:var(--elevated);color:var(--text);border:1px solid var(--border)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),var(--secondary));color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:8px 14px;font-size:13px;width:auto;border-radius:var(--radius-sm)}
+.btn-row{display:flex;gap:10px;margin-top:12px}
+
+/* ── Gradient heading ── */
+.gradient-text{background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ── Tags / Badges ── */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-primary{background:rgba(217,79,160,.2);color:var(--primary)}
+.badge-success{background:rgba(16,185,129,.2);color:var(--success)}
+.badge-warning{background:rgba(245,158,11,.2);color:var(--warning)}
+.badge-danger{background:rgba(239,68,68,.2);color:var(--danger)}
+.badge-accent{background:rgba(6,182,212,.2);color:var(--accent)}
+
+/* ── Score bar ── */
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.score-label{font-size:13px;color:var(--sub);width:130px;flex-shrink:0}
+.score-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.score-val{font-size:13px;font-weight:700;width:32px;text-align:right}
+
+/* ── Search ── */
+.search-wrap{position:relative;margin-bottom:14px}
+.search-wrap input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:11px 14px 11px 40px;font-size:14px;outline:none}
+.search-wrap input::placeholder{color:var(--sub)}
+.search-wrap input:focus{border-color:var(--primary)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--sub);pointer-events:none}
+
+/* ── Grid ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+
+/* ── Tabs ── */
+.tabs{display:flex;background:var(--card);border-radius:var(--radius-sm);padding:3px;margin-bottom:16px;gap:2px}
+.tab{flex:1;text-align:center;padding:8px 6px;border-radius:6px;font-size:13px;font-weight:500;color:var(--sub);transition:all .2s;cursor:pointer}
+.tab.active{background:var(--elevated);color:var(--text)}
+
+/* ── Section heading ── */
+.section-title{font-size:13px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.8px;margin:18px 0 10px}
+
+/* ── Ingredient chip ── */
+.chip{display:inline-block;background:var(--elevated);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;margin:3px;cursor:pointer;transition:all .2s}
+.chip.selected{background:rgba(217,79,160,.25);border-color:var(--primary);color:var(--primary)}
+
+/* ── Wizard steps ── */
+.step-indicator{display:flex;align-items:center;gap:4px;margin-bottom:20px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s}
+.step-dot.done{background:var(--success)}
+.step-dot.active{background:var(--primary);width:24px;border-radius:4px}
+
+/* ── Formula table ── */
+.formula-table{width:100%;border-collapse:collapse;margin-bottom:12px}
+.formula-table th{text-align:left;font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;padding:6px 10px;border-bottom:1px solid var(--border)}
+.formula-table td{padding:10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.formula-table tr:last-child td{border-bottom:none}
+.phase-tag{display:inline-block;width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:700;text-align:center;line-height:22px}
+.phase-a{background:rgba(6,182,212,.2);color:var(--accent)}
+.phase-b{background:rgba(245,158,11,.2);color:var(--warning)}
+.phase-c{background:rgba(16,185,129,.2);color:var(--success)}
+
+/* ── Home hero ── */
+.hero{background:linear-gradient(135deg,rgba(217,79,160,.15),rgba(124,58,237,.15));border:1px solid rgba(217,79,160,.3);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.hero h2{font-size:20px;font-weight:700;margin-bottom:4px}
+
+/* ── Quick action grid ── */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.qa-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;cursor:pointer;transition:border-color .2s,transform .15s}
+.qa-card:active{transform:scale(0.96)}
+.qa-card.highlight{border-color:var(--primary);background:rgba(217,79,160,.05)}
+.qa-icon{width:42px;height:42px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:22px}
+.qa-card h3{font-size:14px;font-weight:600}
+.qa-card p{font-size:12px;color:var(--sub)}
+
+/* ── Ingredient card ── */
+.ing-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s}
+.ing-card:active{border-color:var(--primary)}
+.ing-icon{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--elevated);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.ing-info{flex:1;min-width:0}
+.ing-info h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ing-info p{font-size:12px;color:var(--sub)}
+.ing-pct{font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap}
+
+/* ── Detail sections ── */
+.detail-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.detail-section h3{font-size:15px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-row label{font-size:13px;color:var(--sub)}
+.detail-row span{font-size:13px;font-weight:500;text-align:right;max-width:60%}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:16px}
+
+/* ── Form ── */
+.form-group{margin-bottom:14px}
+.form-label{font-size:13px;color:var(--sub);margin-bottom:6px;display:block}
+.form-input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:11px 14px;font-size:14px;outline:none;font-family:inherit}
+.form-input:focus{border-color:var(--primary)}
+.form-input::placeholder{color:var(--sub)}
+select.form-input option{background:var(--card)}
+
+/* ── Stats row ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-box .num{font-size:22px;font-weight:700;color:var(--primary)}
+.stat-box .lbl{font-size:11px;color:var(--sub);margin-top:2px}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px 20px;color:var(--sub)}
+.empty .icon{font-size:48px;margin-bottom:12px}
+.empty p{font-size:14px}
+
+/* ── Phase header ── */
+.phase-header{background:var(--elevated);border-radius:var(--radius-sm);padding:8px 12px;margin:10px 0 6px;font-size:12px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:8px}
+
+/* ── Instruction step ── */
+.inst-step{display:flex;gap:12px;margin-bottom:12px}
+.step-num{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-text{font-size:14px;color:var(--text);line-height:1.5}
+
+/* ── Filter row ── */
+.filter-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-ms-overflow-style:none;scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-chip{flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;background:var(--card);border:1px solid var(--border);color:var(--sub);cursor:pointer;transition:all .2s}
+.filter-chip.active{background:rgba(217,79,160,.2);border-color:var(--primary);color:var(--primary)}
+
+/* ── Cost bar ── */
+.cost-item{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.cost-name{font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cost-bar-wrap{width:90px;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.cost-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:3px}
+.cost-val{font-size:12px;color:var(--accent);font-weight:600;width:50px;text-align:right}
+
+/* ── Notebook entry ── */
+.nb-entry{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.nb-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.nb-title{font-size:15px;font-weight:600}
+.nb-date{font-size:12px;color:var(--sub)}
+.nb-text{font-size:13px;color:var(--sub);line-height:1.6}
+.stars{color:var(--warning);font-size:16px}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── Animations ── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.screen.active .content{animation:fadeIn .25s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:30px auto}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══════════════ SCREEN: HOME ══════════════ -->
+<div id="screen-home" class="screen active">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div>
+        <h1 class="gradient-text">AI Cosmetic Scientist</h1>
+        <p>Your personal formulation lab</p>
+      </div>
+      <div style="font-size:28px">🧪</div>
+    </div>
+  </div>
+  <div class="content" id="home-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: FORMULATE ══════════════ -->
+<div id="screen-formulate" class="screen">
+  <div class="topbar">
+    <h1>New Formula</h1>
+    <p id="wizard-step-label">Step 1 of 7</p>
+  </div>
+  <div class="content" id="formulate-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: RESULT ══════════════ -->
+<div id="screen-result" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('formulate')">← Back</button>
+      <button class="btn btn-primary btn-sm" onclick="saveCurrentFormula()">💾 Save</button>
+    </div>
+  </div>
+  <div class="content" id="result-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: INGREDIENTS ══════════════ -->
+<div id="screen-ingredients" class="screen">
+  <div class="topbar">
+    <h1>Ingredients</h1>
+    <p>Scientific database</p>
+  </div>
+  <div class="content" id="ingredients-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: INGREDIENT DETAIL ══════════════ -->
+<div id="screen-ingredient-detail" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('ingredients')">← Back</button>
+    </div>
+  </div>
+  <div class="content" id="ingredient-detail-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: MY FORMULAS ══════════════ -->
+<div id="screen-my-formulas" class="screen">
+  <div class="topbar">
+    <h1>My Formulas</h1>
+    <p>Saved formulations</p>
+  </div>
+  <div class="content" id="my-formulas-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: FORMULA DETAIL ══════════════ -->
+<div id="screen-formula-detail" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('my-formulas')">← Back</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCurrentFormula()">🗑 Delete</button>
+    </div>
+  </div>
+  <div class="content" id="formula-detail-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: INVENTORY ══════════════ -->
+<div id="screen-inventory" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div><h1>Inventory</h1><p>Track your ingredients</p></div>
+      <button class="btn btn-primary btn-sm" onclick="openAddInventory()">+ Add</button>
+    </div>
+  </div>
+  <div class="content" id="inventory-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: NOTEBOOK ══════════════ -->
+<div id="screen-notebook" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div><h1>Lab Notebook</h1><p>Experiments & notes</p></div>
+      <button class="btn btn-primary btn-sm" onclick="openAddNote()">+ Note</button>
+    </div>
+  </div>
+  <div class="content" id="notebook-content"></div>
+</div>
+
+<!-- ══════════════ BOTTOM NAV ══════════════ -->
+<nav id="bottom-nav">
+  <div class="nav-item active" data-screen="home" onclick="navigate('home')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    Home
+  </div>
+  <div class="nav-item" data-screen="formulate" onclick="navigate('formulate')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3v11.5A3.5 3.5 0 0 0 12.5 18 3.5 3.5 0 0 0 16 14.5V7h-2v7.5A1.5 1.5 0 0 1 12.5 16 1.5 1.5 0 0 1 11 14.5V3M7 1v2h10V1M7 21v2h10v-2"/></svg>
+    Formulate
+  </div>
+  <div class="nav-item" data-screen="ingredients" onclick="navigate('ingredients')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2 1-1.5 7-2 7-2C11 6 9 12 9 12c-.18-1.68.19-3.4 1-5C8 8 7 10 7 14c-2-4-.5-8-.5-8C5 8 5 12 5 12c0 4 3 5 3 5-.5-1-.5-2-.5-2C10 18 17 18 17 18c-1-2-1-10 0-10z"/></svg>
+    Ingredients
+  </div>
+  <div class="nav-item" data-screen="inventory" onclick="navigate('inventory')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18c.07-.44.18-.87.18-1.33C18 2.54 15.96.5 13.5.5c-1.3 0-2.48.56-3.33 1.44L9 3.1 7.83 1.94A4.67 4.67 0 0 0 4.5.5C2.04.5 0 2.54 0 4.67c0 .46.11.89.18 1.33H0v2h4l-4 12h20l-4-12h4V6z"/></svg>
+    Inventory
+  </div>
+  <div class="nav-item" data-screen="notebook" onclick="navigate('notebook')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-5 0h2v2h-2V2zM9 2h2v2H9V2zm9 18H6V4h3v2h6V4h3v16z"/></svg>
+    Notebook
+  </div>
+</nav>
+
+<!-- ══════════════ MODALS ══════════════ -->
+<div class="modal-overlay hidden" id="modal-inventory">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Add Ingredient</h2>
+    <div class="form-group">
+      <label class="form-label">Ingredient Name</label>
+      <input class="form-input" id="inv-name" placeholder="e.g. Glycerin" list="ing-datalist">
+      <datalist id="ing-datalist"></datalist>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">Quantity (g)</label>
+        <input class="form-input" id="inv-qty" type="number" placeholder="500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cost ($)</label>
+        <input class="form-input" id="inv-cost" type="number" step="0.01" placeholder="12.50">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Supplier</label>
+      <input class="form-input" id="inv-supplier" placeholder="e.g. Brambleberry">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Expiry Date</label>
+      <input class="form-input" id="inv-expiry" type="date">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal('modal-inventory')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInventoryItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modal-note">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>New Lab Note</h2>
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="note-title" placeholder="e.g. Batch #3 Observation">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="note-text" rows="5" placeholder="Describe your experiment, observations, results..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rating</label>
+      <div style="display:flex;gap:8px;margin-top:4px" id="star-rating">
+        <span onclick="setRating(1)" data-star="1" style="font-size:26px;cursor:pointer">☆</span>
+        <span onclick="setRating(2)" data-star="2" style="font-size:26px;cursor:pointer">☆</span>
+        <span onclick="setRating(3)" data-star="3" style="font-size:26px;cursor:pointer">☆</span>
+        <span onclick="setRating(4)" data-star="4" style="font-size:26px;cursor:pointer">☆</span>
+        <span onclick="setRating(5)" data-star="5" style="font-size:26px;cursor:pointer">☆</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+<script>
+// ═══════════════════════════════════════
+// INGREDIENT DATABASE
+// ═══════════════════════════════════════
+const INGREDIENTS = {
+  // ── WATER / BASE ──
+  'water': {name:'Water',inci:'Aqua',emoji:'💧',category:'base',phase:'A',functions:['Solvent','Vehicle'],
+    usage:{min:50,max:85,typical:70},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:0.5,goals:['all'],skinTypes:['all'],
+    evidence:95,description:'Universal solvent and vehicle for water-soluble ingredients.',
+    mechanism:'Provides hydration by binding to skin surface water receptors.',
+    safety:{score:100,notes:'Completely safe. Use purified or distilled water.'},
+    alternatives:['rose-water','aloe-vera']},
+
+  'rose-water': {name:'Rose Water',inci:'Rosa Damascena Flower Water',emoji:'🌹',category:'base',phase:'A',functions:['Solvent','Toner','Antioxidant'],
+    usage:{min:50,max:85,typical:70},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:8,goals:['hydration','sensitive','brightening'],skinTypes:['all'],
+    evidence:72,description:'Distillate of rose petals with mild astringent and soothing properties.',
+    mechanism:'Contains flavonoids and tannins that provide antioxidant and anti-inflammatory effects.',
+    safety:{score:95,notes:'Very mild. Patch test for rare rose allergies.'},
+    alternatives:['water','aloe-vera']},
+
+  'aloe-vera': {name:'Aloe Vera Juice',inci:'Aloe Barbadensis Leaf Juice',emoji:'🌿',category:'base',phase:'A',functions:['Soothing','Humectant','Anti-inflammatory'],
+    usage:{min:20,max:80,typical:50},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:10,goals:['sensitive','hydration','acne'],skinTypes:['all'],
+    evidence:78,description:'Gel from aloe vera leaves with excellent soothing and hydrating properties.',
+    mechanism:'Polysaccharides form a film on skin surface, locking in moisture. Acemannan has anti-inflammatory action.',
+    safety:{score:95,notes:'Generally well-tolerated. Some people sensitive to latex in inner leaf.'},
+    alternatives:['water','rose-water']},
+
+  // ── HUMECTANTS ──
+  'glycerin': {name:'Glycerin',inci:'Glycerin',emoji:'🫧',category:'humectant',phase:'A',functions:['Humectant','Skin-conditioning'],
+    usage:{min:1,max:10,typical:3},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:4,goals:['hydration','all'],skinTypes:['all'],
+    evidence:92,description:'Most widely used humectant in cosmetics. Attracts and holds moisture.',
+    mechanism:'Hygroscopic molecule draws water from dermis and environment into epidermis.',
+    safety:{score:99,notes:'Extremely safe. One of the best-studied cosmetic ingredients.'},
+    alternatives:['sodium-hyaluronate','betaine','sodium-pca']},
+
+  'sodium-hyaluronate': {name:'Sodium Hyaluronate',inci:'Sodium Hyaluronate',emoji:'✨',category:'humectant',phase:'A',functions:['Humectant','Plumping','Anti-aging'],
+    usage:{min:0.1,max:2,typical:0.5},solubility:'water',heatSensitive:false,
+    costLevel:4,costPerKg:120,goals:['hydration','anti-aging','sensitive'],skinTypes:['all'],
+    evidence:88,description:'Sodium salt of hyaluronic acid. Holds up to 1000x its weight in water.',
+    mechanism:'Large HA molecules form film on skin surface; low MW penetrates for deeper hydration.',
+    safety:{score:97,notes:'Excellent safety profile. Naturally occurring in skin.'},
+    alternatives:['glycerin','sodium-pca','betaine']},
+
+  'panthenol': {name:'Panthenol',inci:'Panthenol',emoji:'🛡️',category:'humectant',phase:'A',functions:['Humectant','Wound-healing','Conditioning'],
+    usage:{min:0.5,max:5,typical:2},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:25,goals:['hydration','sensitive','hair-growth'],skinTypes:['all'],
+    evidence:85,description:'Pro-vitamin B5. Converts to pantothenic acid in skin, promoting healing and hydration.',
+    mechanism:'Penetrates skin and converts to pantothenic acid, enhancing skin barrier function.',
+    safety:{score:98,notes:'Very well-tolerated. Good for sensitive and compromised skin.'},
+    alternatives:['glycerin','sodium-pca']},
+
+  'sodium-pca': {name:'Sodium PCA',inci:'Sodium PCA',emoji:'💦',category:'humectant',phase:'A',functions:['Humectant','Natural Moisturizing Factor'],
+    usage:{min:1,max:5,typical:2},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:18,goals:['hydration'],skinTypes:['all'],
+    evidence:80,description:'Naturally occurring component of the skin\'s Natural Moisturizing Factor.',
+    mechanism:'Part of NMF system that maintains optimal skin hydration and flexibility.',
+    safety:{score:98,notes:'Naturally present in skin. Excellent safety record.'},
+    alternatives:['glycerin','betaine']},
+
+  'betaine': {name:'Betaine',inci:'Betaine',emoji:'🌾',category:'humectant',phase:'A',functions:['Humectant','Anti-irritant','Osmoprotectant'],
+    usage:{min:0.5,max:5,typical:2},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:15,goals:['hydration','sensitive'],skinTypes:['sensitive','dry'],
+    evidence:75,description:'Natural compound from sugar beets. Humectant with anti-irritant properties.',
+    mechanism:'Protects cells from osmotic stress, provides gentle hydration without tacky feel.',
+    safety:{score:99,notes:'Exceptionally gentle. Reduces irritation from other ingredients.'},
+    alternatives:['glycerin','sodium-pca']},
+
+  // ── ACTIVES (SKINCARE) ──
+  'niacinamide': {name:'Niacinamide',inci:'Niacinamide',emoji:'⭐',category:'active',phase:'C',functions:['Brightening','Pore-minimizing','Anti-aging','Barrier'],
+    usage:{min:2,max:10,typical:5},solubility:'water',heatSensitive:true,
+    costLevel:2,costPerKg:30,goals:['brightening','anti-aging','acne','pores'],skinTypes:['all'],
+    evidence:92,description:'Vitamin B3. Most versatile cosmetic active with multi-benefit activity.',
+    mechanism:'Inhibits melanosome transfer, reduces sebum production, strengthens ceramide synthesis.',
+    safety:{score:90,notes:'Very safe. Above 10% may cause flushing in sensitive individuals.'},
+    alternatives:['kojic-acid','tranexamic-acid']},
+
+  'allantoin': {name:'Allantoin',inci:'Allantoin',emoji:'🌼',category:'active',phase:'C',functions:['Soothing','Cell proliferation','Anti-irritant'],
+    usage:{min:0.1,max:2,typical:0.5},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:20,goals:['sensitive','healing'],skinTypes:['sensitive','dry'],
+    evidence:82,description:'Derived from comfrey root. Promotes cell renewal and soothes irritated skin.',
+    mechanism:'Stimulates cell proliferation and keratolytic action for smoother skin.',
+    safety:{score:99,notes:'Extremely safe. Commonly used in sensitive skin formulations.'},
+    alternatives:['centella','panthenol']},
+
+  'salicylic-acid': {name:'Salicylic Acid',inci:'Salicylic Acid',emoji:'🔬',category:'active',phase:'C',functions:['BHA Exfoliant','Anti-acne','Comedolytic'],
+    usage:{min:0.5,max:2,typical:1},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:22,goals:['acne','oily','pores'],skinTypes:['oily','combination','acne'],
+    evidence:90,description:'Beta hydroxy acid that penetrates pores to dissolve sebum and dead cells.',
+    mechanism:'Oil-soluble BHA exfoliates inside pores, reduces comedones and inflammation.',
+    safety:{score:75,notes:'Avoid in pregnancy. Not for use on large body areas. pH must be <4 for efficacy.'},
+    alternatives:['glycolic-acid','niacinamide']},
+
+  'lactic-acid': {name:'Lactic Acid',inci:'Lactic Acid',emoji:'🧴',category:'active',phase:'C',functions:['AHA Exfoliant','Brightening','Moisturizing'],
+    usage:{min:2,max:10,typical:5},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:8,goals:['brightening','anti-aging','exfoliation'],skinTypes:['normal','dry','combination'],
+    evidence:85,description:'Gentlest AHA. Exfoliates while also providing moisturizing benefits.',
+    mechanism:'Dissolves desmosomes between dead skin cells and stimulates NMF production.',
+    safety:{score:82,notes:'Use SPF when using AHAs. Can cause sensitivity; start low. Formulate pH 3.5-4.'},
+    alternatives:['glycolic-acid','mandelic-acid']},
+
+  'glycolic-acid': {name:'Glycolic Acid',inci:'Glycolic Acid',emoji:'⚗️',category:'active',phase:'C',functions:['AHA Exfoliant','Anti-aging','Collagen-stimulating'],
+    usage:{min:1,max:10,typical:5},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:6,goals:['anti-aging','brightening','exfoliation'],skinTypes:['normal','oily'],
+    evidence:88,description:'Most studied AHA with smallest molecule for deepest penetration.',
+    mechanism:'Breaks desmosomes, stimulates collagen production, improves skin texture.',
+    safety:{score:78,notes:'Most potent AHA. Requires SPF use. Patch test recommended. pH 3-4 for activity.'},
+    alternatives:['lactic-acid','mandelic-acid']},
+
+  'vitamin-c-aa': {name:'Ascorbic Acid (Vitamin C)',inci:'Ascorbic Acid',emoji:'🍊',category:'active',phase:'C',functions:['Antioxidant','Brightening','Collagen-synthesis'],
+    usage:{min:5,max:20,typical:10},solubility:'water',heatSensitive:true,
+    costLevel:2,costPerKg:35,goals:['brightening','anti-aging'],skinTypes:['normal','dry'],
+    evidence:90,description:'Pure Vitamin C. Most potent form but requires low pH and careful formulation.',
+    mechanism:'Inhibits tyrosinase enzyme for brightening; stimulates collagen synthesis; neutralizes free radicals.',
+    safety:{score:80,notes:'Stable only at pH 2.5-3.5. Can oxidize quickly. Use in anhydrous or stabilized system.'},
+    alternatives:['niacinamide','kojic-acid','tranexamic-acid']},
+
+  'tranexamic-acid': {name:'Tranexamic Acid',inci:'Tranexamic Acid',emoji:'💎',category:'active',phase:'C',functions:['Brightening','Melasma treatment','Anti-inflammatory'],
+    usage:{min:2,max:5,typical:3},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:80,goals:['brightening','hyperpigmentation'],skinTypes:['all'],
+    evidence:82,description:'Synthetic amino acid derivative. Very effective for melasma and hyperpigmentation.',
+    mechanism:'Inhibits UV-induced plasmin activity and reduces prostaglandin production in melanocytes.',
+    safety:{score:92,notes:'Well-tolerated. Safe for sensitive skin and during pregnancy (unlike some alternatives).'},
+    alternatives:['niacinamide','kojic-acid']},
+
+  'kojic-acid': {name:'Kojic Acid',inci:'Kojic Acid',emoji:'🌟',category:'active',phase:'C',functions:['Brightening','Tyrosinase inhibitor'],
+    usage:{min:0.5,max:2,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:40,goals:['brightening','hyperpigmentation'],skinTypes:['normal','oily'],
+    evidence:80,description:'Derived from fermentation. Effective tyrosinase inhibitor for skin brightening.',
+    mechanism:'Chelates copper ions at active site of tyrosinase enzyme, reducing melanin production.',
+    safety:{score:78,notes:'Can cause contact dermatitis in some. Concentration limited to 1% in EU.'},
+    alternatives:['niacinamide','tranexamic-acid']},
+
+  'retinol': {name:'Retinol',inci:'Retinol',emoji:'🔮',category:'active',phase:'C',functions:['Anti-aging','Cell turnover','Collagen-stimulating'],
+    usage:{min:0.025,max:1,typical:0.3},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:200,goals:['anti-aging','acne'],skinTypes:['normal','oily'],
+    evidence:93,description:'Gold standard anti-aging ingredient. Vitamin A derivative with extensive research.',
+    mechanism:'Binds to RAR receptors in skin to increase cell turnover, stimulate collagen, reduce wrinkles.',
+    safety:{score:65,notes:'Avoid in pregnancy. Causes initial purging. Use SPF. Start with 0.025% and increase slowly.'},
+    alternatives:['bakuchiol','niacinamide','peptides']},
+
+  'caffeine': {name:'Caffeine',inci:'Caffeine',emoji:'☕',category:'active',phase:'C',functions:['Anti-cellulite','Antioxidant','De-puffing'],
+    usage:{min:0.5,max:3,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:20,goals:['anti-aging','eye-area','body'],skinTypes:['all'],
+    evidence:72,description:'Stimulant with antioxidant and vasoconstrictive properties for cosmetic use.',
+    mechanism:'Inhibits phosphodiesterase, vasoconstricts for de-puffing, and provides antioxidant activity.',
+    safety:{score:90,notes:'Safe topically. Minimal systemic absorption.'},
+    alternatives:['green-tea']},
+
+  'centella': {name:'Centella Asiatica Extract',inci:'Centella Asiatica Extract',emoji:'🍃',category:'active',phase:'C',functions:['Soothing','Wound-healing','Collagen-stimulating'],
+    usage:{min:0.5,max:5,typical:2},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:60,goals:['sensitive','anti-aging','healing'],skinTypes:['sensitive','all'],
+    evidence:82,description:'Traditional herb with madecassoside and asiaticoside compounds for skin repair.',
+    mechanism:'Stimulates collagen synthesis, strengthens skin barrier, reduces inflammation.',
+    safety:{score:95,notes:'Very well-tolerated. Excellent for sensitive and compromised skin.'},
+    alternatives:['allantoin','panthenol']},
+
+  'peptides': {name:'Matrixyl 3000 (Peptides)',inci:'Palmitoyl Tripeptide-1 & Palmitoyl Tetrapeptide-7',emoji:'🧬',category:'active',phase:'C',functions:['Anti-aging','Collagen-stimulating','Wrinkle-reducing'],
+    usage:{min:2,max:8,typical:3},solubility:'water',heatSensitive:true,
+    costLevel:5,costPerKg:350,goals:['anti-aging'],skinTypes:['all'],
+    evidence:78,description:'Signal peptides that communicate with skin to stimulate collagen production.',
+    mechanism:'Mimics collagen breakdown fragments, triggering skin repair and new collagen synthesis.',
+    safety:{score:95,notes:'Very well tolerated. Avoid temperatures above 40°C.'},
+    alternatives:['retinol','niacinamide']},
+
+  'azelaic-acid': {name:'Azelaic Acid',inci:'Azelaic Acid',emoji:'🔴',category:'active',phase:'C',functions:['Anti-acne','Brightening','Rosacea','Antibacterial'],
+    usage:{min:5,max:20,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:55,goals:['acne','brightening','rosacea'],skinTypes:['oily','sensitive'],
+    evidence:85,description:'Naturally occurring dicarboxylic acid with multi-benefit anti-acne and brightening action.',
+    mechanism:'Inhibits tyrosinase and P. acnes bacteria; normalizes keratinocyte turnover.',
+    safety:{score:88,notes:'Safe in pregnancy. Can cause tingling initially. Well tolerated long-term.'},
+    alternatives:['niacinamide','salicylic-acid']},
+
+  // ── EMULSIFIERS ──
+  'emulsifying-wax-nf': {name:'Emulsifying Wax NF',inci:'Cetearyl Alcohol & Polysorbate 60',emoji:'🧱',category:'emulsifier',phase:'B',functions:['Emulsifier','Thickener'],
+    usage:{min:4,max:8,typical:6},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:7,goals:['all'],skinTypes:['all'],
+    evidence:90,description:'Classic all-purpose emulsifying wax. Creates stable oil-in-water emulsions.',
+    mechanism:'Amphiphilic molecules reduce interfacial tension between oil and water phases.',
+    safety:{score:90,notes:'Well-established safety. Contains polysorbate 60.'},
+    alternatives:['btms-50','polawax']},
+
+  'btms-50': {name:'BTMS-50',inci:'Behentrimonium Methosulfate & Cetyl Alcohol',emoji:'💆',category:'emulsifier',phase:'B',functions:['Emulsifier','Conditioning','Detangling'],
+    usage:{min:3,max:8,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:18,goals:['conditioning','hair'],skinTypes:['all'],
+    evidence:85,description:'Conditioning emulsifier ideal for hair care and skin conditioners.',
+    mechanism:'Positively charged molecule adheres to negatively charged hair/skin for conditioning.',
+    safety:{score:92,notes:'Very well-tolerated. Preferred for conditioners and hair masks.'},
+    alternatives:['emulsifying-wax-nf']},
+
+  // ── FATTY ALCOHOLS / ACIDS ──
+  'cetyl-alcohol': {name:'Cetyl Alcohol',inci:'Cetyl Alcohol',emoji:'🧊',category:'fatty-alcohol',phase:'B',functions:['Emollient','Thickener','Emulsion stabilizer'],
+    usage:{min:1,max:5,typical:3},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:5,goals:['all'],skinTypes:['all'],
+    evidence:88,description:'Despite the name, not drying. Fatty alcohol that thickens and stabilizes emulsions.',
+    mechanism:'Provides body to creams; acts as co-emulsifier; leaves smooth, non-greasy feel.',
+    safety:{score:92,notes:'Generally well-tolerated. Not related to ethyl alcohol.'},
+    alternatives:['cetearyl-alcohol','stearic-acid']},
+
+  'cetearyl-alcohol': {name:'Cetearyl Alcohol',inci:'Cetearyl Alcohol',emoji:'🧊',category:'fatty-alcohol',phase:'B',functions:['Emollient','Thickener','Emulsion stabilizer'],
+    usage:{min:2,max:6,typical:4},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:5,goals:['all'],skinTypes:['all'],
+    evidence:88,description:'Blend of cetyl and stearyl alcohols. Common thickener and stabilizer.',
+    mechanism:'Builds viscosity and stabilizes emulsions; provides creamy texture.',
+    safety:{score:92,notes:'Well-tolerated. Very common cosmetic ingredient.'},
+    alternatives:['cetyl-alcohol','stearic-acid']},
+
+  'stearic-acid': {name:'Stearic Acid',inci:'Stearic Acid',emoji:'🕯️',category:'fatty-acid',phase:'B',functions:['Emollient','Thickener','Cleansing'],
+    usage:{min:1,max:8,typical:3},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:4,goals:['all'],skinTypes:['normal','dry'],
+    evidence:85,description:'Saturated fatty acid used as thickener, emollient and in soap making.',
+    mechanism:'Provides slip and emolliency; helps create stable emulsions with good skin feel.',
+    safety:{score:95,notes:'Very safe. Naturally occurring in skin lipids.'},
+    alternatives:['cetyl-alcohol','cetearyl-alcohol']},
+
+  // ── EMOLLIENTS / OILS ──
+  'jojoba': {name:'Jojoba Oil',inci:'Simmondsia Chinensis Seed Oil',emoji:'🌵',category:'emollient',phase:'B',functions:['Emollient','Moisturizer','Anti-inflammatory'],
+    usage:{min:2,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:25,goals:['all'],skinTypes:['all'],
+    evidence:80,description:'Technically a liquid wax similar to skin sebum. Excellent for all skin types.',
+    mechanism:'Mimics sebum, absorbs quickly without clogging pores; gentle anti-inflammatory activity.',
+    safety:{score:97,notes:'Non-comedogenic. Very well-tolerated including by oily skin types.'},
+    alternatives:['squalane','sweet-almond','sunflower']},
+
+  'squalane': {name:'Squalane',inci:'Squalane',emoji:'✨',category:'emollient',phase:'B',functions:['Emollient','Antioxidant','Skin-identical'],
+    usage:{min:2,max:25,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:40,goals:['anti-aging','hydration','all'],skinTypes:['all'],
+    evidence:85,description:'Stable, skin-identical hydrocarbon. Premium lightweight emollient.',
+    mechanism:'Mimics skin\'s natural squalene; stabilizes cell membranes; absorbs extremely quickly.',
+    safety:{score:99,notes:'Non-comedogenic. Extremely well-tolerated. Shelf-stable.'},
+    alternatives:['jojoba','mct']},
+
+  'sweet-almond': {name:'Sweet Almond Oil',inci:'Prunus Amygdalus Dulcis Oil',emoji:'🌰',category:'emollient',phase:'B',functions:['Emollient','Moisturizer','Softening'],
+    usage:{min:5,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:10,goals:['hydration','all'],skinTypes:['normal','dry'],
+    evidence:75,description:'Rich in oleic acid. Classic carrier oil for dry and normal skin types.',
+    mechanism:'Replenishes skin lipids; provides lasting emolliency through fatty acid composition.',
+    safety:{score:90,notes:'Avoid for tree nut allergies. Slight comedogenic rating.'},
+    alternatives:['jojoba','sunflower','mct']},
+
+  'rosehip': {name:'Rosehip Seed Oil',inci:'Rosa Canina Seed Oil',emoji:'🌸',category:'emollient',phase:'B',functions:['Anti-aging','Brightening','Regenerating'],
+    usage:{min:1,max:15,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:45,goals:['anti-aging','brightening','scars'],skinTypes:['dry','normal'],
+    evidence:78,description:'High in linoleic acid and natural retinoids. Excellent for aging and hyperpigmentation.',
+    mechanism:'Linoleic acid repairs barrier; trans-retinoic acid boosts cell turnover.',
+    safety:{score:85,notes:'Can oxidize — store in dark. Comedogenic for some users (linoleic acid can be sensitizing).'},
+    alternatives:['jojoba','sweet-almond']},
+
+  'argan': {name:'Argan Oil',inci:'Argania Spinosa Kernel Oil',emoji:'🌟',category:'emollient',phase:'B',functions:['Emollient','Anti-aging','Hair conditioning'],
+    usage:{min:2,max:20,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:4,costPerKg:80,goals:['anti-aging','hair','conditioning'],skinTypes:['all'],
+    evidence:78,description:'Rich in vitamin E and oleic/linoleic acids. Premium oil for skin and hair.',
+    mechanism:'Tocopherols provide antioxidant protection; fatty acids replenish lipid barrier.',
+    safety:{score:93,notes:'Generally non-comedogenic. Well-tolerated.'},
+    alternatives:['jojoba','squalane']},
+
+  'castor': {name:'Castor Oil',inci:'Ricinus Communis Seed Oil',emoji:'🫙',category:'emollient',phase:'B',functions:['Emollient','Thickener','Humectant-oil','Film-forming'],
+    usage:{min:1,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:6,goals:['lip','hair','conditioning'],skinTypes:['all'],
+    evidence:80,description:'Highly viscous oil with unique ricinoleic acid. Essential in lip products and serums.',
+    mechanism:'Thick film former with humectant-like properties; ricinoleic acid has mild antimicrobial action.',
+    safety:{score:92,notes:'Can feel sticky at high usage. Very safe. Key ingredient in lip balms.'},
+    alternatives:['sweet-almond','jojoba']},
+
+  'coconut': {name:'Coconut Oil',inci:'Cocos Nucifera Oil',emoji:'🥥',category:'emollient',phase:'B',functions:['Emollient','Antimicrobial','Penetrating'],
+    usage:{min:2,max:40,typical:15},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:8,goals:['hair','conditioning','body'],skinTypes:['normal','dry'],
+    evidence:80,description:'High lauric acid content with antimicrobial properties. Melts at 24°C.',
+    mechanism:'Lauric acid disrupts microbial membranes; penetrates hair shaft for conditioning.',
+    safety:{score:85,notes:'Comedogenic for some (rating 4/5). Avoid on acne-prone facial skin.'},
+    alternatives:['jojoba','sweet-almond','mct']},
+
+  'sunflower': {name:'Sunflower Oil',inci:'Helianthus Annuus Seed Oil',emoji:'🌻',category:'emollient',phase:'B',functions:['Emollient','Barrier repair'],
+    usage:{min:5,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:5,goals:['hydration','sensitive'],skinTypes:['all'],
+    evidence:78,description:'High linoleic acid content. Excellent barrier repair oil for sensitive skin.',
+    mechanism:'Linoleic acid is key ceramide precursor; replenishes skin barrier lipids.',
+    safety:{score:93,notes:'Low comedogenic rating. Well-tolerated.'},
+    alternatives:['jojoba','sweet-almond']},
+
+  'mct': {name:'MCT Oil (Fractionated Coconut)',inci:'Caprylic/Capric Triglyceride',emoji:'💎',category:'emollient',phase:'B',functions:['Emollient','Lightweight carrier','Solubilizer'],
+    usage:{min:2,max:25,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:15,goals:['all'],skinTypes:['all'],
+    evidence:82,description:'Fractionated coconut oil. Non-comedogenic, lightweight, extremely shelf-stable.',
+    mechanism:'C8/C10 medium chain triglycerides absorb quickly; excellent solvent for actives.',
+    safety:{score:98,notes:'Non-comedogenic. Indefinite shelf life. Excellent base for serums.'},
+    alternatives:['jojoba','squalane']},
+
+  'hemp-seed': {name:'Hemp Seed Oil',inci:'Cannabis Sativa Seed Oil',emoji:'🌿',category:'emollient',phase:'B',functions:['Emollient','Anti-inflammatory','Barrier'],
+    usage:{min:2,max:20,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:20,goals:['acne','sensitive','anti-aging'],skinTypes:['oily','acne','sensitive'],
+    evidence:74,description:'Ideal 3:1 omega-6 to omega-3 ratio. Good for acne-prone and inflamed skin.',
+    mechanism:'GLA reduces inflammation; linoleic acid repairs skin barrier without clogging pores.',
+    safety:{score:92,notes:'Non-comedogenic. No psychoactive compounds. Can oxidize; store refrigerated.'},
+    alternatives:['jojoba','sunflower']},
+
+  'avocado': {name:'Avocado Oil',inci:'Persea Gratissima Oil',emoji:'🥑',category:'emollient',phase:'B',functions:['Emollient','Penetrating','Rich moisturizer'],
+    usage:{min:2,max:20,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:18,goals:['anti-aging','dry-skin'],skinTypes:['dry','mature'],
+    evidence:75,description:'Rich, penetrating oil high in oleic acid and vitamins. Excellent for dry/mature skin.',
+    mechanism:'High oleic content improves barrier function; phytosterols reduce inflammation.',
+    safety:{score:88,notes:'Tree nut family — avoid for avocado allergies. Moderate comedogenic rating.'},
+    alternatives:['sweet-almond','jojoba']},
+
+  // ── BUTTERS ──
+  'shea-butter': {name:'Shea Butter',inci:'Butyrospermum Parkii Butter',emoji:'🧈',category:'butter',phase:'B',functions:['Emollient','Occlusive','Anti-inflammatory'],
+    usage:{min:2,max:20,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:12,goals:['dry-skin','all'],skinTypes:['dry','normal'],
+    evidence:80,description:'Rich butter from shea tree nuts. High in fatty acids and triterpenes.',
+    mechanism:'Creates semi-occlusive barrier; triterpenes provide anti-inflammatory action.',
+    safety:{score:92,notes:'Tree nut origin — check for allergies. Very widely used and well-tolerated.'},
+    alternatives:['mango-butter','cocoa-butter']},
+
+  'mango-butter': {name:'Mango Butter',inci:'Mangifera Indica Seed Butter',emoji:'🥭',category:'butter',phase:'B',functions:['Emollient','Occlusive','Softening'],
+    usage:{min:2,max:20,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:15,goals:['dry-skin','body'],skinTypes:['dry','normal'],
+    evidence:70,description:'Hard butter that melts on contact with skin. Lighter feel than shea.',
+    mechanism:'Triglycerides form protective film; good skin feel with non-greasy finish.',
+    safety:{score:93,notes:'Well tolerated. Lighter than cocoa butter with nice spreadability.'},
+    alternatives:['shea-butter','cocoa-butter']},
+
+  'cocoa-butter': {name:'Cocoa Butter',inci:'Theobroma Cacao Seed Butter',emoji:'🍫',category:'butter',phase:'B',functions:['Emollient','Occlusive','Rich moisturizer'],
+    usage:{min:2,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:8,goals:['dry-skin','body','lip'],skinTypes:['dry','normal'],
+    evidence:75,description:'Classic rich butter. Melts at body temperature. Iconic chocolate scent.',
+    mechanism:'Highly occlusive film prevents transepidermal water loss; fatty acids nourish skin.',
+    safety:{score:90,notes:'Can be comedogenic for facial use. Excellent for body and lip products.'},
+    alternatives:['shea-butter','mango-butter']},
+
+  // ── WAXES ──
+  'beeswax': {name:'Beeswax',inci:'Cera Alba',emoji:'🍯',category:'wax',phase:'B',functions:['Thickener','Film-former','Occlusive'],
+    usage:{min:1,max:30,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:16,goals:['lip','body','balm'],skinTypes:['all'],
+    evidence:82,description:'Natural wax from honeybees. Provides structure to balms and body butters.',
+    mechanism:'Forms protective barrier on skin surface; crystalline structure provides hardness.',
+    safety:{score:92,notes:'Not vegan. Excellent safety profile. Melts at ~63°C.'},
+    alternatives:['candelilla','carnauba']},
+
+  'candelilla': {name:'Candelilla Wax',inci:'Euphorbia Cerifera Cera',emoji:'🕯️',category:'wax',phase:'B',functions:['Thickener','Film-former','Vegan wax'],
+    usage:{min:0.5,max:15,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:20,goals:['lip','body','vegan'],skinTypes:['all'],
+    evidence:78,description:'Plant-derived wax. Vegan alternative to beeswax. Use at ~half beeswax amount.',
+    mechanism:'Harder than beeswax, use at 40-50% of beeswax amount for equivalent effect.',
+    safety:{score:93,notes:'Vegan. Well-tolerated.'},
+    alternatives:['beeswax','carnauba']},
+
+  'carnauba': {name:'Carnauba Wax',inci:'Copernicia Cerifera Cera',emoji:'🌴',category:'wax',phase:'B',functions:['Thickener','Gloss enhancer','Hardener'],
+    usage:{min:0.5,max:5,typical:2},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:35,goals:['lip','gloss'],skinTypes:['all'],
+    evidence:78,description:'Hardest natural wax from Brazilian carnauba palm. Adds shine and hardness.',
+    mechanism:'Highest melting point of natural waxes (~85°C); creates high-shine finish.',
+    safety:{score:95,notes:'Vegan. Extremely inert and safe.'},
+    alternatives:['beeswax','candelilla']},
+
+  // ── SURFACTANTS ──
+  'sci': {name:'SCI (Sodium Cocoyl Isethionate)',inci:'Sodium Cocoyl Isethionate',emoji:'🫧',category:'surfactant',phase:'A',functions:['Primary surfactant','Conditioning cleansing'],
+    usage:{min:20,max:50,typical:35},solubility:'water',heatSensitive:true,
+    costLevel:2,costPerKg:14,goals:['cleansing','gentle'],skinTypes:['all'],
+    evidence:82,description:'Mild sulfate-free surfactant. Coconut-derived. Conditioning lather.',
+    mechanism:'Anionic surfactant that removes oil and dirt while being gentler than SLS.',
+    safety:{score:88,notes:'Very mild. Good for sensitive skin. Often used in solid surfactant bars.'},
+    alternatives:['slsa','sles']},
+
+  'capb': {name:'Cocamidopropyl Betaine (CAPB)',inci:'Cocamidopropyl Betaine',emoji:'🫧',category:'surfactant',phase:'A',functions:['Co-surfactant','Foam booster','Conditioning'],
+    usage:{min:3,max:15,typical:8},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:12,goals:['cleansing'],skinTypes:['all'],
+    evidence:85,description:'Amphoteric co-surfactant from coconut. Boosts foam and reduces irritation.',
+    mechanism:'Reduces irritancy of anionic surfactants; thickens formulas with salt.',
+    safety:{score:85,notes:'Mild. Small % of population sensitized to CAPB. Generally very well tolerated.'},
+    alternatives:['decyl-glucoside']},
+
+  'decyl-glucoside': {name:'Decyl Glucoside',inci:'Decyl Glucoside',emoji:'🌱',category:'surfactant',phase:'A',functions:['Surfactant','Natural-derived','Mild cleanser'],
+    usage:{min:5,max:20,typical:10},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:16,goals:['cleansing','sensitive','natural'],skinTypes:['sensitive','all'],
+    evidence:80,description:'Mild non-ionic surfactant derived from corn glucose and coconut. Natural-derived.',
+    mechanism:'APG surfactant — gentle cleansing with low irritation potential.',
+    safety:{score:92,notes:'Very mild. Good for baby and sensitive skin products.'},
+    alternatives:['capb','coco-glucoside']},
+
+  'sles': {name:'SLES',inci:'Sodium Laureth Sulfate',emoji:'💦',category:'surfactant',phase:'A',functions:['Primary surfactant','Foam booster'],
+    usage:{min:5,max:25,typical:15},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:4,goals:['cleansing','economical'],skinTypes:['normal','oily'],
+    evidence:88,description:'Widely used anionic surfactant with excellent cleansing and foaming properties.',
+    mechanism:'Anionic micelle formation removes sebum and particulates from skin/hair.',
+    safety:{score:75,notes:'Can be drying at high concentrations. Always pair with CAPB to reduce irritancy.'},
+    alternatives:['sci','decyl-glucoside']},
+
+  // ── THICKENERS / GELS ──
+  'carbomer': {name:'Carbomer',inci:'Carbomer',emoji:'🟣',category:'thickener',phase:'A',functions:['Thickener','Gel-former','Suspending agent'],
+    usage:{min:0.3,max:1.5,typical:0.7},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:25,goals:['all'],skinTypes:['all'],
+    evidence:88,description:'Versatile gel-forming polymer. Neutralize with NaOH or TEA for maximum viscosity.',
+    mechanism:'Cross-linked polyacrylic acid swells when neutralized, forming clear gels.',
+    safety:{score:88,notes:'Neutralize to pH 6-7 for efficacy. Inhalation risk as powder — handle with care.'},
+    alternatives:['hec','xanthan']},
+
+  'hec': {name:'HEC (Hydroxyethylcellulose)',inci:'Hydroxyethylcellulose',emoji:'🟢',category:'thickener',phase:'A',functions:['Thickener','Binder','Stabilizer'],
+    usage:{min:0.5,max:3,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:20,goals:['all'],skinTypes:['all'],
+    evidence:82,description:'Cellulose-derived thickener. Works across wide pH range without neutralization.',
+    mechanism:'Cellulose chains entangle in water to create viscous solutions.',
+    safety:{score:95,notes:'No neutralization needed. Good for surfactant systems.'},
+    alternatives:['carbomer','xanthan']},
+
+  'xanthan': {name:'Xanthan Gum',inci:'Xanthan Gum',emoji:'🟤',category:'thickener',phase:'A',functions:['Thickener','Stabilizer','Natural polymer'],
+    usage:{min:0.1,max:1,typical:0.3},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:8,goals:['natural','all'],skinTypes:['all'],
+    evidence:80,description:'Fermentation-derived polysaccharide. Natural thickener and stabilizer.',
+    mechanism:'Xanthan chains form pseudoplastic networks — thin under shear, thick at rest.',
+    safety:{score:95,notes:'Natural, safe. Prone to clumping if added too fast — disperse in oil first.'},
+    alternatives:['carbomer','hec']},
+
+  // ── PRESERVATIVES ──
+  'phenoxyethanol': {name:'Phenoxyethanol',inci:'Phenoxyethanol',emoji:'🔒',category:'preservative',phase:'C',functions:['Preservative','Antimicrobial'],
+    usage:{min:0.5,max:1,typical:0.8},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:18,goals:['preservation'],skinTypes:['all'],
+    evidence:92,description:'Most widely used broad-spectrum preservative. Effective against bacteria and fungi.',
+    mechanism:'Disrupts microbial cell membranes and inhibits metabolic enzymes.',
+    safety:{score:82,notes:'Keep under 1%. Not recommended for infant products per EWG. Well-studied.'},
+    alternatives:['optiphen','leucidal']},
+
+  'optiphen': {name:'Optiphen',inci:'Phenoxyethanol & Caprylyl Glycol',emoji:'🛡️',category:'preservative',phase:'C',functions:['Preservative','Broad-spectrum'],
+    usage:{min:0.75,max:1.5,typical:1},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:35,goals:['preservation'],skinTypes:['all'],
+    evidence:85,description:'Paraben-free preservative blend. Broad spectrum against bacteria and yeast.',
+    mechanism:'Combination disrupts bacterial cell membranes and inhibits growth.',
+    safety:{score:85,notes:'Good option for formulations requiring oil-soluble preservative.'},
+    alternatives:['phenoxyethanol','leucidal']},
+
+  'leucidal': {name:'Leucidal Liquid',inci:'Lactobacillus Ferment',emoji:'🌿',category:'preservative',phase:'C',functions:['Preservative','Natural-derived','Antimicrobial peptides'],
+    usage:{min:2,max:4,typical:3},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:80,goals:['natural','preservation'],skinTypes:['sensitive','all'],
+    evidence:70,description:'Natural preservative from lactobacillus fermentation. Produces antimicrobial peptides.',
+    mechanism:'Peptides from fermentation inhibit microbial growth; natural certification compatible.',
+    safety:{score:92,notes:'May need boost for full protection. Consider challenge testing formulations.'},
+    alternatives:['phenoxyethanol','optiphen']},
+
+  // ── ANTIOXIDANTS ──
+  'vitamin-e': {name:'Vitamin E (Tocopherol)',inci:'Tocopherol',emoji:'🌿',category:'antioxidant',phase:'B',functions:['Antioxidant','Emollient','Preservative aid'],
+    usage:{min:0.1,max:1,typical:0.5},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:50,goals:['anti-aging','all'],skinTypes:['all'],
+    evidence:85,description:'Fat-soluble antioxidant. Protects formula oils from oxidation; skin benefit as antioxidant.',
+    mechanism:'Donates hydrogen to free radicals, quenching oxidative chain reactions.',
+    safety:{score:95,notes:'Safe. Can cause contact sensitization in rare cases at high levels.'},
+    alternatives:[]},
+
+  // ── HAIR ACTIVES ──
+  'biotin': {name:'Biotin',inci:'Biotin',emoji:'💊',category:'hair-active',phase:'C',functions:['Hair strengthening','Vitamin B7'],
+    usage:{min:0.01,max:0.1,typical:0.05},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:500,goals:['hair-growth','hair'],skinTypes:['all'],
+    evidence:60,description:'Vitamin B7. Topical evidence limited but popular in hair care formulations.',
+    mechanism:'Cofactor in keratin synthesis pathways. Topical absorption debated.',
+    safety:{score:97,notes:'Very safe. Systemic benefits proven; topical efficacy under debate.'},
+    alternatives:['panthenol','keratin']},
+
+  'keratin': {name:'Hydrolyzed Keratin',inci:'Hydrolyzed Keratin',emoji:'💪',category:'hair-active',phase:'C',functions:['Hair strengthening','Film-forming','Damage repair'],
+    usage:{min:0.5,max:5,typical:2},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:90,goals:['hair','damage-repair','conditioning'],skinTypes:['all'],
+    evidence:75,description:'Hydrolyzed protein fragments that penetrate and temporarily repair hair damage.',
+    mechanism:'Small protein fragments fill gaps in damaged cuticle; strengthen hair shaft temporarily.',
+    safety:{score:90,notes:'Generally safe. Animal-derived unless specified.'},
+    alternatives:['silk-amino','panthenol']},
+
+  'silk-amino': {name:'Silk Amino Acids',inci:'Silk Amino Acids',emoji:'🪡',category:'hair-active',phase:'C',functions:['Conditioning','Shine-enhancing','Moisturizing'],
+    usage:{min:0.5,max:3,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:4,costPerKg:120,goals:['hair','conditioning','shine'],skinTypes:['all'],
+    evidence:72,description:'Hydrolyzed silk protein providing conditioning and shine to hair and skin.',
+    mechanism:'Low MW amino acids penetrate shaft; form film for shine and manageability.',
+    safety:{score:92,notes:'Very gentle. Luxury conditioning ingredient.'},
+    alternatives:['keratin','panthenol']},
+
+  // ── CLAY / MINERALS ──
+  'kaolin': {name:'Kaolin Clay',inci:'Kaolin',emoji:'⬜',category:'mineral',phase:'A',functions:['Oil absorbing','Mild cleansing','Texture agent'],
+    usage:{min:5,max:30,typical:15},solubility:'insoluble',heatSensitive:false,
+    costLevel:1,costPerKg:3,goals:['acne','oily','cleansing'],skinTypes:['oily','normal'],
+    evidence:78,description:'Mild white clay that gently absorbs excess oil without over-drying.',
+    mechanism:'Porous clay particles adsorb sebum and impurities from skin surface.',
+    safety:{score:95,notes:'Very safe. Mildest cosmetic clay, suitable for sensitive skin too.'},
+    alternatives:['bentonite','zinc-oxide']},
+
+  'bentonite': {name:'Bentonite Clay',inci:'Bentonite',emoji:'🟤',category:'mineral',phase:'A',functions:['Detoxifying','Oil absorbing','Deep cleansing'],
+    usage:{min:5,max:25,typical:12},solubility:'insoluble',heatSensitive:false,
+    costLevel:1,costPerKg:3,goals:['acne','oily','detox'],skinTypes:['oily'],
+    evidence:75,description:'Powerful swelling clay with negative charge to attract positively charged impurities.',
+    mechanism:'Expands in water creating channels that draw out impurities and oil.',
+    safety:{score:88,notes:'Strong — avoid on dry/sensitive skin. Don\'t use metal utensils.'},
+    alternatives:['kaolin']},
+
+  'zinc-oxide': {name:'Zinc Oxide',inci:'Zinc Oxide',emoji:'🌞',category:'mineral',phase:'B',functions:['Sunscreen','Anti-inflammatory','Antimicrobial'],
+    usage:{min:2,max:25,typical:15},solubility:'insoluble',heatSensitive:false,
+    costLevel:2,costPerKg:12,goals:['sun-protection','acne','sensitive'],skinTypes:['all'],
+    evidence:92,description:'Physical/mineral sunscreen with broad-spectrum UV protection and anti-inflammatory properties.',
+    mechanism:'Reflects and scatters UV radiation; has antimicrobial and anti-inflammatory actions.',
+    safety:{score:88,notes:'Use non-nano grade for safety. Can leave white cast. Safe for pregnancy.'},
+    alternatives:[]},
+
+  // ── FRAGRANCE ──
+  'lavender-eo': {name:'Lavender Essential Oil',inci:'Lavandula Angustifolia Oil',emoji:'💜',category:'fragrance',phase:'C',functions:['Fragrance','Calming','Antimicrobial'],
+    usage:{min:0.1,max:1,typical:0.3},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:60,goals:['calming','fragrance'],skinTypes:['all'],
+    evidence:72,description:'Classic floral scent. Mild calming and antimicrobial properties.',
+    mechanism:'Linalool and linalyl acetate provide aroma; mild antimicrobial activity.',
+    safety:{score:78,notes:'Common sensitizer in some individuals. Max 1% in leave-on products.'},
+    alternatives:['tea-tree-eo','rose-eo']},
+
+  'tea-tree-eo': {name:'Tea Tree Essential Oil',inci:'Melaleuca Alternifolia Leaf Oil',emoji:'🌿',category:'fragrance',phase:'C',functions:['Antimicrobial','Antifungal','Anti-acne'],
+    usage:{min:0.1,max:1,typical:0.5},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:50,goals:['acne','antimicrobial'],skinTypes:['oily','acne'],
+    evidence:80,description:'Potent antimicrobial essential oil. Evidence for acne and fungal conditions.',
+    mechanism:'Terpinen-4-ol disrupts microbial cell membranes.',
+    safety:{score:75,notes:'Do not use undiluted. Max 1%. Oxidized oil is more sensitizing.'},
+    alternatives:['lavender-eo']},
+
+  'peppermint-eo': {name:'Peppermint Essential Oil',inci:'Mentha Piperita Oil',emoji:'🌿',category:'fragrance',phase:'C',functions:['Fragrance','Cooling','Stimulating'],
+    usage:{min:0.1,max:1,typical:0.3},solubility:'oil',heatSensitive:true,
+    costLevel:1,costPerKg:25,goals:['body','hair','fragrance'],skinTypes:['normal','oily'],
+    evidence:70,description:'Cooling, refreshing scent from menthol content. Stimulating to scalp.',
+    mechanism:'Menthol activates cold-sensing TRPM8 receptors for cooling sensation.',
+    safety:{score:75,notes:'Avoid in infants and near eyes. Max 1%. Not for sensitive skin.'},
+    alternatives:['lavender-eo']},
+
+  'rose-eo': {name:'Rose Essential Oil',inci:'Rosa Damascena Flower Oil',emoji:'🌹',category:'fragrance',phase:'C',functions:['Fragrance','Anti-aging','Calming'],
+    usage:{min:0.05,max:0.5,typical:0.1},solubility:'oil',heatSensitive:true,
+    costLevel:5,costPerKg:4000,goals:['fragrance','anti-aging','luxury'],skinTypes:['all'],
+    evidence:72,description:'Premium floral scent. One of the most expensive essential oils.',
+    mechanism:'Complex mix of geraniol, citronellol provide the iconic rose fragrance.',
+    safety:{score:82,notes:'Use at very low levels due to cost and potential sensitization.'},
+    alternatives:['lavender-eo','rose-water']},
+
+  'frankincense-eo': {name:'Frankincense Essential Oil',inci:'Boswellia Carterii Oil',emoji:'✨',category:'fragrance',phase:'C',functions:['Fragrance','Anti-aging','Anti-inflammatory'],
+    usage:{min:0.1,max:0.5,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:3,costPerKg:200,goals:['anti-aging','fragrance'],skinTypes:['mature','all'],
+    evidence:70,description:'Woody, resinous scent with anti-inflammatory reputation in traditional medicine.',
+    mechanism:'Boswellic acids may inhibit 5-LOX inflammatory pathway.',
+    safety:{score:80,notes:'Generally safe. Dilute properly.'},
+    alternatives:['lavender-eo']},
+};
+
+// ═══════════════════════════════════════
+// FORMULA TEMPLATES
+// ═══════════════════════════════════════
+const FORMULA_TEMPLATES = {
+  'face-moisturizer': {
+    name:'Face Moisturizer', category:'skincare', difficulty:2,
+    phTarget:'5.5–6.5', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[70,75],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'humectant1',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','sodium-hyaluronate'],goalMap:{hydration:'sodium-hyaluronate','anti-aging':'sodium-hyaluronate',sensitive:'betaine'},required:true},
+      {id:'humectant2',phase:'A',label:'Co-Humectant',pct:[1,2],candidates:['panthenol','sodium-pca','betaine'],required:false},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf'],required:true},
+      {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
+      {id:'emollient',phase:'B',label:'Emollient Oil',pct:[8,12],candidates:['jojoba','squalane','sweet-almond','sunflower','mct'],goalMap:{'anti-aging':'squalane',brightening:'rosehip',oily:'jojoba'},required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[2,5],candidates:['shea-butter','mango-butter'],skinMap:{dry:'shea-butter',normal:'mango-butter'},required:false},
+      {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'active',phase:'C',label:'Active',pct:[2,5],candidates:['niacinamide','allantoin','centella'],goalMap:{brightening:'niacinamide','anti-aging':'peptides',acne:'niacinamide',sensitive:'allantoin',hydration:'panthenol'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.1,0.3],candidates:['lavender-eo','rose-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Weigh Phase A ingredients into a heat-resistant beaker. Heat to 75°C with gentle stirring until fully mixed.',
+      'Weigh Phase B ingredients into a separate beaker. Heat to 75°C until all solids are completely melted.',
+      'With both phases at 75°C, slowly pour Phase B into Phase A while mixing with a hand mixer on low speed.',
+      'Increase mixer speed and blend for 2–3 minutes until emulsion forms and begins to thicken.',
+      'Continue mixing as the emulsion cools. Stir regularly to ensure even cooling.',
+      'When temperature drops below 40°C, add Phase C ingredients one by one, mixing well after each.',
+      'Check and adjust pH to 5.5–6.5 using citric acid solution (to lower) or sodium hydroxide (to raise).',
+      'Transfer to a clean, sanitized container. Label with batch number, date, and formula version.',
+    ]
+  },
+
+  'face-serum': {
+    name:'Face Serum', category:'skincare', difficulty:2,
+    phTarget:'4.5–6.5', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[78,85],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'humectant1',phase:'A',label:'Primary Humectant',pct:[1,3],candidates:['sodium-hyaluronate','glycerin'],required:true},
+      {id:'humectant2',phase:'A',label:'Humectant 2',pct:[1,3],candidates:['glycerin','panthenol','betaine'],required:false},
+      {id:'thickener',phase:'A',label:'Gel Former',pct:[0.3,0.8],candidates:['carbomer','hec','xanthan'],required:true},
+      {id:'active1',phase:'C',label:'Primary Active',pct:[3,10],candidates:['niacinamide','vitamin-c-aa','tranexamic-acid'],goalMap:{brightening:'niacinamide','anti-aging':'peptides',acne:'niacinamide',hydration:'panthenol'},required:true},
+      {id:'active2',phase:'C',label:'Supporting Active',pct:[0.5,3],candidates:['allantoin','centella','caffeine'],required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+    ],
+    instructions:[
+      'Slowly sprinkle the gel former (carbomer/xanthan) into the water base while stirring vigorously to avoid clumps.',
+      'Add remaining Phase A ingredients. Heat to 70°C, stirring constantly.',
+      'Cool to below 40°C with continued stirring.',
+      'If using Carbomer, neutralize with 18–20% sodium hydroxide solution (a few drops at a time) to reach target pH.',
+      'Add Phase C actives one at a time, mixing thoroughly after each addition.',
+      'Check pH and adjust to target range. Check viscosity — add more thickener if needed.',
+      'Fill into dropper bottles or pump serums.',
+    ]
+  },
+
+  'face-wash': {
+    name:'Face Wash / Cleanser', category:'skincare', difficulty:2,
+    phTarget:'4.5–5.5', shelfLife:'12–18 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[55,65],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'surfactant1',phase:'A',label:'Primary Surfactant',pct:[10,20],candidates:['sles','sci','decyl-glucoside'],goalMap:{gentle:'decyl-glucoside',natural:'decyl-glucoside'},required:true},
+      {id:'surfactant2',phase:'A',label:'Co-Surfactant',pct:[4,8],candidates:['capb','decyl-glucoside'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
+      {id:'thickener',phase:'A',label:'Thickener',pct:[0.3,1],candidates:['hec','xanthan'],required:false},
+      {id:'active',phase:'C',label:'Active',pct:[1,3],candidates:['niacinamide','allantoin','salicylic-acid'],goalMap:{acne:'salicylic-acid',sensitive:'allantoin',brightening:'niacinamide'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+    ],
+    instructions:[
+      'Combine water and surfactants in a beaker. Mix at low speed to avoid excess foam.',
+      'Add humectant and thickener, continue mixing gently.',
+      'Heat to 60°C if needed to fully dissolve thickener, then cool.',
+      'When below 40°C, add Phase C ingredients (actives, preservative).',
+      'Adjust pH to 4.5–5.5 with citric acid solution. This is critical for skin safety.',
+      'Add salt (sodium chloride 0.5–2%) if additional thickening is needed.',
+      'Fill into pump or squeeze bottles.',
+    ]
+  },
+
+  'toner': {
+    name:'Toner', category:'skincare', difficulty:1,
+    phTarget:'4.5–6.0', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[80,90],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,7],candidates:['glycerin','sodium-hyaluronate'],required:true},
+      {id:'humectant2',phase:'A',label:'Co-Humectant',pct:[1,3],candidates:['panthenol','betaine'],required:false},
+      {id:'active',phase:'A',label:'Active',pct:[2,10],candidates:['niacinamide','allantoin','lactic-acid'],goalMap:{brightening:'niacinamide',exfoliation:'lactic-acid',acne:'salicylic-acid',sensitive:'allantoin'},required:false},
+      {id:'preservative',phase:'A',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+    ],
+    instructions:[
+      'Combine all water phase ingredients in a beaker at room temperature.',
+      'Mix until fully dissolved. Use gentle stirring to avoid bubbles.',
+      'Add active ingredients and preservative, mixing well.',
+      'Check and adjust pH to target range with citric acid.',
+      'Fill into bottle with spray pump or cotton pad bottle.',
+    ]
+  },
+
+  'face-mask': {
+    name:'Face Mask', category:'skincare', difficulty:2,
+    phTarget:'4.5–7.0', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[45,60],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'clay',phase:'A',label:'Clay',pct:[10,25],candidates:['kaolin','bentonite'],goalMap:{oily:'bentonite',sensitive:'kaolin',acne:'bentonite'},required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['glycerin','sodium-hyaluronate'],required:true},
+      {id:'emollient',phase:'A',label:'Light Oil',pct:[2,5],candidates:['jojoba','squalane','mct'],required:false},
+      {id:'thickener',phase:'A',label:'Thickener',pct:[0.3,0.8],candidates:['xanthan','hec'],required:false},
+      {id:'active',phase:'C',label:'Active',pct:[1,5],candidates:['niacinamide','lactic-acid','allantoin'],required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+    ],
+    instructions:[
+      'Mix water base with humectant until combined.',
+      'Slowly sift clay into the water mixture, stirring constantly to prevent lumps.',
+      'Mix in light oil if using — it will help with spreadability.',
+      'Add thickener if needed; mix until smooth.',
+      'When below 40°C, add actives and preservative.',
+      'Adjust pH. Package in a wide-mouth jar.',
+    ]
+  },
+
+  'shampoo': {
+    name:'Shampoo', category:'haircare', difficulty:2,
+    phTarget:'4.5–5.5', shelfLife:'12–18 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[55,65],candidates:['water','aloe-vera'],required:true},
+      {id:'surfactant1',phase:'A',label:'Primary Surfactant',pct:[10,20],candidates:['sles','sci','decyl-glucoside'],goalMap:{gentle:'decyl-glucoside'},required:true},
+      {id:'surfactant2',phase:'A',label:'Co-Surfactant',pct:[5,10],candidates:['capb','decyl-glucoside'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
+      {id:'conditioning',phase:'B',label:'Conditioning Agent',pct:[0.5,2],candidates:['silk-amino','keratin'],required:false},
+      {id:'active',phase:'C',label:'Scalp Active',pct:[0.5,3],candidates:['caffeine','biotin','salicylic-acid'],goalMap:{'hair-growth':'biotin',dandruff:'salicylic-acid'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['peppermint-eo','lavender-eo','tea-tree-eo'],required:false},
+    ],
+    instructions:[
+      'Mix water, surfactants, and humectant in a beaker at room temperature.',
+      'Heat to 60°C to fully dissolve any powdered ingredients.',
+      'Cool to below 40°C with gentle stirring.',
+      'Add conditioning agents and actives, mix well.',
+      'Add preservative and fragrance, mix.',
+      'Adjust pH to 4.5–5.5 with citric acid (critical for hair health).',
+      'Thicken with salt (sodium chloride, 1–3%) if needed.',
+    ]
+  },
+
+  'conditioner': {
+    name:'Conditioner', category:'haircare', difficulty:3,
+    phTarget:'3.5–5.0', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[70,78],candidates:['water','aloe-vera'],required:true},
+      {id:'emulsifier',phase:'B',label:'Conditioning Emulsifier',pct:[3,6],candidates:['btms-50'],required:true},
+      {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,4],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
+      {id:'emollient',phase:'B',label:'Emollient',pct:[3,8],candidates:['argan','jojoba','coconut','castor'],goalMap:{frizz:'argan',dry:'coconut',fine:'jojoba'},required:true},
+      {id:'conditioning',phase:'C',label:'Protein',pct:[0.5,3],candidates:['keratin','silk-amino','panthenol'],goalMap:{'damage-repair':'keratin'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Heat Phase A (water) to 75°C in one beaker.',
+      'Melt Phase B ingredients in a separate beaker to 75°C.',
+      'Slowly pour Phase B into Phase A while mixing.',
+      'The BTMS-50 creates a conditioning emulsion — mix until uniform.',
+      'Cool to below 40°C, then add Phase C ingredients.',
+      'Adjust pH to 3.5–5.0 (critical for cuticle sealing).',
+      'Fill into conditioner bottles.',
+    ]
+  },
+
+  'hair-oil': {
+    name:'Hair Oil', category:'haircare', difficulty:1,
+    phTarget:'N/A', shelfLife:'12–24 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Base Oil 1',pct:[40,60],candidates:['argan','jojoba','sweet-almond','coconut'],goalMap:{'hair-growth':'castor',frizz:'argan'},required:true},
+      {id:'base-oil2',phase:'A',label:'Base Oil 2',pct:[20,40],candidates:['castor','mct','jojoba','sunflower'],required:true},
+      {id:'base-oil3',phase:'A',label:'Lightweight Oil',pct:[5,20],candidates:['mct','squalane','jojoba'],required:false},
+      {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'A',label:'Essential Oil',pct:[0.5,2],candidates:['lavender-eo','rosemary-eo','peppermint-eo','tea-tree-eo'],required:false},
+    ],
+    instructions:[
+      'Combine all oil phase ingredients in a clean, dry bottle or beaker.',
+      'Gently mix or roll the bottle to combine.',
+      'Vitamin E is added as an antioxidant to extend shelf life.',
+      'Add essential oils last and mix gently.',
+      'Transfer to dropper or pump bottle.',
+      'No heating required for anhydrous formulas.',
+    ]
+  },
+
+  'body-lotion': {
+    name:'Body Lotion', category:'body', difficulty:2,
+    phTarget:'4.5–7.0', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[70,78],candidates:['water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,7],candidates:['emulsifying-wax-nf'],required:true},
+      {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[1,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:false},
+      {id:'emollient',phase:'B',label:'Emollient',pct:[8,15],candidates:['sweet-almond','jojoba','sunflower','mct'],required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[3,7],candidates:['shea-butter','mango-butter','cocoa-butter'],required:false},
+      {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Heat Phase A ingredients to 75°C.',
+      'Heat Phase B ingredients to 75°C until all waxes/butters melt.',
+      'Add Phase B to Phase A while mixing. Emulsify thoroughly.',
+      'Cool with stirring. Add Phase C below 40°C.',
+      'Adjust pH if needed. Bottle in pump dispenser.',
+    ]
+  },
+
+  'body-butter': {
+    name:'Body Butter', category:'body', difficulty:1,
+    phTarget:'N/A', shelfLife:'12–24 months',
+    slots:[
+      {id:'butter1',phase:'A',label:'Primary Butter',pct:[40,60],candidates:['shea-butter','mango-butter','cocoa-butter'],required:true},
+      {id:'butter2',phase:'A',label:'Secondary Butter',pct:[15,30],candidates:['mango-butter','cocoa-butter','shea-butter'],required:true},
+      {id:'wax',phase:'A',label:'Wax',pct:[2,5],candidates:['beeswax','candelilla'],required:false},
+      {id:'oil',phase:'A',label:'Oil',pct:[15,30],candidates:['jojoba','sweet-almond','argan','mct'],required:true},
+      {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'A',label:'Fragrance',pct:[0.5,2],candidates:['lavender-eo','frankincense-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Melt butters and wax together over double boiler or microwave in short bursts.',
+      'Remove from heat and add liquid oils and vitamin E.',
+      'Cool at room temperature until semi-solid (around 25°C), or speed up in freezer.',
+      'When semi-solid, whip with hand mixer until fluffy.',
+      'Add fragrance and continue whipping.',
+      'Transfer to wide-mouth jar.',
+    ]
+  },
+
+  'lip-balm': {
+    name:'Lip Balm', category:'lip', difficulty:1,
+    phTarget:'N/A', shelfLife:'12–24 months',
+    slots:[
+      {id:'wax',phase:'A',label:'Wax',pct:[15,30],candidates:['beeswax','candelilla','carnauba'],required:true},
+      {id:'butter',phase:'A',label:'Butter',pct:[20,35],candidates:['cocoa-butter','shea-butter','mango-butter'],required:true},
+      {id:'oil1',phase:'A',label:'Oil 1',pct:[20,35],candidates:['castor','sweet-almond','jojoba'],required:true},
+      {id:'oil2',phase:'A',label:'Oil 2',pct:[10,20],candidates:['mct','jojoba','squalane'],required:false},
+      {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.3,0.5],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'A',label:'Flavor/Fragrance',pct:[0.5,2],candidates:['peppermint-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Melt wax and butter together over double boiler to ~75–80°C.',
+      'Add liquid oils and vitamin E. Stir until combined.',
+      'Remove from heat. Cool slightly to ~60°C.',
+      'Add flavor/fragrance (if using). Stir gently.',
+      'Pour immediately into lip balm tubes or pots.',
+      'Allow to fully set (1–2 hours) before capping.',
+    ]
+  },
+
+  'beard-oil': {
+    name:'Beard Oil', category:'beard', difficulty:1,
+    phTarget:'N/A', shelfLife:'12–24 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Base Oil 1',pct:[40,60],candidates:['jojoba','sweet-almond','argan'],goalMap:{growth:'castor'},required:true},
+      {id:'base-oil2',phase:'A',label:'Base Oil 2',pct:[25,45],candidates:['argan','sweet-almond','avocado','hemp-seed'],required:true},
+      {id:'base-oil3',phase:'A',label:'Lightweight Oil',pct:[5,15],candidates:['mct','squalane'],required:false},
+      {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'A',label:'Fragrance',pct:[1,3],candidates:['frankincense-eo','tea-tree-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Combine all oil ingredients in a dark glass dropper bottle.',
+      'Add vitamin E as antioxidant preservative.',
+      'Add essential oils last.',
+      'Cap and gently roll to mix.',
+      'Apply 3–5 drops to palm, rub together, work through beard.',
+    ]
+  },
+
+  'beard-balm': {
+    name:'Beard Balm', category:'beard', difficulty:1,
+    phTarget:'N/A', shelfLife:'12–24 months',
+    slots:[
+      {id:'wax',phase:'A',label:'Wax',pct:[10,20],candidates:['beeswax','candelilla'],required:true},
+      {id:'butter',phase:'A',label:'Butter',pct:[25,40],candidates:['shea-butter','mango-butter','cocoa-butter'],required:true},
+      {id:'oil1',phase:'A',label:'Oil 1',pct:[25,40],candidates:['jojoba','sweet-almond','argan'],required:true},
+      {id:'oil2',phase:'A',label:'Oil 2',pct:[10,20],candidates:['castor','mct'],required:false},
+      {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'A',label:'Fragrance',pct:[1,3],candidates:['frankincense-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Melt beeswax and butters together over double boiler.',
+      'Remove from heat and add liquid oils and vitamin E.',
+      'Allow to cool slightly, then add essential oils.',
+      'Pour into tin or small jar and allow to set.',
+      'Apply small amount to palm, warm with hands, work through beard.',
+    ]
+  },
+
+  'bath-bomb': {
+    name:'Bath Bomb', category:'bath', difficulty:2,
+    phTarget:'N/A', shelfLife:'6–12 months',
+    slots:[
+      {id:'bicarb',phase:'A',label:'Baking Soda',pct:[40,50],candidates:[{name:'Sodium Bicarbonate',inci:'Sodium Bicarbonate',emoji:'⚪'}],required:true},
+      {id:'citric',phase:'A',label:'Citric Acid',pct:[20,25],candidates:[{name:'Citric Acid',inci:'Citric Acid',emoji:'🍋'}],required:true},
+      {id:'starch',phase:'A',label:'Corn Starch',pct:[10,20],candidates:[{name:'Corn Starch',inci:'Zea Mays Starch',emoji:'🌽'}],required:false},
+      {id:'oil',phase:'B',label:'Oil',pct:[5,15],candidates:['sweet-almond','coconut','jojoba'],required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[2,8],candidates:['cocoa-butter','shea-butter'],required:false},
+      {id:'fragrance',phase:'B',label:'Fragrance',pct:[1,3],candidates:['lavender-eo','peppermint-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Mix all dry Phase A ingredients together in a bowl.',
+      'Combine Phase B oil ingredients in a small bowl.',
+      'Very slowly drizzle Phase B into Phase A, mixing constantly.',
+      'Mix must not fizz — add oils drop by drop to prevent premature reaction.',
+      'When mixture holds together when squeezed, it is ready.',
+      'Press firmly into moulds and allow to harden 24–48 hours.',
+      'Remove from moulds and store in a cool, dry, airtight container.',
+    ]
+  },
+
+  'roll-on-deodorant': {
+    name:'Roll-On Deodorant', category:'deodorant', difficulty:2,
+    phTarget:'4.0–6.0', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[60,70],candidates:['water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin'],required:true},
+      {id:'thickener',phase:'A',label:'Thickener',pct:[0.5,1.5],candidates:['hec','xanthan'],required:true},
+      {id:'active-deo',phase:'C',label:'Deodorizing Active',pct:[5,15],candidates:[{name:'Potassium Alum',inci:'Potassium Alum',emoji:'💎'}],required:true},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','tea-tree-eo'],required:false},
+    ],
+    instructions:[
+      'Disperse thickener in water with vigorous stirring.',
+      'Add humectant and mix until uniform.',
+      'Heat to 60°C to fully hydrate thickener, then cool.',
+      'When below 40°C, add deodorizing active, preservative, and fragrance.',
+      'Adjust pH to 4–6 (natural alum deodorant pH).',
+      'Fill into roll-on bottles.',
+    ]
+  },
+};
+
+// Product type → template key mapping
+const PRODUCT_TYPES = {
+  'Skincare': ['Face Moisturizer','Face Serum','Face Wash','Toner','Face Mask'],
+  'Haircare': ['Shampoo','Conditioner','Hair Oil'],
+  'Beard Care': ['Beard Oil','Beard Balm'],
+  'Body Care': ['Body Lotion','Body Butter'],
+  'Lip Care': ['Lip Balm'],
+  'Bath Products': ['Bath Bomb'],
+  'Deodorants': ['Roll-On Deodorant'],
+};
+
+const TYPE_TO_TEMPLATE = {
+  'Face Moisturizer':'face-moisturizer','Face Serum':'face-serum',
+  'Face Wash':'face-wash','Toner':'toner','Face Mask':'face-mask',
+  'Shampoo':'shampoo','Conditioner':'conditioner','Hair Oil':'hair-oil',
+  'Beard Oil':'beard-oil','Beard Balm':'beard-balm',
+  'Body Lotion':'body-lotion','Body Butter':'body-butter',
+  'Lip Balm':'lip-balm','Bath Bomb':'bath-bomb',
+  'Roll-On Deodorant':'roll-on-deodorant',
+};
+
+// ═══════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════
+const state = {
+  currentScreen: 'home',
+  prevScreen: null,
+  wizard: { step:1, category:'', productType:'', goals:[], skinType:'', budget:'mid', fragrance:'light', batchSize:100 },
+  currentFormula: null,
+  currentIngredientKey: null,
+  currentFormulaIndex: null,
+  noteRating: 3,
+  ingFilter: 'all',
+  ingSearch: '',
+};
+
+function loadData(key, def=[]) {
+  try { return JSON.parse(localStorage.getItem('acs_'+key)) || def; } catch(e) { return def; }
+}
+function saveData(key, val) {
+  localStorage.setItem('acs_'+key, JSON.stringify(val));
+}
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function navigate(screen) {
+  state.prevScreen = state.currentScreen;
+  state.currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.screen === screen);
+  });
+  const main = ['home','formulate','ingredients','inventory','notebook'];
+  document.getElementById('bottom-nav').style.display = main.includes(screen) ? 'flex' : 'flex';
+  // Render the screen
+  const renders = {
+    home: renderHome, formulate: renderFormulate, ingredients: renderIngredients,
+    inventory: renderInventory, notebook: renderNotebook, 'my-formulas': renderMyFormulas,
+  };
+  if (renders[screen]) renders[screen]();
+}
+
+// ═══════════════════════════════════════
+// FORMULATION ENGINE
+// ═══════════════════════════════════════
+function resolveIngredient(slot, goals, skinType, budget) {
+  if (Array.isArray(slot.candidates) && slot.candidates.length > 0 && typeof slot.candidates[0] === 'object') {
+    return slot.candidates[0]; // inline ingredient objects (bath bomb, deodorant dry phase)
+  }
+  let pick = null;
+  // Goal-based selection
+  if (slot.goalMap) {
+    for (const g of goals) {
+      if (slot.goalMap[g] && INGREDIENTS[slot.goalMap[g]]) {
+        pick = slot.goalMap[g]; break;
+      }
+    }
+  }
+  // Skin type fallback
+  if (!pick && slot.skinMap && slot.skinMap[skinType]) pick = slot.skinMap[skinType];
+  // Budget filter
+  if (!pick) {
+    let candidates = slot.candidates.filter(k => INGREDIENTS[k]);
+    if (budget === 'economy') candidates = candidates.filter(k => INGREDIENTS[k].costLevel <= 2) || candidates;
+    if (budget === 'premium') candidates = candidates.filter(k => INGREDIENTS[k].costLevel >= 3) || candidates;
+    if (candidates.length === 0) candidates = slot.candidates.filter(k => INGREDIENTS[k]);
+    pick = candidates[0];
+  }
+  return INGREDIENTS[pick] ? {...INGREDIENTS[pick], key: pick} : null;
+}
+
+function generateFormula(wizard) {
+  const tmplKey = TYPE_TO_TEMPLATE[wizard.productType];
+  const tmpl = FORMULA_TEMPLATES[tmplKey];
+  if (!tmpl) return null;
+
+  const rows = [];
+  let totalPct = 0;
+
+  for (const slot of tmpl.slots) {
+    if (slot.required === false && wizard.fragrance === 'unscented' && slot.id === 'fragrance') continue;
+    const ing = resolveIngredient(slot, wizard.goals, wizard.skinType, wizard.budget);
+    if (!ing) continue;
+    const pct = (slot.pct[0] + slot.pct[1]) / 2;
+    rows.push({ slot, ing, pct });
+    totalPct += pct;
+  }
+
+  // Normalize to 100%
+  const factor = 100 / totalPct;
+  let adjTotal = 0;
+  for (const r of rows) {
+    r.pct = Math.round(r.pct * factor * 10) / 10;
+    adjTotal += r.pct;
+  }
+  // Fix rounding to exactly 100
+  if (rows.length > 0) rows[0].pct = Math.round((rows[0].pct + (100 - adjTotal)) * 10) / 10;
+
+  // Calculate grams and cost
+  let totalCost = 0;
+  for (const r of rows) {
+    r.grams = Math.round(r.pct / 100 * wizard.batchSize * 10) / 10;
+    const cpg = (r.ing.costPerKg || 0) / 1000;
+    r.cost = Math.round(r.grams * cpg * 100) / 100;
+    totalCost += r.cost;
+  }
+
+  // Scores
+  const safetyScore = calcSafetyScore(rows);
+  const stabilityScore = calcStabilityScore(rows, tmpl);
+  const difficultyScore = tmpl.difficulty * 20;
+  const beginnerScore = Math.max(20, 100 - difficultyScore + 10);
+
+  return {
+    id: Date.now(),
+    name: wizard.productName || (wizard.productType + ' Formula'),
+    productType: wizard.productType,
+    category: tmpl.category,
+    goals: wizard.goals,
+    skinType: wizard.skinType,
+    batchSize: wizard.batchSize,
+    rows,
+    instructions: tmpl.instructions,
+    phTarget: tmpl.phTarget,
+    shelfLife: tmpl.shelfLife,
+    totalCost: Math.round(totalCost * 100) / 100,
+    costPerG: Math.round(totalCost / wizard.batchSize * 1000) / 10,
+    safetyScore, stabilityScore, difficultyScore, beginnerScore,
+    createdAt: new Date().toLocaleDateString(),
+  };
+}
+
+function calcSafetyScore(rows) {
+  let score = 100;
+  for (const r of rows) {
+    if (r.ing.safety) score -= (100 - r.ing.safety.score) * (r.pct / 100) * 0.5;
+  }
+  return Math.round(Math.max(50, Math.min(100, score)));
+}
+
+function calcStabilityScore(rows, tmpl) {
+  let score = 85;
+  const heatSensitiveInA = rows.filter(r => r.ing.heatSensitive && r.slot.phase === 'A');
+  score -= heatSensitiveInA.length * 5;
+  return Math.round(Math.max(40, Math.min(100, score)));
+}
+
+// ═══════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════
+function scoreColor(v) {
+  if (v >= 80) return 'var(--success)';
+  if (v >= 60) return 'var(--warning)';
+  return 'var(--danger)';
+}
+
+function phaseLabel(p) {
+  const map = {A:'Phase A<br><small>Water Phase — heat to 75°C</small>',B:'Phase B<br><small>Oil Phase — heat to 75°C</small>',C:'Phase C<br><small>Cool Down — add below 40°C</small>'};
+  return map[p] || p;
+}
+
+function ingEmoji(key) {
+  return (INGREDIENTS[key] && INGREDIENTS[key].emoji) || '🧪';
+}
+
+function costLevelStars(n) {
+  return '💰'.repeat(n) + '○'.repeat(5-n);
+}
+
+function evidenceBadge(score) {
+  if (score >= 85) return `<span class="badge badge-success">High Evidence (${score})</span>`;
+  if (score >= 65) return `<span class="badge badge-warning">Moderate Evidence (${score})</span>`;
+  return `<span class="badge badge-danger">Limited Evidence (${score})</span>`;
+}
+
+// ═══════════════════════════════════════
+// RENDER: HOME
+// ═══════════════════════════════════════
+function renderHome() {
+  const formulas = loadData('formulas', []);
+  const inventory = loadData('inventory', []);
+  const notes = loadData('notes', []);
+  document.getElementById('home-content').innerHTML = `
+    <div class="hero">
+      <h2>Welcome to Your Lab 🔬</h2>
+      <p style="color:var(--sub);font-size:14px;margin-top:6px">Formulate professional cosmetics with AI-powered science.</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="num">${formulas.length}</div><div class="lbl">Formulas</div></div>
+      <div class="stat-box"><div class="num">${inventory.length}</div><div class="lbl">Ingredients</div></div>
+      <div class="stat-box"><div class="num">${notes.length}</div><div class="lbl">Notes</div></div>
+    </div>
+    <div class="section-title">Quick Actions</div>
+    <div class="qa-grid">
+      <div class="qa-card highlight" onclick="navigate('formulate')">
+        <div class="qa-icon" style="background:rgba(217,79,160,.15)">🧪</div>
+        <h3>New Formula</h3>
+        <p>Create a formulation</p>
+      </div>
+      <div class="qa-card" onclick="navigate('ingredients')">
+        <div class="qa-icon" style="background:rgba(124,58,237,.15)">🌿</div>
+        <h3>Ingredients</h3>
+        <p>Browse 70+ ingredients</p>
+      </div>
+      <div class="qa-card" onclick="navigate('inventory')">
+        <div class="qa-icon" style="background:rgba(6,182,212,.15)">📦</div>
+        <h3>Inventory</h3>
+        <p>Manage your stock</p>
+      </div>
+      <div class="qa-card" onclick="navigate('notebook')">
+        <div class="qa-icon" style="background:rgba(245,158,11,.15)">📓</div>
+        <h3>Lab Notebook</h3>
+        <p>Record experiments</p>
+      </div>
+    </div>
+    ${formulas.length > 0 ? `
+    <div class="section-title">Recent Formulas</div>
+    ${formulas.slice(-3).reverse().map((f,i) => `
+      <div class="card-sm" onclick="openFormulaDetail(${formulas.length-1-i})" style="cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;font-size:14px">${f.name}</div>
+            <div style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g · ${f.createdAt}</div>
+          </div>
+          <span class="badge badge-primary">$${f.totalCost}</span>
+        </div>
+      </div>`).join('')}
+    <button class="btn btn-secondary" style="margin-top:4px" onclick="navigate('my-formulas')">View All Formulas</button>
+    ` : `
+    <div class="card" style="text-align:center;padding:24px">
+      <div style="font-size:36px;margin-bottom:8px">🧬</div>
+      <p style="color:var(--sub);font-size:14px">No formulas yet. Tap <strong>New Formula</strong> to start formulating!</p>
+    </div>`}
+    <div class="section-title" style="margin-top:20px">Product Categories</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      ${Object.keys(PRODUCT_TYPES).map(c=>`<div class="chip" onclick="startWizardCategory('${c}')">${c}</div>`).join('')}
+    </div>
+  `;
+}
+
+function startWizardCategory(cat) {
+  state.wizard = { step:1, category:cat, productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+  navigate('formulate');
+}
+
+// ═══════════════════════════════════════
+// RENDER: FORMULATION WIZARD
+// ═══════════════════════════════════════
+function renderFormulate() {
+  const w = state.wizard;
+  const steps = ['Category','Product Type','Goals','Skin / Hair','Settings','Review'];
+  document.getElementById('wizard-step-label').textContent = `Step ${w.step} of ${steps.length}`;
+
+  const stepsHtml = `<div class="step-indicator">${steps.map((_,i)=>`<div class="step-dot ${i+1===w.step?'active':i+1<w.step?'done':''}"></div>`).join('')}</div>`;
+
+  let html = stepsHtml;
+
+  if (w.step === 1) {
+    html += `<div class="section-title">Choose a Category</div>
+    <div style="display:grid;gap:10px">
+    ${Object.keys(PRODUCT_TYPES).map(cat=>`
+      <div class="card-sm" style="cursor:pointer;border-color:${w.category===cat?'var(--primary)':'var(--border)'};background:${w.category===cat?'rgba(217,79,160,.08)':'var(--card)'}" onclick="selectCategory('${cat}')">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:26px">${{Skincare:'🧴',Haircare:'💇',Beard:'🧔','Beard Care':'🧔','Body Care':'🫧','Lip Care':'💄','Bath Products':'🛁',Deodorants:'🌸',Perfumes:'🌺'}[cat]||'🧪'}</div>
+          <span style="font-size:15px;font-weight:500">${cat}</span>
+          ${w.category===cat?'<span style="margin-left:auto;color:var(--primary)">✓</span>':''}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="wizardNext()" ${!w.category?'disabled':''}>Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 2) {
+    const types = PRODUCT_TYPES[w.category] || [];
+    html += `<div class="section-title">Product Type — ${w.category}</div>
+    <div style="display:grid;gap:8px">
+    ${types.map(t=>`
+      <div class="card-sm" style="cursor:pointer;border-color:${w.productType===t?'var(--primary)':'var(--border)'}" onclick="selectType('${t}')">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:14px;font-weight:500">${t}</span>
+          ${w.productType===t?'<span style="color:var(--primary)">✓</span>':''}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()" ${!w.productType?'disabled':''}>Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 3) {
+    const goalOptions = ['Hydration','Anti-Aging','Brightening','Acne Control','Sensitive Skin','Hair Growth','Frizz Control','Damage Repair','Natural/Organic','Premium Performance','Economy'];
+    const goalKeys = {Hydration:'hydration','Anti-Aging':'anti-aging',Brightening:'brightening','Acne Control':'acne','Sensitive Skin':'sensitive','Hair Growth':'hair-growth','Frizz Control':'frizz','Damage Repair':'damage-repair','Natural/Organic':'natural','Premium Performance':'premium',Economy:'economy'};
+    html += `<div class="section-title">Your Goals (select all that apply)</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Choose goals to customize your formula with targeted ingredients.</p>
+    <div>${goalOptions.map(g=>{
+      const k = goalKeys[g];
+      const sel = w.goals.includes(k);
+      return `<div class="chip ${sel?'selected':''}" onclick="toggleGoal('${k}')" style="margin:4px;display:inline-block">${g}</div>`;
+    }).join('')}</div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 4) {
+    const skinTypes = ['Normal','Dry','Oily','Combination','Sensitive','Mature','All'];
+    html += `<div class="section-title">Skin / Hair Type</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+    ${skinTypes.map(t=>{
+      const k = t.toLowerCase();
+      return `<div class="card-sm" style="cursor:pointer;text-align:center;border-color:${w.skinType===k?'var(--primary)':'var(--border)'}" onclick="state.wizard.skinType='${k}';renderFormulate()">
+        <span style="font-size:14px;font-weight:500">${t}</span>
+      </div>`;
+    }).join('')}
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 5) {
+    html += `<div class="section-title">Formula Settings</div>
+    <div class="form-group">
+      <label class="form-label">Budget Level</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        ${['economy','mid','premium'].map(b=>`
+          <div class="card-sm" style="cursor:pointer;text-align:center;border-color:${w.budget===b?'var(--primary)':'var(--border)'}" onclick="state.wizard.budget='${b}';renderFormulate()">
+            <div style="font-size:18px">${{economy:'💰',mid:'💰💰',premium:'💰💰💰'}[b]}</div>
+            <div style="font-size:12px;font-weight:500;margin-top:4px">${b.charAt(0).toUpperCase()+b.slice(1)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fragrance</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${['unscented','light','floral','woody'].map(f=>`
+          <div class="card-sm" style="cursor:pointer;text-align:center;border-color:${w.fragrance===f?'var(--primary)':'var(--border)'}" onclick="state.wizard.fragrance='${f}';renderFormulate()">
+            <div style="font-size:18px">${{unscented:'❌',light:'🌿',floral:'🌸',woody:'🌲'}[f]}</div>
+            <div style="font-size:12px;font-weight:500;margin-top:4px">${f.charAt(0).toUpperCase()+f.slice(1)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Batch Size (grams)</label>
+      <input class="form-input" type="number" value="${w.batchSize}" oninput="state.wizard.batchSize=+this.value" min="10" max="1000" placeholder="100">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 6) {
+    html += `<div class="section-title">Review & Generate</div>
+    <div class="card">
+      <div class="detail-row"><label>Category</label><span>${w.category}</span></div>
+      <div class="detail-row"><label>Product Type</label><span>${w.productType}</span></div>
+      <div class="detail-row"><label>Goals</label><span>${w.goals.length>0?w.goals.join(', '):'General'}</span></div>
+      <div class="detail-row"><label>Skin/Hair Type</label><span>${w.skinType}</span></div>
+      <div class="detail-row"><label>Budget</label><span>${w.budget}</span></div>
+      <div class="detail-row"><label>Fragrance</label><span>${w.fragrance}</span></div>
+      <div class="detail-row"><label>Batch Size</label><span>${w.batchSize}g</span></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Formula Name (optional)</label>
+      <input class="form-input" id="formula-name-input" placeholder="${w.productType} Formula" value="${w.productName||''}">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="doGenerate()">🧬 Generate Formula</button>
+    </div>`;
+  }
+
+  document.getElementById('formulate-content').innerHTML = html;
+}
+
+function selectCategory(cat) { state.wizard.category = cat; state.wizard.productType = ''; renderFormulate(); }
+function selectType(t) { state.wizard.productType = t; renderFormulate(); }
+function toggleGoal(k) {
+  const idx = state.wizard.goals.indexOf(k);
+  if (idx >= 0) state.wizard.goals.splice(idx,1); else state.wizard.goals.push(k);
+  renderFormulate();
+}
+function wizardNext() {
+  const nameInput = document.getElementById('formula-name-input');
+  if (nameInput) state.wizard.productName = nameInput.value;
+  if (state.wizard.step < 6) { state.wizard.step++; renderFormulate(); }
+}
+function wizardPrev() { if (state.wizard.step > 1) { state.wizard.step--; renderFormulate(); } }
+
+function doGenerate() {
+  const nameInput = document.getElementById('formula-name-input');
+  if (nameInput) state.wizard.productName = nameInput.value;
+  const formula = generateFormula(state.wizard);
+  state.currentFormula = formula;
+  navigate('result');
+  renderResult();
+  // Reset wizard for next use
+  state.wizard = { step:1, category:'', productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+}
+
+// ═══════════════════════════════════════
+// RENDER: FORMULA RESULT
+// ═══════════════════════════════════════
+function renderResult() {
+  const f = state.currentFormula;
+  if (!f) { document.getElementById('result-content').innerHTML = '<p>No formula.</p>'; return; }
+
+  let tableRows = '';
+  let currentPhase = '';
+  for (const r of f.rows) {
+    const ph = r.slot.phase || 'A';
+    if (ph !== currentPhase) {
+      currentPhase = ph;
+      const phColors = {A:'phase-a',B:'phase-b',C:'phase-c'};
+      tableRows += `<tr><td colspan="4" style="padding:4px 10px"><div class="phase-header"><span class="phase-tag ${phColors[ph]}">${ph}</span> ${phaseLabel(ph)}</div></td></tr>`;
+    }
+    const ing = r.ing;
+    tableRows += `<tr>
+      <td><span style="font-size:18px">${ing.emoji||'🧪'}</span></td>
+      <td><div style="font-weight:500;font-size:13px">${ing.name}</div><div style="font-size:11px;color:var(--sub)">${ing.inci||''}</div></td>
+      <td style="text-align:right;color:var(--accent);font-weight:600;white-space:nowrap">${r.pct}%</td>
+      <td style="text-align:right;white-space:nowrap">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">$${r.cost}</span></td>
+    </tr>`;
+  }
+
+  const instructions = (f.instructions||[]).map((step,i)=>`
+    <div class="inst-step">
+      <div class="step-num">${i+1}</div>
+      <div class="step-text">${step}</div>
+    </div>`).join('');
+
+  document.getElementById('result-content').innerHTML = `
+    <div class="hero" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:32px">🧪</span>
+        <div>
+          <h2 style="font-size:18px">${f.name}</h2>
+          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g batch · ${f.createdAt}</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${(f.goals||[]).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
+        <span class="badge badge-accent">${f.skinType}</span>
+      </div>
+    </div>
+
+    <div class="tabs" id="result-tabs">
+      <div class="tab active" onclick="switchResultTab('formula',this)">Formula</div>
+      <div class="tab" onclick="switchResultTab('instructions',this)">Instructions</div>
+      <div class="tab" onclick="switchResultTab('analysis',this)">Analysis</div>
+    </div>
+
+    <div id="result-tab-formula">
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="formula-table"><thead><tr>
+          <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}g / Cost</th>
+        </tr></thead><tbody>${tableRows}</tbody></table>
+      </div>
+      <div class="card">
+        <div class="detail-row"><label>Total Batch Cost</label><span style="color:var(--success);font-weight:700">$${f.totalCost}</span></div>
+        <div class="detail-row"><label>Cost per Gram</label><span>$${f.costPerG}/100g</span></div>
+        <div class="detail-row"><label>Target pH</label><span>${f.phTarget}</span></div>
+        <div class="detail-row"><label>Estimated Shelf Life</label><span>${f.shelfLife}</span></div>
+      </div>
+    </div>
+
+    <div id="result-tab-instructions" style="display:none">
+      <div class="card"><h3 style="margin-bottom:14px;font-size:15px">⚗️ Manufacturing Instructions</h3>${instructions}</div>
+      <div class="card">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">⚠️ Equipment Needed</h3>
+        <ul style="font-size:13px;color:var(--sub);padding-left:18px;line-height:2">
+          <li>Digital scale (0.01g precision)</li>
+          <li>Heat-resistant glass beakers</li>
+          <li>Thermometer (digital)</li>
+          <li>Hand mixer or immersion blender</li>
+          <li>pH meter or strips</li>
+          <li>Sanitized packaging container</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="result-tab-analysis" style="display:none">
+      <div class="detail-section">
+        <h3>📊 Formula Scores</h3>
+        <div class="score-row">
+          <div class="score-label">Safety</div>
+          <div class="score-bar"><div class="score-fill" style="width:${f.safetyScore}%;background:${scoreColor(f.safetyScore)}"></div></div>
+          <div class="score-val" style="color:${scoreColor(f.safetyScore)}">${f.safetyScore}</div>
+        </div>
+        <div class="score-row">
+          <div class="score-label">Stability</div>
+          <div class="score-bar"><div class="score-fill" style="width:${f.stabilityScore}%;background:${scoreColor(f.stabilityScore)}"></div></div>
+          <div class="score-val" style="color:${scoreColor(f.stabilityScore)}">${f.stabilityScore}</div>
+        </div>
+        <div class="score-row">
+          <div class="score-label">Difficulty</div>
+          <div class="score-bar"><div class="score-fill" style="width:${f.difficultyScore}%;background:var(--warning)"></div></div>
+          <div class="score-val" style="color:var(--warning)">${f.difficultyScore}</div>
+        </div>
+        <div class="score-row">
+          <div class="score-label">Beginner Friendly</div>
+          <div class="score-bar"><div class="score-fill" style="width:${f.beginnerScore}%;background:${scoreColor(f.beginnerScore)}"></div></div>
+          <div class="score-val" style="color:${scoreColor(f.beginnerScore)}">${f.beginnerScore}</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>💡 Ingredient Rationale</h3>
+        ${f.rows.filter(r=>r.ing.mechanism).slice(0,5).map(r=>`
+          <div style="margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">${r.ing.emoji} ${r.ing.name} (${r.pct}%)</div>
+            <div style="font-size:12px;color:var(--sub)">${r.ing.description||''}</div>
+          </div>`).join('')}
+      </div>
+      <div class="detail-section">
+        <h3>💰 Cost Breakdown</h3>
+        ${f.rows.sort((a,b)=>b.cost-a.cost).map(r=>`
+          <div class="cost-item">
+            <div class="cost-name">${r.ing.emoji} ${r.ing.name}</div>
+            <div class="cost-bar-wrap"><div class="cost-bar-fill" style="width:${Math.round(r.cost/f.totalCost*100)||1}%"></div></div>
+            <div class="cost-val">$${r.cost}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="saveCurrentFormula()">💾 Save Formula</button>
+      <button class="btn btn-accent" onclick="addResultToNotebook()">📓 Add to Notebook</button>
+    </div>
+  `;
+}
+
+function switchResultTab(name, el) {
+  document.querySelectorAll('#result-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['formula','instructions','analysis'].forEach(n=>{
+    const el2 = document.getElementById('result-tab-'+n);
+    if(el2) el2.style.display = n===name?'block':'none';
+  });
+}
+
+function saveCurrentFormula() {
+  if (!state.currentFormula) return;
+  const formulas = loadData('formulas', []);
+  formulas.push(state.currentFormula);
+  saveData('formulas', formulas);
+  showToast('Formula saved! ✅');
+}
+
+function addResultToNotebook() {
+  if (!state.currentFormula) return;
+  document.getElementById('note-title').value = state.currentFormula.name + ' — Notes';
+  document.getElementById('note-text').value = `Product: ${state.currentFormula.productType}\nBatch: ${state.currentFormula.batchSize}g\nCost: $${state.currentFormula.totalCost}\nGoals: ${state.currentFormula.goals.join(', ')}\n\nObservations:\n`;
+  openAddNote();
+}
+
+// ═══════════════════════════════════════
+// RENDER: INGREDIENTS
+// ═══════════════════════════════════════
+function renderIngredients() {
+  const cats = ['all','humectant','emollient','active','emulsifier','surfactant','preservative','butter','wax','thickener','fragrance','hair-active','mineral'];
+  const filtered = Object.entries(INGREDIENTS).filter(([k,v])=>{
+    const matchCat = state.ingFilter === 'all' || v.category === state.ingFilter;
+    const matchSearch = !state.ingSearch || v.name.toLowerCase().includes(state.ingSearch.toLowerCase()) || (v.inci||'').toLowerCase().includes(state.ingSearch.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  document.getElementById('ingredients-content').innerHTML = `
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input placeholder="Search ingredients or INCI..." oninput="state.ingSearch=this.value;renderIngredients()" value="${state.ingSearch}">
+    </div>
+    <div class="filter-row">
+      ${cats.map(c=>`<div class="filter-chip ${state.ingFilter===c?'active':''}" onclick="state.ingFilter='${c}';renderIngredients()">${c.charAt(0).toUpperCase()+c.slice(1)}</div>`).join('')}
+    </div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:10px">${filtered.length} ingredients</div>
+    ${filtered.map(([k,v])=>`
+      <div class="ing-card" onclick="openIngredientDetail('${k}')">
+        <div class="ing-icon">${v.emoji||'🧪'}</div>
+        <div class="ing-info">
+          <h4>${v.name}</h4>
+          <p>${v.inci||''}</p>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="ing-pct">${v.usage.min}–${v.usage.max}%</div>
+          <div style="font-size:11px;color:var(--sub)">${costLevelStars(v.costLevel)}</div>
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+function openIngredientDetail(key) {
+  state.currentIngredientKey = key;
+  navigate('ingredient-detail');
+  renderIngredientDetail(key);
+}
+
+function renderIngredientDetail(key) {
+  const ing = INGREDIENTS[key];
+  if (!ing) return;
+  document.getElementById('ingredient-detail-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:52px;margin-bottom:8px">${ing.emoji||'🧪'}</div>
+      <h2 style="font-size:20px;font-weight:700">${ing.name}</h2>
+      <p style="font-size:13px;color:var(--sub);margin-top:4px;font-style:italic">${ing.inci||''}</p>
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px">
+        ${(ing.functions||[]).map(f=>`<span class="badge badge-accent">${f}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="tabs" id="ing-detail-tabs">
+      <div class="tab active" onclick="switchIngTab('overview',this)">Overview</div>
+      <div class="tab" onclick="switchIngTab('technical',this)">Technical</div>
+      <div class="tab" onclick="switchIngTab('science',this)">Science</div>
+    </div>
+
+    <div id="ing-tab-overview">
+      <div class="detail-section">
+        <h3>📋 Overview</h3>
+        <p style="font-size:14px;color:var(--sub);line-height:1.6;margin-bottom:12px">${ing.description||''}</p>
+        <div class="detail-row"><label>Category</label><span>${ing.category}</span></div>
+        <div class="detail-row"><label>Typical Phase</label><span>Phase ${ing.phase}</span></div>
+        <div class="detail-row"><label>Usage Range</label><span>${ing.usage.min}–${ing.usage.max}% (typical ${ing.usage.typical}%)</span></div>
+        <div class="detail-row"><label>Solubility</label><span>${ing.solubility}</span></div>
+        <div class="detail-row"><label>Heat Sensitive</label><span>${ing.heatSensitive?'⚠️ Yes — add in cooldown phase':'✅ No'}</span></div>
+      </div>
+      <div class="detail-section">
+        <h3>💰 Cost Intelligence</h3>
+        <div class="detail-row"><label>Cost Level</label><span>${costLevelStars(ing.costLevel)} (${['','Very Cheap','Cheap','Moderate','Premium','Luxury'][ing.costLevel]})</span></div>
+        <div class="detail-row"><label>Approx. Cost</label><span>$${ing.costPerKg}/kg</span></div>
+      </div>
+      ${ing.alternatives && ing.alternatives.length > 0 ? `
+      <div class="detail-section">
+        <h3>🔄 Alternatives</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${ing.alternatives.map(a=>INGREDIENTS[a]?`<div class="chip" onclick="openIngredientDetail('${a}')">${INGREDIENTS[a].emoji} ${INGREDIENTS[a].name}</div>`:''  ).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+
+    <div id="ing-tab-technical" style="display:none">
+      <div class="detail-section">
+        <h3>⚗️ Technical Data</h3>
+        <div class="detail-row"><label>INCI Name</label><span>${ing.inci||'N/A'}</span></div>
+        <div class="detail-row"><label>Solubility</label><span>${ing.solubility}</span></div>
+        <div class="detail-row"><label>Heat Sensitive</label><span>${ing.heatSensitive?'Yes':'No'}</span></div>
+        <div class="detail-row"><label>Usage Min</label><span>${ing.usage.min}%</span></div>
+        <div class="detail-row"><label>Usage Max</label><span>${ing.usage.max}%</span></div>
+        <div class="detail-row"><label>Typical Usage</label><span>${ing.usage.typical}%</span></div>
+        <div class="detail-row"><label>Phase</label><span>${ing.phase}</span></div>
+      </div>
+      <div class="detail-section">
+        <h3>🛡️ Safety Profile</h3>
+        ${ing.safety ? `
+        <div class="score-row" style="margin-bottom:12px">
+          <div class="score-label">Safety Score</div>
+          <div class="score-bar"><div class="score-fill" style="width:${ing.safety.score}%;background:${scoreColor(ing.safety.score)}"></div></div>
+          <div class="score-val" style="color:${scoreColor(ing.safety.score)}">${ing.safety.score}</div>
+        </div>
+        <p style="font-size:13px;color:var(--sub)">${ing.safety.notes||''}</p>` : '<p style="color:var(--sub)">Safety data not available.</p>'}
+      </div>
+    </div>
+
+    <div id="ing-tab-science" style="display:none">
+      <div class="detail-section">
+        <h3>🔬 Mechanism of Action</h3>
+        <p style="font-size:14px;color:var(--sub);line-height:1.6">${ing.mechanism||'Mechanism data not available.'}</p>
+      </div>
+      <div class="detail-section">
+        <h3>📊 Evidence Score</h3>
+        ${evidenceBadge(ing.evidence||50)}
+        <div class="score-row" style="margin-top:12px">
+          <div class="score-label">Evidence</div>
+          <div class="score-bar"><div class="score-fill" style="width:${ing.evidence||50}%;background:${scoreColor(ing.evidence||50)}"></div></div>
+          <div class="score-val" style="color:${scoreColor(ing.evidence||50)}">${ing.evidence||50}</div>
+        </div>
+        <p style="font-size:12px;color:var(--sub);margin-top:8px">Evidence score based on available human studies, in-vitro research, and industry acceptance.</p>
+      </div>
+      <div class="detail-section">
+        <h3>🎯 Compatible Goals</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${(ing.goals||[]).filter(g=>g!=='all').map(g=>`<span class="badge badge-primary">${g}</span>`).join('') || '<span style="color:var(--sub);font-size:13px">General use</span>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function switchIngTab(name, el) {
+  document.querySelectorAll('#ing-detail-tabs .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['overview','technical','science'].forEach(n=>{
+    const el2 = document.getElementById('ing-tab-'+n);
+    if(el2) el2.style.display = n===name?'block':'none';
+  });
+}
+
+// ═══════════════════════════════════════
+// RENDER: MY FORMULAS
+// ═══════════════════════════════════════
+function renderMyFormulas() {
+  const formulas = loadData('formulas', []);
+  document.getElementById('my-formulas-content').innerHTML = formulas.length === 0
+    ? `<div class="empty"><div class="icon">🧪</div><p>No saved formulas yet.<br>Create your first formula!</p><button class="btn btn-primary" style="margin-top:16px;width:auto" onclick="navigate('formulate')">New Formula</button></div>`
+    : formulas.map((f,i)=>`
+      <div class="card" onclick="openFormulaDetail(${i})" style="cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <div style="font-size:15px;font-weight:700">${f.name}</div>
+            <div style="font-size:12px;color:var(--sub);margin-top:2px">${f.productType} · ${f.createdAt}</div>
+          </div>
+          <span class="badge badge-success">$${f.totalCost}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge badge-accent">${f.batchSize}g</span>
+          ${(f.goals||[]).slice(0,2).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px">
+          <span style="font-size:12px;color:var(--sub)">Safety: <strong style="color:${scoreColor(f.safetyScore)}">${f.safetyScore}</strong></span>
+          <span style="font-size:12px;color:var(--sub)">Stability: <strong style="color:${scoreColor(f.stabilityScore)}">${f.stabilityScore}</strong></span>
+          <span style="font-size:12px;color:var(--sub)">${f.rows.length} ingredients</span>
+        </div>
+      </div>`).reverse().join('');
+}
+
+function openFormulaDetail(index) {
+  state.currentFormulaIndex = index;
+  state.currentFormula = loadData('formulas',[])[index];
+  navigate('formula-detail');
+  renderFormulaDetail();
+}
+
+function renderFormulaDetail() {
+  const f = state.currentFormula;
+  if (!f) return;
+  document.getElementById('formula-detail-content').innerHTML = buildFormulaHTML(f);
+}
+
+function buildFormulaHTML(f) {
+  let tableRows = '';
+  let currentPhase = '';
+  for (const r of f.rows) {
+    const ph = r.slot.phase || 'A';
+    if (ph !== currentPhase) {
+      currentPhase = ph;
+      const phColors = {A:'phase-a',B:'phase-b',C:'phase-c'};
+      tableRows += `<tr><td colspan="4" style="padding:4px 10px"><div class="phase-header"><span class="phase-tag ${phColors[ph]}">${ph}</span> ${phaseLabel(ph)}</div></td></tr>`;
+    }
+    const ing = r.ing;
+    tableRows += `<tr>
+      <td><span style="font-size:18px">${ing.emoji||'🧪'}</span></td>
+      <td><div style="font-weight:500;font-size:13px">${ing.name}</div><div style="font-size:11px;color:var(--sub)">${ing.inci||''}</div></td>
+      <td style="text-align:right;color:var(--accent);font-weight:600">${r.pct}%</td>
+      <td style="text-align:right">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">$${r.cost}</span></td>
+    </tr>`;
+  }
+  const instructions = (f.instructions||[]).map((step,i)=>`
+    <div class="inst-step">
+      <div class="step-num">${i+1}</div>
+      <div class="step-text">${step}</div>
+    </div>`).join('');
+
+  return `
+    <div class="hero" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:32px">🧪</span>
+        <div>
+          <h2 style="font-size:18px">${f.name}</h2>
+          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g · ${f.createdAt}</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${(f.goals||[]).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
+        <span class="badge badge-accent">${f.skinType||''}</span>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="formula-table"><thead><tr>
+        <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}g / Cost</th>
+      </tr></thead><tbody>${tableRows}</tbody></table>
+    </div>
+    <div class="card">
+      <div class="detail-row"><label>Total Cost</label><span style="color:var(--success);font-weight:700">$${f.totalCost}</span></div>
+      <div class="detail-row"><label>pH Target</label><span>${f.phTarget}</span></div>
+      <div class="detail-row"><label>Shelf Life</label><span>${f.shelfLife}</span></div>
+      <div class="detail-row"><label>Safety Score</label><span style="color:${scoreColor(f.safetyScore)}">${f.safetyScore}/100</span></div>
+    </div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:14px">⚗️ Instructions</h3>${instructions}</div>
+  `;
+}
+
+function deleteCurrentFormula() {
+  if (!confirm('Delete this formula?')) return;
+  const formulas = loadData('formulas',[]);
+  formulas.splice(state.currentFormulaIndex, 1);
+  saveData('formulas', formulas);
+  navigate('my-formulas');
+  showToast('Formula deleted.');
+}
+
+// ═══════════════════════════════════════
+// RENDER: INVENTORY
+// ═══════════════════════════════════════
+function renderInventory() {
+  const items = loadData('inventory', []);
+  // Populate datalist
+  const dl = document.getElementById('ing-datalist');
+  dl.innerHTML = Object.values(INGREDIENTS).map(v=>`<option value="${v.name}">`).join('');
+
+  const totalValue = items.reduce((s,i)=>s+(i.cost||0),0);
+  const expiringSoon = items.filter(i=>i.expiry && new Date(i.expiry)<new Date(Date.now()+60*24*3600*1000)).length;
+
+  document.getElementById('inventory-content').innerHTML = `
+    <div class="stats-row" style="margin-bottom:16px">
+      <div class="stat-box"><div class="num">${items.length}</div><div class="lbl">Items</div></div>
+      <div class="stat-box"><div class="num">$${totalValue.toFixed(2)}</div><div class="lbl">Total Value</div></div>
+      <div class="stat-box"><div class="num" style="color:${expiringSoon>0?'var(--warning)':'var(--success)'}">${expiringSoon}</div><div class="lbl">Expiring</div></div>
+    </div>
+    ${items.length === 0
+      ? `<div class="empty"><div class="icon">📦</div><p>No ingredients tracked yet.<br>Tap <strong>+ Add</strong> to add your stock.</p></div>`
+      : items.map((item,i)=>`
+        <div class="card-sm">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:600">${item.name}</div>
+              ${item.supplier?`<div style="font-size:11px;color:var(--sub)">${item.supplier}</div>`:''}
+            </div>
+            <button onclick="deleteInventoryItem(${i})" style="background:none;color:var(--danger);font-size:16px;padding:2px 6px">🗑</button>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+            <span class="badge badge-accent">${item.qty}g</span>
+            ${item.cost?`<span class="badge badge-success">$${item.cost}</span>`:''}
+            ${item.expiry?`<span class="badge ${new Date(item.expiry)<new Date()?'badge-danger':'badge-warning'}">${item.expiry}</span>`:''}
+          </div>
+        </div>`).join('')}
+  `;
+}
+
+function openAddInventory() { document.getElementById('modal-inventory').classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function saveInventoryItem() {
+  const name = document.getElementById('inv-name').value.trim();
+  if (!name) { showToast('Please enter an ingredient name'); return; }
+  const items = loadData('inventory', []);
+  items.push({
+    name, qty: +document.getElementById('inv-qty').value || 0,
+    cost: +document.getElementById('inv-cost').value || 0,
+    supplier: document.getElementById('inv-supplier').value,
+    expiry: document.getElementById('inv-expiry').value,
+    addedAt: new Date().toLocaleDateString(),
+  });
+  saveData('inventory', items);
+  closeModal('modal-inventory');
+  ['inv-name','inv-qty','inv-cost','inv-supplier','inv-expiry'].forEach(id=>document.getElementById(id).value='');
+  renderInventory();
+  showToast('Ingredient added ✅');
+}
+
+function deleteInventoryItem(i) {
+  const items = loadData('inventory',[]);
+  items.splice(i,1);
+  saveData('inventory',items);
+  renderInventory();
+}
+
+// ═══════════════════════════════════════
+// RENDER: NOTEBOOK
+// ═══════════════════════════════════════
+function renderNotebook() {
+  const notes = loadData('notes', []);
+  document.getElementById('notebook-content').innerHTML = notes.length === 0
+    ? `<div class="empty"><div class="icon">📓</div><p>No notes yet.<br>Document your experiments and observations.</p></div>`
+    : notes.map((n,i)=>`
+      <div class="nb-entry">
+        <div class="nb-header">
+          <div class="nb-title">${n.title||'Untitled'}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="stars">${'★'.repeat(n.rating||3)}${'☆'.repeat(5-(n.rating||3))}</span>
+            <button onclick="deleteNote(${i})" style="background:none;color:var(--danger);font-size:15px">🗑</button>
+          </div>
+        </div>
+        <div class="nb-date">${n.date}</div>
+        <div class="nb-text" style="margin-top:8px;white-space:pre-wrap">${n.text||''}</div>
+      </div>`).reverse().join('');
+}
+
+function openAddNote() {
+  state.noteRating = 3;
+  updateStars(3);
+  document.getElementById('modal-note').classList.remove('hidden');
+}
+
+function setRating(n) {
+  state.noteRating = n;
+  updateStars(n);
+}
+
+function updateStars(n) {
+  document.querySelectorAll('#star-rating span').forEach((s,i)=>{
+    s.textContent = i < n ? '★' : '☆';
+    s.style.color = i < n ? 'var(--warning)' : 'var(--sub)';
+  });
+}
+
+function saveNote() {
+  const title = document.getElementById('note-title').value.trim();
+  const text = document.getElementById('note-text').value.trim();
+  if (!title && !text) return;
+  const notes = loadData('notes',[]);
+  notes.push({ title, text, rating: state.noteRating, date: new Date().toLocaleDateString() });
+  saveData('notes', notes);
+  closeModal('modal-note');
+  document.getElementById('note-title').value = '';
+  document.getElementById('note-text').value = '';
+  renderNotebook();
+  showToast('Note saved ✅');
+}
+
+function deleteNote(i) {
+  const notes = loadData('notes',[]);
+  notes.splice(i,1);
+  saveData('notes',notes);
+  renderNotebook();
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+let toastTimeout;
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--elevated);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:20px;font-size:14px;z-index:300;pointer-events:none;transition:opacity .3s;white-space:nowrap';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=>{ t.style.opacity='0'; }, 2500);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+function init() {
+  renderHome();
+  // Reset wizard
+  state.wizard = { step:1, category:'', productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+}
+
+init();
+</script>
+</body>
+</html>

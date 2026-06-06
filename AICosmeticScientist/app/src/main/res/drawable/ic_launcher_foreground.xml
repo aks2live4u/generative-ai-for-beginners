@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- Flask body -->
+  <path
+      android:fillColor="#D94FA0"
+      android:pathData="M42,30 L42,52 L28,72 Q24,80 32,84 L76,84 Q84,80 80,72 L66,52 L66,30 Z" />
+  <!-- Flask neck -->
+  <path
+      android:fillColor="#7C3AED"
+      android:pathData="M38,24 L38,32 L70,32 L70,24 Q70,20 66,20 L42,20 Q38,20 38,24 Z" />
+  <!-- Bubbles -->
+  <circle android:fillColor="#FFFFFF" android:cx="45" cy="65" android:r="4" />
+  <circle android:fillColor="#FFFFFF" android:cx="58" cy="72" android:r="3" />
+  <circle android:fillColor="#FFFFFF" android:cx="50" cy="76" android:r="2.5" />
+</vector>
