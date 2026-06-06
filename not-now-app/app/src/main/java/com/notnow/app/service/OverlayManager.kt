@@ -1,6 +1,7 @@
 package com.notnow.app.service
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
@@ -52,13 +53,12 @@ class OverlayManager(
                             onBack  = { recordAndDismiss(packageName, rule.appName, AccessOutcome.NIGHT_BLOCKED, 0) }
                         )
                         rule.category == AppCategory.SHOPPING -> ShoppingPauseContent(
-                            appName        = rule.appName,
-                            delayMinutes   = rule.frictionLevel.delaySeconds / 60,
-                            onBuyNow       = {
-                                // Dismiss shopping overlay then show countdown
+                            appName      = rule.appName,
+                            delayMinutes = rule.frictionLevel.delaySeconds / 60,
+                            onBuyNow     = {
                                 dismiss()
                                 scope.launch(Dispatchers.Main) {
-                                    val countdownRule = rule.copy(category = com.notnow.app.data.entity.AppCategory.OTHER)
+                                    val countdownRule = rule.copy(category = AppCategory.OTHER)
                                     show(packageName, countdownRule, false)
                                 }
                             },
@@ -71,15 +71,17 @@ class OverlayManager(
                             onGoBack = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) }
                         )
                         else -> CountdownContent(
-                            appName    = rule.appName,
-                            totalSec   = rule.frictionLevel.delaySeconds,
+                            appName     = rule.appName,
+                            totalSec    = rule.frictionLevel.delaySeconds,
                             messageRepo = messageRepo,
-                            onComplete = {
-                                // Grant a 45-second window so the app/site opens without re-blocking
-                                GuardrailAccessibilityService.allowTemporarily(packageName)
+                            onOpen      = {
+                                // Grant 30-minute session so the app stays unblocked
+                                GuardrailAccessibilityService.grantSession(packageName)
                                 recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds)
+                                // Re-launch the app (or browser) so the user doesn't have to go back manually
+                                launchApp(packageName)
                             },
-                            onGoBack   = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
+                            onGoBack    = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
                             onEmergency = {
                                 scope.launch {
                                     prefs.setEmergencyUnlockUntil(System.currentTimeMillis() + 15 * 60 * 1000L)
@@ -92,7 +94,6 @@ class OverlayManager(
             }
         }
 
-        // TYPE_ACCESSIBILITY_OVERLAY bypasses SYSTEM_ALERT_WINDOW; works for any active AccessibilityService
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -106,16 +107,35 @@ class OverlayManager(
             wm.addView(view, params)
             currentView = view
         } catch (_: Exception) {
-            // Fall back to TYPE_APPLICATION_OVERLAY (requires SYSTEM_ALERT_WINDOW permission)
             try {
                 params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 wm.addView(view, params)
                 currentView = view
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 lifecycle.destroy()
                 currentLifecycle = null
             }
         }
+    }
+
+    private fun launchApp(packageName: String) {
+        if (packageName.startsWith("web:")) {
+            // Website — just open Chrome; user is already on the correct domain
+            val chromeIntent = context.packageManager
+                .getLaunchIntentForPackage("com.android.chrome")
+            if (chromeIntent != null) {
+                chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                try { context.startActivity(chromeIntent) } catch (_: Exception) {}
+            }
+            return
+        }
+        try {
+            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                context.startActivity(intent)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun recordAndDismiss(pkg: String, appName: String, outcome: AccessOutcome, delaySec: Long) {

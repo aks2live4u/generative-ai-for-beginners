@@ -33,6 +33,9 @@ interface AppRuleDao {
     @Query("UPDATE app_rules SET isEnabled = :enabled WHERE packageName = :pkg")
     suspend fun setEnabled(pkg: String, enabled: Boolean)
 
+    @Query("UPDATE app_rules SET frictionLevel = :level WHERE packageName = :pkg")
+    suspend fun setFrictionLevel(pkg: String, level: String)
+
     @Query("UPDATE app_rules SET isEnabled = 1")
     suspend fun enableAll()
 }

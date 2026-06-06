@@ -25,7 +25,7 @@ fun CountdownContent(
     appName: String,
     totalSec: Long,
     messageRepo: FutureMessageRepository,
-    onComplete: () -> Unit,
+    onOpen: () -> Unit,
     onGoBack: () -> Unit,
     onEmergency: () -> Unit
 ) {
@@ -38,11 +38,12 @@ fun CountdownContent(
     }
 
     LaunchedEffect(remaining) {
-        if (remaining <= 0L) { onComplete(); return@LaunchedEffect }
+        if (remaining <= 0L) return@LaunchedEffect  // timer done — show button, don't auto-open
         delay(1000L)
         remaining -= 1L
     }
 
+    val timerDone = remaining <= 0L
     val progress = if (totalSec > 0) remaining.toFloat() / totalSec.toFloat() else 0f
 
     Box(
@@ -55,63 +56,91 @@ fun CountdownContent(
             modifier = Modifier.padding(32.dp)
         ) {
             Text("Not Now", style = MaterialTheme.typography.labelLarge, color = AccentAmber)
-            Text("Take a breath.", style = MaterialTheme.typography.headlineLarge, color = TextPrimary, textAlign = TextAlign.Center)
-            Text("You were about to open $appName", style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center)
+
+            if (timerDone) {
+                Text("Time's up.", style = MaterialTheme.typography.headlineLarge, color = TextPrimary, textAlign = TextAlign.Center)
+                Text("You waited. Do you still want to open $appName?", style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center)
+            } else {
+                Text("Take a breath.", style = MaterialTheme.typography.headlineLarge, color = TextPrimary, textAlign = TextAlign.Center)
+                Text("You were about to open $appName", style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center)
+            }
 
             Spacer(Modifier.height(4.dp))
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
-                    progress = { progress },
+                    progress = { if (timerDone) 0f else progress },
                     modifier = Modifier.size(140.dp),
-                    color = AccentAmber,
+                    color = if (timerDone) AccentGreen else AccentAmber,
                     trackColor = BorderDark,
                     strokeWidth = 6.dp
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val mins = remaining / 60
-                    val secs = remaining % 60
-                    Text(
-                        if (mins > 0L) "%d:%02d".format(mins, secs) else "$secs",
-                        fontSize = 42.sp,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (totalSec >= 60) Text("min", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                    else Text("sec", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                    if (timerDone) {
+                        Text("✓", fontSize = 42.sp, color = AccentGreen, fontWeight = FontWeight.Bold)
+                    } else {
+                        val mins = remaining / 60
+                        val secs = remaining % 60
+                        Text(
+                            if (mins > 0L) "%d:%02d".format(mins, secs) else "$secs",
+                            fontSize = 42.sp,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (totalSec >= 60) Text("min", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        else Text("sec", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                    }
                 }
             }
 
-            if (futureMsg.isNotBlank()) {
+            if (!timerDone && futureMsg.isNotBlank()) {
                 Surface(shape = RoundedCornerShape(12.dp), color = CardDark, modifier = Modifier.fillMaxWidth()) {
                     Text("\"$futureMsg\"", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
                 }
             }
 
-            Text("If you still want it after the timer, it's yours.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center)
-
-            Button(
-                onClick = onGoBack,
-                colors = ButtonDefaults.buttonColors(containerColor = CardDark),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.ArrowBack, null, tint = TextPrimary)
-                Spacer(Modifier.width(8.dp))
-                Text("Go Back", color = TextPrimary)
+            if (!timerDone) {
+                Text("If you still want it after the timer, it's yours.", style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center)
             }
 
-            if (!showEmergencyConfirm) {
-                TextButton(onClick = { showEmergencyConfirm = true }) {
-                    Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
+            if (timerDone) {
+                Button(
+                    onClick = onOpen,
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Open $appName", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = onGoBack,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Go Back Anyway", color = TextSecondary)
                 }
             } else {
-                Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
-                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Unlock everything for 15 minutes?", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedButton(onClick = { showEmergencyConfirm = false }) { Text("Cancel", color = TextSecondary) }
-                            Button(onClick = onEmergency, colors = ButtonDefaults.buttonColors(containerColor = AccentRed)) {
-                                Text("Unlock", color = Color.White)
+                Button(
+                    onClick = onGoBack,
+                    colors = ButtonDefaults.buttonColors(containerColor = CardDark),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.ArrowBack, null, tint = TextPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Go Back", color = TextPrimary)
+                }
+
+                if (!showEmergencyConfirm) {
+                    TextButton(onClick = { showEmergencyConfirm = true }) {
+                        Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
+                    }
+                } else {
+                    Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Unlock everything for 15 minutes?", color = TextSecondary, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { showEmergencyConfirm = false }) { Text("Cancel", color = TextSecondary) }
+                                Button(onClick = onEmergency, colors = ButtonDefaults.buttonColors(containerColor = AccentRed)) {
+                                    Text("Unlock", color = Color.White)
+                                }
                             }
                         }
                     }

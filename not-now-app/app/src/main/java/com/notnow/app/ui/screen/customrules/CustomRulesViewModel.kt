@@ -57,6 +57,10 @@ class CustomRulesViewModel(
         viewModelScope.launch { repo.setEnabled(packageName, enabled) }
     }
 
+    fun setFrictionLevel(packageName: String, level: FrictionLevel) {
+        viewModelScope.launch { repo.setFrictionLevel(packageName, level) }
+    }
+
     class Factory(private val repo: AppRuleRepository, private val context: Context) :
         ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

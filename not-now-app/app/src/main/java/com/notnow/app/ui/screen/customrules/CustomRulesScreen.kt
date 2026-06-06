@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,7 +90,8 @@ fun CustomRulesScreen(onBack: () -> Unit) {
                 RuleRow(
                     rule = rule,
                     onToggle = { vm.toggleRule(rule.packageName, it) },
-                    onDelete = { vm.deleteRule(rule) }
+                    onDelete = { vm.deleteRule(rule) },
+                    onSetLevel = { level -> vm.setFrictionLevel(rule.packageName, level) }
                 )
             }
         }
@@ -103,8 +106,9 @@ fun CustomRulesScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun RuleRow(rule: AppRule, onToggle: (Boolean) -> Unit, onDelete: () -> Unit) {
+private fun RuleRow(rule: AppRule, onToggle: (Boolean) -> Unit, onDelete: () -> Unit, onSetLevel: (FrictionLevel) -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     Surface(shape = RoundedCornerShape(10.dp), color = if (rule.isEnabled) SurfaceDark else SurfaceDark.copy(alpha = 0.5f)) {
         Row(
@@ -114,6 +118,9 @@ private fun RuleRow(rule: AppRule, onToggle: (Boolean) -> Unit, onDelete: () -> 
             Column(Modifier.weight(1f)) {
                 Text(rule.appName, style = MaterialTheme.typography.titleMedium, color = if (rule.isEnabled) TextPrimary else TextSecondary)
                 Text(rule.frictionLevel.label(), style = MaterialTheme.typography.bodyMedium, color = frictionColor(rule.frictionLevel))
+            }
+            IconButton(onClick = { showEditDialog = true }) {
+                Icon(Icons.Default.Edit, "Edit timer", tint = TextSecondary, modifier = Modifier.size(18.dp))
             }
             Switch(
                 checked = rule.isEnabled,
@@ -143,6 +150,106 @@ private fun RuleRow(rule: AppRule, onToggle: (Boolean) -> Unit, onDelete: () -> 
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text("Cancel", color = TextSecondary) }
+            }
+        )
+    }
+
+    if (showEditDialog) {
+        EditFrictionDialog(
+            appName = rule.appName,
+            currentLevel = rule.frictionLevel,
+            onConfirm = { level -> onSetLevel(level); showEditDialog = false },
+            onDismiss = { showEditDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun EditFrictionDialog(
+    appName: String,
+    currentLevel: FrictionLevel,
+    onConfirm: (FrictionLevel) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf(false) }
+    var step by remember { mutableIntStateOf(0) } // 0 = password, 1 = picker
+    var selectedLevel by remember { mutableStateOf(currentLevel) }
+
+    if (step == 0) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = CardDark,
+            title = { Text("Edit Timer – $appName", color = TextPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Enter the password to change this timer.", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it; passwordError = false },
+                        placeholder = { Text("Password", color = TextSecondary) },
+                        singleLine = true,
+                        isError = passwordError,
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentAmber,
+                            unfocusedBorderColor = BorderDark,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    if (passwordError) {
+                        Text("Wrong password", color = AccentRed, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { if (password == "Areyousure?") step = 1 else passwordError = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentAmber)
+                ) { Text("Next", color = DeepNavy) }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+            }
+        )
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = CardDark,
+            title = { Text("Choose Delay – $appName", color = TextPrimary) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("How much friction before opening?", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                    FrictionLevel.entries.forEach { level ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (selectedLevel == level) AccentAmber.copy(alpha = 0.15f) else SurfaceDark,
+                            onClick = { selectedLevel = level },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedLevel == level,
+                                    onClick = { selectedLevel = level },
+                                    colors = RadioButtonDefaults.colors(selectedColor = AccentAmber)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(level.label(), color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onConfirm(selectedLevel) },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentAmber)
+                ) { Text("Save", color = DeepNavy) }
+            },
+            dismissButton = {
+                TextButton(onClick = { step = 0 }) { Text("Back", color = TextSecondary) }
             }
         )
     }

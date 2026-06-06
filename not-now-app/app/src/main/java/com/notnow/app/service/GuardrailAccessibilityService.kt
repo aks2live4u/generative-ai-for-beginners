@@ -26,35 +26,54 @@ class GuardrailAccessibilityService : AccessibilityService() {
     @Volatile private var nightEndHour = 7
     @Volatile private var emergencyUnlockUntil = 0L
 
+    // Tracks which package was last in the foreground — used to skip blocking on
+    // same-app events like rotation, fullscreen, or internal navigation
+    private var lastForegroundPkg = ""
+
+    // Per-app/site debounce — prevents duplicate events within 1 second
     private var lastBlockedKey = ""
     private var lastBlockedTime = 0L
-    private var lastCheckedUrl = ""
 
     private val app get() = application as NotNowApplication
 
+    companion object {
+        // Granted after a countdown completes. Keyed by package name or "web:domain".
+        // 30-minute window lets the user stay in the app without repeated timers.
+        private val sessionGrants = ConcurrentHashMap<String, Long>()
+        private const val SESSION_MS = 30 * 60 * 1000L
+
+        fun grantSession(key: String) {
+            sessionGrants[key] = System.currentTimeMillis()
+        }
+
+        fun isEnabled(context: Context): Boolean {
+            val enabled = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: return false
+            return enabled.contains(context.packageName + "/" + GuardrailAccessibilityService::class.java.name)
+        }
+    }
+
     private val browserPackages = setOf(
-        "com.android.chrome",
-        "com.chrome.beta",
-        "com.chrome.dev",
+        "com.android.chrome", "com.chrome.beta", "com.chrome.dev",
         "org.mozilla.firefox",
         "com.brave.browser",
         "com.microsoft.emmx",
         "com.opera.browser",
         "com.sec.android.app.sbrowser",
-        "com.UCMobile.intl",
-        "com.uc.browser.en",
+        "com.UCMobile.intl", "com.uc.browser.en",
     )
 
-    // View IDs for the URL bar in each browser
     private val browserUrlBarId = mapOf(
-        "com.android.chrome"              to "com.android.chrome:id/url_bar",
-        "com.chrome.beta"                 to "com.chrome.beta:id/url_bar",
-        "com.chrome.dev"                  to "com.chrome.dev:id/url_bar",
-        "org.mozilla.firefox"             to "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
-        "com.brave.browser"               to "com.brave.browser:id/url_bar",
-        "com.microsoft.emmx"              to "com.microsoft.emmx:id/url_bar",
-        "com.opera.browser"               to "com.opera.browser:id/url_field",
-        "com.sec.android.app.sbrowser"    to "com.sec.android.app.sbrowser:id/location_bar_edit_text",
+        "com.android.chrome"           to "com.android.chrome:id/url_bar",
+        "com.chrome.beta"              to "com.chrome.beta:id/url_bar",
+        "com.chrome.dev"               to "com.chrome.dev:id/url_bar",
+        "org.mozilla.firefox"          to "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
+        "com.brave.browser"            to "com.brave.browser:id/url_bar",
+        "com.microsoft.emmx"           to "com.microsoft.emmx:id/url_bar",
+        "com.opera.browser"            to "com.opera.browser:id/url_field",
+        "com.sec.android.app.sbrowser" to "com.sec.android.app.sbrowser:id/location_bar_edit_text",
     )
 
     override fun onServiceConnected() {
@@ -103,8 +122,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
         val pkg  = event.packageName?.toString() ?: return
 
         when (type) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED   -> handleAppSwitch(pkg)
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> if (pkg in browserPackages) checkBrowserUrl(pkg)
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                // Always check browser URL on window changes too (catches page loads)
+                if (pkg in browserPackages) checkBrowserUrl(pkg)
+                handleAppSwitch(pkg)
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                if (pkg in browserPackages) checkBrowserUrl(pkg)
+            }
         }
     }
 
@@ -112,16 +137,19 @@ class GuardrailAccessibilityService : AccessibilityService() {
         if (pkg == packageName) return
         if (pkg == "android" || pkg == "com.android.systemui") return
         if (pkg.startsWith("com.android.") && !pkg.contains("youtube")) return
+        if (pkg in browserPackages) return  // websites handled separately in checkBrowserUrl
 
-        // Temporary allow window set after countdown completes
-        val expiry = tempAllowed[pkg]
-        if (expiry != null) {
-            if (System.currentTimeMillis() < expiry) { tempAllowed.remove(pkg); return }
-            tempAllowed.remove(pkg)
-        }
+        // Same app fired again (rotation, fullscreen, internal navigation) — skip blocking
+        val prev = lastForegroundPkg
+        lastForegroundPkg = pkg
+        if (pkg == prev) return
 
         val rule = ruleCache[pkg] ?: return
         if (System.currentTimeMillis() < emergencyUnlockUntil) return
+
+        // Active session: user already completed the timer for this app within 30 minutes
+        val grant = sessionGrants[pkg]
+        if (grant != null && System.currentTimeMillis() - grant < SESSION_MS) return
 
         val isNight = nightLockdownOn && isNightTime(nightStartHour, nightEndHour)
         val shouldBlock = when {
@@ -153,21 +181,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
             val urlText = nodes?.firstOrNull()?.text?.toString()?.trim() ?: return
             root.recycle()
 
-            if (urlText == lastCheckedUrl) return
-            lastCheckedUrl = urlText
-
             val domain = extractDomain(urlText) ?: return
-
-            // Temp allow for this website (set after its countdown finishes)
-            val webKey = "web:$domain"
-            val expiry = tempAllowed[webKey]
-            if (expiry != null) {
-                if (System.currentTimeMillis() < expiry) { tempAllowed.remove(webKey); return }
-                tempAllowed.remove(webKey)
-            }
-
-            val site = websiteCache[domain] ?: return
+            val site   = websiteCache[domain]  ?: return
             if (System.currentTimeMillis() < emergencyUnlockUntil) return
+
+            // Active session for this website
+            val webKey = "web:$domain"
+            val grant = sessionGrants[webKey]
+            if (grant != null && System.currentTimeMillis() - grant < SESSION_MS) return
 
             val now = System.currentTimeMillis()
             if (webKey == lastBlockedKey && now - lastBlockedTime < 1000L) return
@@ -177,9 +198,9 @@ class GuardrailAccessibilityService : AccessibilityService() {
             performGlobalAction(GLOBAL_ACTION_HOME)
 
             val fakeRule = AppRule(
-                packageName  = webKey,
-                appName      = site.label,
-                category     = AppCategory.OTHER,
+                packageName   = webKey,
+                appName       = site.label,
+                category      = AppCategory.OTHER,
                 frictionLevel = site.frictionLevel
             )
             scope.launch(Dispatchers.Main) {
@@ -205,22 +226,5 @@ class GuardrailAccessibilityService : AccessibilityService() {
         super.onDestroy()
         overlayManager?.dismiss()
         scope.cancel()
-    }
-
-    companion object {
-        // Set when a countdown finishes — grants 45s to open the app/site without re-blocking
-        private val tempAllowed = ConcurrentHashMap<String, Long>()
-
-        fun allowTemporarily(key: String, durationMs: Long = 45_000L) {
-            tempAllowed[key] = System.currentTimeMillis() + durationMs
-        }
-
-        fun isEnabled(context: Context): Boolean {
-            val enabled = android.provider.Settings.Secure.getString(
-                context.contentResolver,
-                android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-            ) ?: return false
-            return enabled.contains(context.packageName + "/" + GuardrailAccessibilityService::class.java.name)
-        }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.notnow.app.data.entity.AppRule
+import com.notnow.app.data.entity.FrictionLevel
 import com.notnow.app.data.preferences.AppPreferences
 import com.notnow.app.data.repository.AppRuleRepository
 import com.notnow.app.service.GuardrailAccessibilityService
@@ -53,6 +54,10 @@ class HomeViewModel(
 
     fun toggleRule(packageName: String, enabled: Boolean) = viewModelScope.launch {
         ruleRepo.setEnabled(packageName, enabled)
+    }
+
+    fun setFrictionLevel(packageName: String, level: FrictionLevel) = viewModelScope.launch {
+        ruleRepo.setFrictionLevel(packageName, level)
     }
 
     fun resetToDefaults() = viewModelScope.launch {

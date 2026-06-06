@@ -18,6 +18,9 @@ class AppRuleRepository(private val dao: AppRuleDao) {
     suspend fun setEnabled(packageName: String, enabled: Boolean) =
         dao.setEnabled(packageName, enabled)
 
+    suspend fun setFrictionLevel(packageName: String, level: FrictionLevel) =
+        dao.setFrictionLevel(packageName, level.name)
+
     suspend fun resetToDefaults() {
         seedDefaults()
         dao.enableAll()
