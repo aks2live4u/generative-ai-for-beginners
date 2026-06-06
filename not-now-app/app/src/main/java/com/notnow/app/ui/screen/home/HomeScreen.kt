@@ -49,13 +49,16 @@ fun HomeScreen(
     val nightEnd        by vm.nightEndHour.collectAsStateWithLifecycle()
     val rules by vm.rules.collectAsStateWithLifecycle()
 
-    // Live emergency unlock countdowns — repolled every second
+    // Live emergency unlock countdowns.
+    // tickMs changes every second — any item reading it will recompose automatically.
+    var tickMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var activeEmergencies by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     val ruleNameMap = remember(rules) { rules.associateBy({ it.packageName }, { it.appName }) }
     LaunchedEffect(Unit) {
         while (true) {
-            activeEmergencies = GuardrailAccessibilityService.getActiveEmergencyGrants()
             delay(1000L)
+            tickMs = System.currentTimeMillis()
+            activeEmergencies = GuardrailAccessibilityService.getActiveEmergencyGrants()
         }
     }
 
@@ -138,7 +141,7 @@ fun HomeScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     activeEmergencies.forEach { (key, startedAt) ->
-                        val remainingSec = ((15 * 60 * 1000L - (System.currentTimeMillis() - startedAt)) / 1000L).coerceAtLeast(0L)
+                        val remainingSec = ((15 * 60 * 1000L - (tickMs - startedAt)) / 1000L).coerceAtLeast(0L)
                         val mins = remainingSec / 60
                         val secs = remainingSec % 60
                         val displayName = ruleNameMap[key] ?: key.removePrefix("web:")
