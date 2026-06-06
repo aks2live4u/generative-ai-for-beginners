@@ -12,7 +12,6 @@ import com.notnow.app.data.entity.AccessOutcome
 import com.notnow.app.data.entity.AppCategory
 import com.notnow.app.data.entity.AppRule
 import com.notnow.app.data.entity.ShoppingVaultItem
-import com.notnow.app.data.preferences.AppPreferences
 import com.notnow.app.data.repository.FutureMessageRepository
 import com.notnow.app.data.repository.ShoppingVaultRepository
 import com.notnow.app.data.repository.UsageRepository
@@ -25,7 +24,6 @@ class OverlayManager(
     private val context: Context,
     private val scope: CoroutineScope,
     private val messageRepo: FutureMessageRepository,
-    private val prefs: AppPreferences,
     private val usageRepo: UsageRepository,
     private val vaultRepo: ShoppingVaultRepository
 ) {
@@ -83,10 +81,10 @@ class OverlayManager(
                             },
                             onGoBack    = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
                             onEmergency = {
-                                scope.launch {
-                                    prefs.setEmergencyUnlockUntil(System.currentTimeMillis() + 15 * 60 * 1000L)
-                                }
+                                // Grant 15-minute access only for this specific app
+                                GuardrailAccessibilityService.grantEmergency(packageName)
                                 recordAndDismiss(packageName, rule.appName, AccessOutcome.EMERGENCY_UNLOCKED, 0)
+                                launchApp(packageName)
                             }
                         )
                     }

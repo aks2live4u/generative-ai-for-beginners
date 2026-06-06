@@ -24,7 +24,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
     @Volatile private var nightLockdownOn = true
     @Volatile private var nightStartHour = 23
     @Volatile private var nightEndHour = 7
-    @Volatile private var emergencyUnlockUntil = 0L
 
     // Tracks which package was last in the foreground — used to skip blocking on
     // same-app events like rotation, fullscreen, or internal navigation
@@ -42,8 +41,21 @@ class GuardrailAccessibilityService : AccessibilityService() {
         private val sessionGrants = ConcurrentHashMap<String, Long>()
         private const val SESSION_MS = 30 * 60 * 1000L
 
+        // Per-app emergency grants — only unblocks the specific app for 15 minutes.
+        private val emergencyGrants = ConcurrentHashMap<String, Long>()
+        private const val EMERGENCY_MS = 15 * 60 * 1000L
+
         fun grantSession(key: String) {
             sessionGrants[key] = System.currentTimeMillis()
+        }
+
+        fun grantEmergency(key: String) {
+            emergencyGrants[key] = System.currentTimeMillis()
+        }
+
+        fun hasEmergencyGrant(key: String): Boolean {
+            val t = emergencyGrants[key] ?: return false
+            return System.currentTimeMillis() - t < EMERGENCY_MS
         }
 
         fun isEnabled(context: Context): Boolean {
@@ -83,7 +95,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
                 context     = this,
                 scope       = scope,
                 messageRepo = app.futureMessageRepository,
-                prefs       = app.preferences,
                 usageRepo   = app.usageRepository,
                 vaultRepo   = app.shoppingVaultRepository
             )
@@ -110,11 +121,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
                 }
             } catch (_: Exception) {}
         }
-        scope.launch { try { app.preferences.operatingMode.collect          { currentMode         = it } } catch (_: Exception) {} }
-        scope.launch { try { app.preferences.nightLockdownEnabled.collect   { nightLockdownOn      = it } } catch (_: Exception) {} }
-        scope.launch { try { app.preferences.nightStartHour.collect         { nightStartHour       = it } } catch (_: Exception) {} }
-        scope.launch { try { app.preferences.nightEndHour.collect           { nightEndHour         = it } } catch (_: Exception) {} }
-        scope.launch { try { app.preferences.emergencyUnlockUntil.collect   { emergencyUnlockUntil = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.operatingMode.collect        { currentMode     = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightLockdownEnabled.collect { nightLockdownOn  = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightStartHour.collect       { nightStartHour   = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.nightEndHour.collect         { nightEndHour     = it } } catch (_: Exception) {} }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -145,7 +155,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
         if (pkg == prev) return
 
         val rule = ruleCache[pkg] ?: return
-        if (System.currentTimeMillis() < emergencyUnlockUntil) return
+        if (hasEmergencyGrant(pkg)) return
 
         // Active session: user already completed the timer for this app within 30 minutes
         val grant = sessionGrants[pkg]
@@ -183,10 +193,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
             val domain = extractDomain(urlText) ?: return
             val site   = websiteCache[domain]  ?: return
-            if (System.currentTimeMillis() < emergencyUnlockUntil) return
 
             // Active session for this website
             val webKey = "web:$domain"
+            if (hasEmergencyGrant(webKey)) return
             val grant = sessionGrants[webKey]
             if (grant != null && System.currentTimeMillis() - grant < SESSION_MS) return
 
