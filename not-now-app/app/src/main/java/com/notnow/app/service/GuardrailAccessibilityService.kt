@@ -67,6 +67,12 @@ class GuardrailAccessibilityService : AccessibilityService() {
             return System.currentTimeMillis() - t < EMERGENCY_MS
         }
 
+        /** Returns map of key → startTime for all still-active emergency grants. */
+        fun getActiveEmergencyGrants(): Map<String, Long> {
+            val now = System.currentTimeMillis()
+            return emergencyGrants.filter { now - it.value < EMERGENCY_MS }
+        }
+
         fun isEnabled(context: Context): Boolean {
             val enabled = android.provider.Settings.Secure.getString(
                 context.contentResolver,

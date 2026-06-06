@@ -25,7 +25,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.AppRule
 import com.notnow.app.data.entity.FrictionLevel
+import com.notnow.app.service.GuardrailAccessibilityService
 import com.notnow.app.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
@@ -45,9 +47,17 @@ fun HomeScreen(
     val nightOn         by vm.nightLockdownEnabled.collectAsStateWithLifecycle()
     val nightStart      by vm.nightStartHour.collectAsStateWithLifecycle()
     val nightEnd        by vm.nightEndHour.collectAsStateWithLifecycle()
-    val rules           by vm.rules.collectAsStateWithLifecycle()
-    val emergencyUntil  by vm.emergencyUnlockUntil.collectAsStateWithLifecycle()
-    val isEmergencyActive = emergencyUntil > System.currentTimeMillis()
+    val rules by vm.rules.collectAsStateWithLifecycle()
+
+    // Live emergency unlock countdowns — repolled every second
+    var activeEmergencies by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    val ruleNameMap = remember(rules) { rules.associateBy({ it.packageName }, { it.appName }) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            activeEmergencies = GuardrailAccessibilityService.getActiveEmergencyGrants()
+            delay(1000L)
+        }
+    }
 
     // Re-check on every recomposition (user might enable service while app is open)
     val accessibilityOk = vm.isAccessibilityEnabled()
@@ -123,20 +133,40 @@ fun HomeScreen(
             }
         }
 
-        // Emergency unlock banner
-        if (isEmergencyActive) {
+        // Per-app emergency unlock countdown cards
+        if (activeEmergencies.isNotEmpty()) {
             item {
-                Surface(shape = RoundedCornerShape(12.dp), color = AccentRed.copy(alpha = 0.15f)) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Emergency Unlock Active", style = MaterialTheme.typography.titleMedium, color = AccentRed)
-                            Text("All restrictions lifted for 15 min", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                        }
-                        TextButton(onClick = { vm.clearEmergencyUnlock() }) {
-                            Text("End Early", color = AccentRed)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    activeEmergencies.forEach { (key, startedAt) ->
+                        val remainingSec = ((15 * 60 * 1000L - (System.currentTimeMillis() - startedAt)) / 1000L).coerceAtLeast(0L)
+                        val mins = remainingSec / 60
+                        val secs = remainingSec % 60
+                        val displayName = ruleNameMap[key] ?: key.removePrefix("web:")
+                        Surface(shape = RoundedCornerShape(12.dp), color = AccentRed.copy(alpha = 0.15f)) {
+                            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Schedule, null, tint = AccentRed, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "Emergency Unlock — $displayName",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = AccentRed
+                                        )
+                                        Text(
+                                            "%d:%02d remaining of 15:00".format(mins, secs),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                }
+                                LinearProgressIndicator(
+                                    progress = { remainingSec / (15f * 60f) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = AccentRed,
+                                    trackColor = BorderDark
+                                )
+                            }
                         }
                     }
                 }
