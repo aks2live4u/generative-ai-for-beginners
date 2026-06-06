@@ -161,7 +161,12 @@ class GuardrailAccessibilityService : AccessibilityService() {
     private fun handleAppSwitch(pkg: String) {
         if (pkg == packageName) return
         if (pkg == "android" || pkg == "com.android.systemui") return
-        if (pkg.startsWith("com.android.") && !pkg.contains("youtube")) return
+        if (pkg.startsWith("com.android.") && !pkg.contains("youtube")) {
+            // Launcher/home is in foreground — clear last pkg so the next open of any
+            // previously-blocked app triggers the timer instead of being skipped
+            lastForegroundPkg = ""
+            return
+        }
         if (pkg in browserPackages) return  // websites handled separately in checkBrowserUrl
 
         // Same app fired again (rotation, fullscreen, internal navigation) — skip blocking

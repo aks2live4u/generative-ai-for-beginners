@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -487,6 +488,7 @@ private fun EditFrictionDialog(
                         placeholder = { Text("Password", color = TextSecondary) },
                         singleLine = true,
                         isError = passwordError,
+                        visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                         colors = OutlinedTextFieldDefaults.colors(
