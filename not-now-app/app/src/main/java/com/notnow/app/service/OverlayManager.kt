@@ -5,8 +5,8 @@ import android.graphics.PixelFormat
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.lifecycle.ViewTreeLifecycleOwner
-import androidx.savedstate.ViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.notnow.app.data.entity.AccessOutcome
 import com.notnow.app.data.entity.AppCategory
 import com.notnow.app.data.entity.AppRule
@@ -42,8 +42,8 @@ class OverlayManager(
 
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            ViewTreeLifecycleOwner.set(this, lifecycle)
-            ViewTreeSavedStateRegistryOwner.set(this, lifecycle)
+            setViewTreeLifecycleOwner(lifecycle)
+            setViewTreeSavedStateRegistryOwner(lifecycle)
             setContent {
                 NotNowTheme {
                     when {
