@@ -1,4 +1,4 @@
-# AI Cosmetic Scientist — Android App
+# Brewly — Android App
 
 An intelligent cosmetic formulation platform that acts as your personal cosmetic chemist, formulation mentor, and R&D assistant.
 
