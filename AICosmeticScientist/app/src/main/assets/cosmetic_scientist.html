@@ -415,6 +415,26 @@ select.form-input option{background:var(--card)}
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="modal-onboarding">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;margin-bottom:6px">
+      <div style="font-size:40px">✨</div>
+      <h2 style="margin-top:6px">Welcome to Brewly</h2>
+      <p style="font-size:13px;color:var(--sub);margin-top:6px;line-height:1.5">
+        Connect an AI provider to unlock <strong>AI Formulator Insights</strong> on every formula and the
+        <strong>AI Mentor</strong> chat. Your API key is stored only on this device and is sent directly
+        from your phone to your chosen provider — never through our servers.
+      </p>
+    </div>
+    <div id="onboarding-ai-form"></div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-secondary" onclick="skipOnboarding()">Skip for now</button>
+      <button class="btn btn-primary" onclick="saveOnboardingAISettings()">💾 Save & Continue</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- #app -->
 <script>
 // ═══════════════════════════════════════
@@ -2171,7 +2191,7 @@ const FORMULA_TEMPLATES = {
     name:'Perfume Oil / Eau de Parfum', category:'perfume', difficulty:2,
     phTarget:'N/A', shelfLife:'24 months',
     slots:[
-      {id:'carrier',phase:'A',label:'Carrier (Oil or Alcohol)',pct:[80,92],candidates:['jojoba','perfumers-alcohol','propanediol'],goalMap:{'long-lasting':'jojoba'},required:true},
+      {id:'carrier',phase:'A',label:'Carrier (Oil or Alcohol)',pct:[80,92],candidates:['jojoba','perfumers-alcohol','propanediol'],baseMap:{'oil-based':'jojoba','alcohol-based':'perfumers-alcohol'},required:true},
       {id:'top-note',phase:'C',label:'Top Note',pct:[2,5],candidates:['peppermint-eo',{name:'Bergamot Essential Oil',inci:'Citrus Bergamia Oil',emoji:'🍋'}],goalMap:{'fresh-citrus':'peppermint-eo'},required:true},
       {id:'mid-note',phase:'C',label:'Heart / Mid Note',pct:[3,8],candidates:['rose-eo','lavender-eo','fragrance-oil-blend'],goalMap:{floral:'rose-eo'},required:true},
       {id:'base-note',phase:'C',label:'Base Note',pct:[2,6],candidates:['frankincense-eo',{name:'Sandalwood Essential Oil',inci:'Santalum Album Oil',emoji:'🪵'}],goalMap:{woody:'frankincense-eo'},required:true},
@@ -2379,6 +2399,15 @@ const NATURAL_PREFS = [
   {key:'conventional',      label:'Conventional (Performance)', desc:'Prioritize proven synthetic actives & performance'},
 ];
 
+// Perfumes use a simplified skin-type list (skin type affects how a scent
+// "wears" — e.g. oily skin tends to hold fragrance longer) and a structural
+// oil-based vs. alcohol-based question instead of texture/consistency.
+const PERFUME_SKIN_TYPES = ['Dry','Oily','Combination','Normal'];
+const PERFUME_BASES = [
+  {key:'oil-based',     label:'Oil-Based',     desc:'Blended in a carrier oil — gentle on skin, subtle sillage, longer skin contact', icon:'🫒'},
+  {key:'alcohol-based', label:'Alcohol-Based', desc:"Blended in perfumer's alcohol — classic spray perfume, brighter projection", icon:'🧪'},
+];
+
 // ═══════════════════════════════════════
 // AI PROVIDER CONFIG
 // ═══════════════════════════════════════
@@ -2486,7 +2515,7 @@ async function getAIFormulaInsights(formula, wizard) {
     `Goals: ${(formula.goals||[]).join(', ') || 'general'}\n` +
     `Skin/Hair Type(s): ${(formula.skinTypes||[]).join(', ') || 'not specified'}\n` +
     `Texture: ${formula.texture || 'n/a'} | Base: ${formula.base || 'n/a'} | Ingredient preference: ${formula.naturalPref || 'any'}\n` +
-    `Batch size: ${formula.batchSize}g | Target pH: ${formula.phTarget} | Shelf life: ${formula.shelfLife}\n` +
+    `Batch size: ${formula.batchSize}${batchUnit(formula)} | Target pH: ${formula.phTarget} | Shelf life: ${formula.shelfLife}\n` +
     `Ingredients chosen: ${ingList}\n\n` +
     `Please explain (briefly): 1) why this combination works well for the stated goals, 2) one tip to improve results or stability, ` +
     `and 3) one common mistake to avoid when making this product at home.`;
@@ -2538,8 +2567,14 @@ function resolveIngredient(slot, wizard) {
   const budget = wizard.budget;
   const naturalPref = wizard.naturalPref || 'any';
   let pick = null;
+  // Structural base-type selection (e.g. perfume oil-based vs. alcohol-based
+  // carrier) — this is a fundamental formulation choice, so it takes priority
+  // over softer goal-based preferences.
+  if (slot.baseMap && slot.baseMap[wizard.base] && INGREDIENTS[slot.baseMap[wizard.base]]) {
+    pick = slot.baseMap[wizard.base];
+  }
   // Goal-based selection
-  if (slot.goalMap) {
+  if (!pick && slot.goalMap) {
     for (const g of goals) {
       if (slot.goalMap[g] && INGREDIENTS[slot.goalMap[g]]) {
         pick = slot.goalMap[g]; break;
@@ -2605,6 +2640,9 @@ function phaseWeight(phase, wizard) {
   return m;
 }
 
+// Perfumes are formulated and measured by liquid volume (ml), not by weight (g).
+function batchUnit(formula) { return formula && formula.category === 'perfume' ? 'ml' : 'g'; }
+
 function generateFormula(wizard) {
   const tmplKey = TYPE_TO_TEMPLATE[wizard.productType];
   const tmpl = FORMULA_TEMPLATES[tmplKey];
@@ -2629,7 +2667,10 @@ function generateFormula(wizard) {
     const ing = resolveIngredient(slot, resolveWizard);
     if (!ing) continue;
     let pct = (slot.pct[0] + slot.pct[1]) / 2;
-    pct *= phaseWeight(slot.phase, wizard);
+    // Texture/base percentage weighting is a skincare/haircare/bodycare concept
+    // (lightweight vs. rich, water- vs. oil-based emulsions). Perfume "base" has
+    // a different meaning (oil vs. alcohol carrier) handled via baseMap below.
+    if (tmpl.category !== 'perfume') pct *= phaseWeight(slot.phase, wizard);
     if (pct <= 0) continue;
     rows.push({ slot, ing, pct });
     totalPct += pct;
@@ -2777,7 +2818,7 @@ function renderHome() {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-weight:600;font-size:14px">${f.name}</div>
-            <div style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g · ${f.createdAt}</div>
+            <div style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}${batchUnit(f)} · ${f.createdAt}</div>
           </div>
           <span class="badge badge-primary">${formatCost(f.totalCost)}</span>
         </div>
@@ -2805,24 +2846,47 @@ function startWizardCategory(cat) {
 
 const CATEGORY_ICONS = {Skincare:'🧴',Haircare:'💇','Beard Care':'🧔','Body Care':'🫧','Lip Care':'💄','Bath Products':'🛁',Deodorants:'🌸',Perfumes:'🌺'};
 function isHairCategory(cat) { return cat === 'Haircare' || cat === 'Beard Care'; }
-function typeOptionsForCategory(cat) { return isHairCategory(cat) ? HAIR_TYPES : SKIN_TYPES; }
-function typeLabelForCategory(cat) { return isHairCategory(cat) ? 'Hair Type(s)' : 'Skin Type(s)'; }
+function isPerfumeCategory(cat) { return cat === 'Perfumes'; }
+function typeOptionsForCategory(cat) {
+  if (isPerfumeCategory(cat)) return PERFUME_SKIN_TYPES;
+  return isHairCategory(cat) ? HAIR_TYPES : SKIN_TYPES;
+}
+function typeLabelForCategory(cat) {
+  if (isPerfumeCategory(cat)) return 'Skin Type';
+  return isHairCategory(cat) ? 'Hair Type(s)' : 'Skin Type(s)';
+}
 
-const WIZARD_STEPS = ['Category','Product Type','Goals','Skin / Hair Type','Texture & Base','Natural Preference','Settings','Review'];
+// Perfumes ask a different (shorter) set of questions than the other
+// categories — no texture/natural-preference steps, a simplified skin-type
+// list, and an oil-based vs. alcohol-based question instead of texture+base.
+const WIZARD_STEP_LABELS = {
+  category:'Category', productType:'Product Type', goals:'Goals',
+  skinType:'Skin / Hair Type', texture:'Texture & Base', base:'Perfume Base',
+  natural:'Natural Preference', settings:'Settings', review:'Review',
+};
+function wizardStepsFor(category) {
+  if (isPerfumeCategory(category)) {
+    return ['category','productType','goals','skinType','base','settings','review'];
+  }
+  return ['category','productType','goals','skinType','texture','natural','settings','review'];
+}
 
 // ═══════════════════════════════════════
 // RENDER: FORMULATION WIZARD
 // ═══════════════════════════════════════
 function renderFormulate() {
   const w = state.wizard;
-  const steps = WIZARD_STEPS;
-  document.getElementById('wizard-step-label').textContent = `Step ${w.step} of ${steps.length} — ${steps[w.step-1]}`;
+  const steps = wizardStepsFor(w.category);
+  if (w.step > steps.length) w.step = steps.length;
+  const stepLabels = steps.map(k => WIZARD_STEP_LABELS[k]);
+  document.getElementById('wizard-step-label').textContent = `Step ${w.step} of ${steps.length} — ${stepLabels[w.step-1]}`;
 
   const stepsHtml = `<div class="step-indicator">${steps.map((_,i)=>`<div class="step-dot ${i+1===w.step?'active':i+1<w.step?'done':''}"></div>`).join('')}</div>`;
 
   let html = stepsHtml;
+  const key = steps[w.step-1];
 
-  if (w.step === 1) {
+  if (key === 'category') {
     html += `<div class="section-title">Choose a Category</div>
     <div style="display:grid;gap:10px">
     ${Object.keys(PRODUCT_TYPES).map(cat=>`
@@ -2839,7 +2903,7 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 2) {
+  else if (key === 'productType') {
     const types = PRODUCT_TYPES[w.category] || [];
     html += `<div class="section-title">Product Type — ${w.category}</div>
     <div style="display:grid;gap:8px">
@@ -2857,7 +2921,7 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 3) {
+  else if (key === 'goals') {
     const goalOptions = GOALS_BY_CATEGORY[w.category] || GOALS_BY_CATEGORY['Skincare'];
     html += `<div class="section-title">Your Goals (select all that apply)</div>
     <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Choose goals to customize your formula with targeted ingredients for ${w.category}.</p>
@@ -2871,7 +2935,7 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 4) {
+  else if (key === 'skinType') {
     const options = typeOptionsForCategory(w.category);
     html += `<div class="section-title">${typeLabelForCategory(w.category)}</div>
     <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Select all that apply — your formula will be tailored to match.</p>
@@ -2889,7 +2953,7 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 5) {
+  else if (key === 'texture') {
     html += `<div class="section-title">Texture & Consistency</div>
     <p style="font-size:13px;color:var(--sub);margin-bottom:10px">How should your formula feel and what should its base be?</p>
     <div class="form-group">
@@ -2924,7 +2988,29 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 6) {
+  else if (key === 'base') {
+    html += `<div class="section-title">Perfume Base</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Should your fragrance be blended in a carrier oil or in perfumer's alcohol? This determines the carrier and how the scent wears on skin.</p>
+    <div style="display:grid;gap:8px">
+    ${PERFUME_BASES.map(b=>`
+      <div class="card-sm" style="cursor:pointer;border-color:${w.base===b.key?'var(--primary)':'var(--border)'};background:${w.base===b.key?'rgba(217,79,160,.08)':'var(--card)'}" onclick="state.wizard.base='${b.key}';renderFormulate()">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">${b.icon}</span>
+          <div>
+            <div style="font-size:14px;font-weight:600">${b.label}</div>
+            <div style="font-size:11px;color:var(--sub);margin-top:2px">${b.desc}</div>
+          </div>
+          ${w.base===b.key?'<span style="margin-left:auto;color:var(--primary)">✓</span>':''}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()" ${!w.base?'disabled':''}>Next →</button>
+    </div>`;
+  }
+
+  else if (key === 'natural') {
     html += `<div class="section-title">Ingredient Preference</div>
     <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Should we favor naturally-derived ingredients when choosing candidates for your formula?</p>
     <div style="display:grid;gap:8px">
@@ -2945,7 +3031,7 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 7) {
+  else if (key === 'settings') {
     html += `<div class="section-title">Formula Settings</div>
     <div class="form-group">
       <label class="form-label">Budget Level</label>
@@ -2957,6 +3043,7 @@ function renderFormulate() {
           </div>`).join('')}
       </div>
     </div>
+    ${isPerfumeCategory(w.category) ? '' : `
     <div class="form-group">
       <label class="form-label">Fragrance</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -2966,9 +3053,9 @@ function renderFormulate() {
             <div style="font-size:12px;font-weight:500;margin-top:4px">${f.charAt(0).toUpperCase()+f.slice(1)}</div>
           </div>`).join('')}
       </div>
-    </div>
+    </div>`}
     <div class="form-group">
-      <label class="form-label">Batch Size (grams)</label>
+      <label class="form-label">Batch Size (${isPerfumeCategory(w.category) ? 'ml' : 'grams'})</label>
       <input class="form-input" type="number" value="${w.batchSize}" oninput="state.wizard.batchSize=+this.value" min="10" max="1000" placeholder="100">
     </div>
     <div class="form-group">
@@ -2983,20 +3070,24 @@ function renderFormulate() {
     </div>`;
   }
 
-  else if (w.step === 8) {
+  else if (key === 'review') {
     const goalLabels = (GOALS_BY_CATEGORY[w.category]||[]).filter(g=>w.goals.includes(g.key)).map(g=>g.label);
+    const isPerfume = isPerfumeCategory(w.category);
+    const baseLabel = isPerfume
+      ? (PERFUME_BASES.find(b=>b.key===w.base)||{}).label || 'Not specified'
+      : (BASES.find(b=>b.key===w.base)||{}).label || 'Not specified';
     html += `<div class="section-title">Review & Generate</div>
     <div class="card">
       <div class="detail-row"><label>Category</label><span>${w.category}</span></div>
       <div class="detail-row"><label>Product Type</label><span>${w.productType}</span></div>
       <div class="detail-row"><label>Goals</label><span>${goalLabels.length>0?goalLabels.join(', '):'General'}</span></div>
       <div class="detail-row"><label>${typeLabelForCategory(w.category)}</label><span>${w.skinTypes.length>0?w.skinTypes.join(', '):'Not specified'}</span></div>
-      <div class="detail-row"><label>Texture</label><span>${(TEXTURES.find(t=>t.key===w.texture)||{}).label||'Not specified'}</span></div>
-      <div class="detail-row"><label>Base</label><span>${(BASES.find(b=>b.key===w.base)||{}).label||'Not specified'}</span></div>
-      <div class="detail-row"><label>Ingredient Preference</label><span>${(NATURAL_PREFS.find(p=>p.key===w.naturalPref)||{}).label}</span></div>
+      ${isPerfume ? '' : `<div class="detail-row"><label>Texture</label><span>${(TEXTURES.find(t=>t.key===w.texture)||{}).label||'Not specified'}</span></div>`}
+      <div class="detail-row"><label>${isPerfume ? 'Perfume Base' : 'Base'}</label><span>${baseLabel}</span></div>
+      ${isPerfume ? '' : `<div class="detail-row"><label>Ingredient Preference</label><span>${(NATURAL_PREFS.find(p=>p.key===w.naturalPref)||{}).label}</span></div>`}
       <div class="detail-row"><label>Budget</label><span>${w.budget}</span></div>
-      <div class="detail-row"><label>Fragrance</label><span>${w.fragrance}</span></div>
-      <div class="detail-row"><label>Batch Size</label><span>${w.batchSize}g</span></div>
+      ${isPerfume ? '' : `<div class="detail-row"><label>Fragrance</label><span>${w.fragrance}</span></div>`}
+      <div class="detail-row"><label>Batch Size</label><span>${w.batchSize}${isPerfume ? 'ml' : 'g'}</span></div>
     </div>
     <div class="form-group">
       <label class="form-label">Formula Name (optional)</label>
@@ -3033,7 +3124,8 @@ function toggleSkinType(t) {
 function wizardNext() {
   const nameInput = document.getElementById('formula-name-input');
   if (nameInput) state.wizard.productName = nameInput.value;
-  if (state.wizard.step < WIZARD_STEPS.length) { state.wizard.step++; renderFormulate(); }
+  const steps = wizardStepsFor(state.wizard.category);
+  if (state.wizard.step < steps.length) { state.wizard.step++; renderFormulate(); }
 }
 function wizardPrev() { if (state.wizard.step > 1) { state.wizard.step--; renderFormulate(); } }
 
@@ -3100,7 +3192,7 @@ function renderResult() {
         <span style="font-size:32px">🧪</span>
         <div>
           <h2 style="font-size:18px">${f.name}</h2>
-          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g batch · ${f.createdAt}</p>
+          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}${batchUnit(f)} batch · ${f.createdAt}</p>
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -3131,7 +3223,7 @@ function renderResult() {
     <div id="result-tab-formula">
       <div class="card" style="padding:0;overflow:hidden">
         <table class="formula-table"><thead><tr>
-          <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}g / Cost</th>
+          <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}${batchUnit(f)} / Cost</th>
         </tr></thead><tbody>${tableRows}</tbody></table>
       </div>
       <div class="card">
@@ -3226,7 +3318,7 @@ function saveCurrentFormula() {
 function addResultToNotebook() {
   if (!state.currentFormula) return;
   document.getElementById('note-title').value = state.currentFormula.name + ' — Notes';
-  document.getElementById('note-text').value = `Product: ${state.currentFormula.productType}\nBatch: ${state.currentFormula.batchSize}g\nCost: ${formatCost(state.currentFormula.totalCost)}\nGoals: ${state.currentFormula.goals.join(', ')}\n\nObservations:\n`;
+  document.getElementById('note-text').value = `Product: ${state.currentFormula.productType}\nBatch: ${state.currentFormula.batchSize}${batchUnit(state.currentFormula)}\nCost: ${formatCost(state.currentFormula.totalCost)}\nGoals: ${state.currentFormula.goals.join(', ')}\n\nObservations:\n`;
   openAddNote();
 }
 
@@ -3388,7 +3480,7 @@ function renderMyFormulas() {
           <span class="badge badge-success">${formatCost(f.totalCost)}</span>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <span class="badge badge-accent">${f.batchSize}g</span>
+          <span class="badge badge-accent">${f.batchSize}${batchUnit(f)}</span>
           ${(f.goals||[]).slice(0,2).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
         </div>
         <div style="display:flex;gap:16px;margin-top:10px">
@@ -3442,7 +3534,7 @@ function buildFormulaHTML(f) {
         <span style="font-size:32px">🧪</span>
         <div>
           <h2 style="font-size:18px">${f.name}</h2>
-          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g · ${f.createdAt}</p>
+          <p style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}${batchUnit(f)} · ${f.createdAt}</p>
         </div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -3452,7 +3544,7 @@ function buildFormulaHTML(f) {
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <table class="formula-table"><thead><tr>
-        <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}g / Cost</th>
+        <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}${batchUnit(f)} / Cost</th>
       </tr></thead><tbody>${tableRows}</tbody></table>
     </div>
     <div class="card">
@@ -3598,6 +3690,60 @@ function deleteNote(i) {
   notes.splice(i,1);
   saveData('notes',notes);
   renderNotebook();
+}
+
+// ═══════════════════════════════════════
+// FIRST-LAUNCH ONBOARDING — prompt for an AI provider/API key right away
+// instead of leaving it tucked away in Settings.
+// ═══════════════════════════════════════
+let onboardingProvider = '';
+function maybeShowOnboarding() {
+  if (loadData('onboardingSeen', false)) return;
+  onboardingProvider = (getAISettings()||{}).provider || '';
+  renderOnboarding();
+  document.getElementById('modal-onboarding').classList.remove('hidden');
+}
+function renderOnboarding() {
+  const cfg = getAISettings() || { provider:'', apiKey:'' };
+  document.getElementById('onboarding-ai-form').innerHTML = `
+    <div class="form-group">
+      <label class="form-label">Choose an AI Provider</label>
+      <div style="display:grid;gap:8px">
+        ${Object.keys(AI_PROVIDERS).map(p=>`
+          <div class="card-sm" style="cursor:pointer;border-color:${onboardingProvider===p?'var(--primary)':'var(--border)'};background:${onboardingProvider===p?'rgba(217,79,160,.08)':'var(--card)'}" onclick="selectOnboardingProvider('${p}')">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:14px;font-weight:500">${AI_PROVIDERS[p].name}</span>
+              ${onboardingProvider===p?'<span style="color:var(--primary)">✓</span>':''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${onboardingProvider ? `
+    <div class="form-group">
+      <label class="form-label">API Key</label>
+      <input class="form-input" id="onboarding-api-key" type="password" placeholder="${(AI_PROVIDERS[onboardingProvider]||{}).placeholder || 'API key'}" value="${cfg.provider===onboardingProvider ? (cfg.apiKey||'') : ''}">
+    </div>
+    <p style="font-size:11px;color:var(--sub)">You can fine-tune the model and other AI options anytime from AI Settings.</p>
+    ` : `<p style="font-size:13px;color:var(--sub)">Pick a provider above to enter your API key — or skip for now and connect later from AI Settings.</p>`}
+  `;
+}
+function selectOnboardingProvider(p) { onboardingProvider = p; renderOnboarding(); }
+function saveOnboardingAISettings() {
+  const keyInput = document.getElementById('onboarding-api-key');
+  const apiKey = keyInput ? keyInput.value.trim() : '';
+  if (!onboardingProvider || !apiKey) { showToast('Choose a provider and enter your API key'); return; }
+  const cfg = getAISettings() || {};
+  cfg.provider = onboardingProvider;
+  cfg.apiKey = apiKey;
+  saveData('aiSettings', cfg);
+  saveData('onboardingSeen', true);
+  closeModal('modal-onboarding');
+  showToast('AI provider connected ✨');
+  renderHome();
+}
+function skipOnboarding() {
+  saveData('onboardingSeen', true);
+  closeModal('modal-onboarding');
 }
 
 // ═══════════════════════════════════════
@@ -3777,6 +3923,9 @@ function init() {
   renderHome();
   // Reset wizard
   state.wizard = freshWizard();
+  // First launch: prompt for an AI provider/API key right away rather than
+  // leaving it tucked away in Settings.
+  maybeShowOnboarding();
 }
 
 init();
