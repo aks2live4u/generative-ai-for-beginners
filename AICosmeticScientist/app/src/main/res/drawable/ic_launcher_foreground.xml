@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Adaptive icon foreground — safe zone is the inner 72dp (18→90 on each axis).
-  All important shapes kept within 24→84 for conservative safety.
+  A single, clean conical lab flask with formula liquid — kept simple and
+  uncluttered for a polished, professional mark at small sizes.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -9,68 +10,41 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-  <!-- ── Soft glow ring (decorative, inside safe zone) ── -->
+  <!-- ── Flask glass body (conical, rounded base) — soft frosted fill + crisp outline ── -->
   <path
-      android:fillColor="#33FF80FF"
-      android:pathData="M54,26 A28,28 0 1 1 53.99,26 Z"/>
+      android:fillColor="#1FFFFFFF"
+      android:strokeColor="#E6FFFFFF"
+      android:strokeWidth="2.4"
+      android:strokeLineJoin="round"
+      android:strokeLineCap="round"
+      android:pathData="M47,26 L61,26 L61,42 L77,76 Q78,84 70,84 L38,84 Q30,84 31,76 L47,42 Z"/>
 
-  <!-- ── Serum dropper bottle body (40→68 wide, 38→80 tall) ── -->
-  <path
-      android:fillColor="#D94FA0"
-      android:pathData="M40,46 Q40,43 43,43 L65,43 Q68,43 68,46 L68,76 Q68,80 65,80 L43,80 Q40,80 40,76 Z"/>
-
-  <!-- ── Bottle neck (46→62 wide, 36→45 tall) ── -->
+  <!-- ── Liquid — lower portion of the flask, two layers create a soft vertical blend ── -->
   <path
       android:fillColor="#7C3AED"
-      android:pathData="M46,36 L62,36 L62,45 L46,45 Z"/>
+      android:pathData="M37.4,66 L70.6,66 L74.4,76 Q75,81 69,81 L39,81 Q33,81 33.6,76 Z"/>
+  <path
+      android:fillColor="#B380FF80"
+      android:pathData="M38.2,66 L69.8,66 L71.6,71 L36.4,71 Z"/>
 
-  <!-- ── Rubber bulb top ── -->
+  <!-- ── Liquid surface line — subtle definition where glass meets liquid ── -->
   <path
-      android:fillColor="#9B5CFF"
-      android:pathData="M46,36 Q46,27 54,27 Q62,27 62,36 Z"/>
+      android:fillColor="#33FFFFFF"
+      android:pathData="M37.4,66 L70.6,66 L70.9,67.1 L37.1,67.1 Z"/>
 
-  <!-- ── Dropper tip (tapers to a point) ── -->
+  <!-- ── Glass shine — single soft highlight along the left wall ── -->
   <path
-      android:fillColor="#B03080"
-      android:pathData="M49,78 L59,78 L56,87 Q54,90 52,87 Z"/>
+      android:fillColor="#26FFFFFF"
+      android:pathData="M46,50 L48,50 L40,72 L38,72 Z"/>
 
-  <!-- ── Liquid fill (bottom 40% of bottle) ── -->
+  <!-- ── Rising bubble — small accent inside the liquid ── -->
   <path
-      android:fillColor="#FF80C8"
-      android:pathData="M40,64 L68,64 L68,76 Q68,80 65,80 L43,80 Q40,80 40,76 Z"/>
+      android:fillColor="#59FFFFFF"
+      android:pathData="M56,75 A2.1,2.1 0 1 0 56.01,75 Z"/>
 
-  <!-- ── Shine highlight on bottle left side ── -->
+  <!-- ── Single sparkle accent — top right, well inside the safe zone ── -->
   <path
-      android:fillColor="#55FFFFFF"
-      android:pathData="M43,48 L47,48 L47,74 Q44.5,74 43,72 Z"/>
-
-  <!-- ── Label area: three horizontal lines ── -->
-  <path
-      android:fillColor="#55FFFFFF"
-      android:pathData="M45,55 L63,55 Q63,57 45,57 Z"/>
-  <path
-      android:fillColor="#44FFFFFF"
-      android:pathData="M45,59 L61,59 Q61,61 45,61 Z"/>
-
-  <!-- ── Sparkle star — top right (well within safe zone) ── -->
-  <path
-      android:fillColor="#FFD700"
-      android:pathData="M76,30 L77.4,34.6 L82,36 L77.4,37.4 L76,42 L74.6,37.4 L70,36 L74.6,34.6 Z"/>
-
-  <!-- ── Small sparkle — top left ── -->
-  <path
-      android:fillColor="#06B6D4"
-      android:pathData="M32,34 L33,37 L36,38 L33,39 L32,42 L31,39 L28,38 L31,37 Z"/>
-
-  <!-- ── Accent dots ── -->
-  <path
-      android:fillColor="#FFD700"
-      android:pathData="M80,56 A2.5,2.5 0 1 0 80.01,56 Z"/>
-  <path
-      android:fillColor="#06B6D4"
-      android:pathData="M27,54 A2,2 0 1 0 27.01,54 Z"/>
-  <path
-      android:fillColor="#FF80C8"
-      android:pathData="M80,70 A2,2 0 1 0 80.01,70 Z"/>
+      android:fillColor="#FFD166"
+      android:pathData="M78,30 L79.3,34.2 L83.4,35.5 L79.3,36.8 L78,41 L76.7,36.8 L72.6,35.5 L76.7,34.2 Z"/>
 
 </vector>
