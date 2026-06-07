@@ -29,10 +29,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
     // same-app events like rotation, fullscreen, or internal navigation
     private var lastForegroundPkg = ""
 
-    // Per-app/site debounce — prevents duplicate events within 1 second
-    private var lastBlockedKey = ""
-    private var lastBlockedTime = 0L
-
     private val app get() = application as NotNowApplication
 
     companion object {
@@ -115,6 +111,28 @@ class GuardrailAccessibilityService : AccessibilityService() {
             )
         } catch (_: Exception) {}
         seedAndObserve()
+        startPeriodicRecheck()
+    }
+
+    // Re-evaluates the foreground app on a timer so time-based conditions (night
+    // lockdown, focus mode, session/emergency expiry) get applied even when the
+    // user stays inside the same app continuously — the same-app skip in
+    // handleAppSwitch would otherwise prevent any re-check from ever running.
+    private fun startPeriodicRecheck() {
+        scope.launch {
+            while (isActive) {
+                delay(30_000L)
+                try {
+                    withContext(Dispatchers.Main) {
+                        val fgPkg = rootInActiveWindow?.packageName?.toString()
+                        if (fgPkg != null && fgPkg != packageName) {
+                            lastForegroundPkg = ""
+                            handleAppSwitch(fgPkg)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun seedAndObserve() {
@@ -190,11 +208,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
         }
         if (!shouldBlock) return
 
-        val now = System.currentTimeMillis()
-        if (pkg == lastBlockedKey && now - lastBlockedTime < 1000L) return
-        lastBlockedKey = pkg
-        lastBlockedTime = now
-
         performGlobalAction(GLOBAL_ACTION_HOME)
 
         val showNight = isNight && rule.blockedAtNight
@@ -219,11 +232,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
             if (hasEmergencyGrant(webKey)) return
             val grant = sessionGrants[webKey]
             if (grant != null && System.currentTimeMillis() - grant < SESSION_MS) return
-
-            val now = System.currentTimeMillis()
-            if (webKey == lastBlockedKey && now - lastBlockedTime < 1000L) return
-            lastBlockedKey = webKey
-            lastBlockedTime = now
 
             performGlobalAction(GLOBAL_ACTION_HOME)
 
