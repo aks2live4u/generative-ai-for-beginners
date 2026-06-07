@@ -1357,6 +1357,33 @@ const FORMULA_TEMPLATES = {
     ]
   },
 
+  'bb-cream': {
+    name:'BB Cream / Tinted Moisturizer', category:'skincare', difficulty:3,
+    phTarget:'5.5–6.5', shelfLife:'6–9 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[46,54],candidates:['water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','sodium-hyaluronate'],required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf'],required:true},
+      {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
+      {id:'emollient',phase:'B',label:'Emollient Oil',pct:[6,10],candidates:['jojoba','squalane','mct'],required:true},
+      {id:'tint',phase:'C',label:'Tint / Pigment Base',pct:[6,10],candidates:['titanium-dioxide','arrowroot-powder'],required:true},
+      {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'active',phase:'C',label:'Skin Active',pct:[1,3],candidates:['niacinamide','allantoin'],goalMap:{brightening:'niacinamide',sensitive:'allantoin'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.1,0.3],candidates:['lavender-eo'],required:false},
+    ],
+    instructions:[
+      'Weigh Phase A (water, humectant) into a heat-resistant beaker. Heat to 75°C.',
+      'Weigh Phase B (emulsifier, fatty alcohol, emollient oil) into a separate beaker. Heat to 75°C until melted.',
+      'Pre-disperse the tint/pigment base into the warm oil phase using a stick blender to break up clumps before combining phases.',
+      'Slowly pour the oil/pigment phase into the water phase while mixing; homogenize for 2–3 minutes until uniform.',
+      'Cool with continued stirring. Below 40°C, add antioxidant, skin active, preservative, and fragrance.',
+      'Check and adjust pH to 5.5–6.5.',
+      '⚠️ Note: titanium dioxide / arrowroot give a light, brightening tint ("your skin but better") rather than full shade-matched coverage — true multi-shade BB/foundation formulas need cosmetic-grade iron oxide pigments, carefully measured and tested against your skin tone.',
+      'Transfer to a clean, sanitized pump bottle or jar. Label with batch number and date.',
+    ]
+  },
+
   'face-serum': {
     name:'Face Serum', category:'skincare', difficulty:2,
     phTarget:'4.5–6.5', shelfLife:'6–12 months',
@@ -1365,8 +1392,8 @@ const FORMULA_TEMPLATES = {
       {id:'humectant1',phase:'A',label:'Primary Humectant',pct:[1,3],candidates:['sodium-hyaluronate','glycerin'],required:true},
       {id:'humectant2',phase:'A',label:'Humectant 2',pct:[1,3],candidates:['glycerin','panthenol','betaine'],required:false},
       {id:'thickener',phase:'A',label:'Gel Former',pct:[0.3,0.8],candidates:['carbomer','hec','xanthan'],required:true},
-      {id:'active1',phase:'C',label:'Primary Active',pct:[3,10],candidates:['niacinamide','vitamin-c-aa','tranexamic-acid'],goalMap:{brightening:'niacinamide','anti-aging':'peptides',acne:'niacinamide',hydration:'panthenol'},required:true},
-      {id:'active2',phase:'C',label:'Supporting Active',pct:[0.5,3],candidates:['allantoin','centella','caffeine'],required:false},
+      {id:'active1',phase:'C',label:'Primary Active',pct:[3,10],candidates:['niacinamide','vitamin-c-aa','tranexamic-acid','retinol','salicylic-acid'],goalMap:{'retinoid-treatment':'retinol','spot-acne':'salicylic-acid',brightening:'niacinamide','anti-aging':'peptides',acne:'niacinamide',hydration:'panthenol'},required:true},
+      {id:'active2',phase:'C',label:'Supporting Active',pct:[0.5,3],candidates:['allantoin','centella','caffeine','azelaic-acid'],goalMap:{'spot-acne':'azelaic-acid'},required:false},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
     ],
     instructions:[
@@ -1419,6 +1446,43 @@ const FORMULA_TEMPLATES = {
       'Add active ingredients and preservative, mixing well.',
       'Check and adjust pH to target range with citric acid.',
       'Fill into bottle with spray pump or cotton pad bottle.',
+    ]
+  },
+
+  'micellar-water': {
+    name:'Micellar Water', category:'skincare', difficulty:1,
+    phTarget:'5.0–6.0', shelfLife:'6–12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[85,91],candidates:['water','rose-water'],required:true},
+      {id:'micelle',phase:'A',label:'Mild Micellar Surfactant',pct:[2,4],candidates:['decyl-glucoside'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','propanediol'],required:true},
+      {id:'soother',phase:'C',label:'Soothing Agent',pct:[0.5,2],candidates:['panthenol','allantoin','colloidal-oatmeal'],skinMap:{sensitive:'colloidal-oatmeal',dry:'panthenol'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.6,1],candidates:['phenoxyethanol','optiphen'],required:true},
+    ],
+    instructions:[
+      'Combine water and humectant in a clean beaker, stirring gently at room temperature.',
+      'Slowly add the mild micellar surfactant while stirring — avoid vigorous mixing, which causes excess foaming.',
+      'Add the soothing agent and preservative; stir until fully dissolved.',
+      'Let the mixture rest for about an hour, then check for clarity — filter if needed.',
+      'Fill into a pump or flip-top bottle. Apply with a cotton pad to lift away makeup and cleanse skin without rinsing.',
+    ]
+  },
+
+  'facial-oil': {
+    name:'Facial Oil', category:'skincare', difficulty:1,
+    phTarget:'N/A (anhydrous)', shelfLife:'9–12 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Base / Carrier Oil',pct:[55,70],candidates:['jojoba','squalane','sweet-almond','sunflower'],goalMap:{oily:'jojoba',dry:'sweet-almond'},required:true},
+      {id:'oil2',phase:'A',label:'Treatment Oil',pct:[20,35],candidates:['rosehip','marula-oil','sea-buckthorn-oil','evening-primrose-oil','argan'],goalMap:{'anti-aging':'rosehip',brightening:'sea-buckthorn-oil',hydration:'marula-oil'},required:true},
+      {id:'antioxidant',phase:'C',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance (optional)',pct:[0.3,1],candidates:['lavender-eo','frankincense-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Measure the base/carrier oil into a clean, dark glass dropper bottle.',
+      'Add the treatment oil(s) and antioxidant; swirl gently to combine — avoid vigorous shaking, which introduces air and speeds oxidation.',
+      'If using fragrance (essential oils), add drop by drop, swirling gently between additions.',
+      'Let the blend rest for 24 hours before first use so the oils fully combine.',
+      'Apply 2–4 drops to damp skin, morning and/or night, as the last step of your routine (or just before moisturizer).',
     ]
   },
 
@@ -1495,7 +1559,7 @@ const FORMULA_TEMPLATES = {
     name:'Hair Oil', category:'haircare', difficulty:1,
     phTarget:'N/A', shelfLife:'12–24 months',
     slots:[
-      {id:'base-oil1',phase:'A',label:'Base Oil 1',pct:[40,60],candidates:['argan','jojoba','sweet-almond','coconut'],goalMap:{'hair-growth':'castor',frizz:'argan'},required:true},
+      {id:'base-oil1',phase:'A',label:'Base Oil 1',pct:[40,60],candidates:['argan','jojoba','sweet-almond','coconut'],goalMap:{'hair-growth':'castor',frizz:'argan','damage-repair':'coconut'},required:true},
       {id:'base-oil2',phase:'A',label:'Base Oil 2',pct:[20,40],candidates:['castor','mct','jojoba','sunflower'],required:true},
       {id:'base-oil3',phase:'A',label:'Lightweight Oil',pct:[5,20],candidates:['mct','squalane','jojoba'],required:false},
       {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
@@ -1515,15 +1579,16 @@ const FORMULA_TEMPLATES = {
     name:'Body Lotion', category:'body', difficulty:2,
     phTarget:'4.5–7.0', shelfLife:'6–12 months',
     slots:[
-      {id:'water',phase:'A',label:'Water',pct:[70,78],candidates:['water','aloe-vera'],required:true},
+      {id:'water',phase:'A',label:'Water',pct:[70,78],candidates:['water','aloe-vera'],goalMap:{cooling:'aloe-vera'},required:true},
       {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
       {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,7],candidates:['emulsifying-wax-nf'],required:true},
       {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[1,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:false},
       {id:'emollient',phase:'B',label:'Emollient',pct:[8,15],candidates:['sweet-almond','jojoba','sunflower','mct'],required:true},
       {id:'butter',phase:'B',label:'Butter',pct:[3,7],candidates:['shea-butter','mango-butter','cocoa-butter'],required:false},
+      {id:'targeted-active',phase:'C',label:'Targeted Active',pct:[0.5,2],candidates:['centella','caffeine','allantoin'],goalMap:{cooling:'centella',healing:'centella',firming:'caffeine'},onlyFor:['After-Sun / Cooling Lotion','Body Firming / Toning Cream'],required:false},
       {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
-      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo','frankincense-eo'],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo','frankincense-eo','peppermint-eo'],goalMap:{cooling:'peppermint-eo'},required:false},
     ],
     instructions:[
       'Heat Phase A ingredients to 75°C.',
@@ -1542,6 +1607,8 @@ const FORMULA_TEMPLATES = {
       {id:'butter2',phase:'A',label:'Secondary Butter',pct:[15,30],candidates:['mango-butter','cocoa-butter','shea-butter'],required:true},
       {id:'wax',phase:'A',label:'Wax',pct:[2,5],candidates:['beeswax','candelilla'],required:false},
       {id:'oil',phase:'A',label:'Oil',pct:[15,30],candidates:['jojoba','sweet-almond','argan','mct'],required:true},
+      {id:'anti-friction',phase:'A',label:'Anti-Friction / Glide Powder',pct:[3,6],candidates:['arrowroot-powder','zinc-oxide'],onlyFor:['Anti-Chafing Balm'],required:true},
+      {id:'repair-active',phase:'A',label:'Repair Active',pct:[1,3],candidates:['centella','allantoin'],goalMap:{healing:'centella'},onlyFor:['Intensive Repair Balm'],required:true},
       {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
       {id:'fragrance',phase:'A',label:'Fragrance',pct:[0.5,2],candidates:['lavender-eo','frankincense-eo','rose-eo'],required:false},
     ],
@@ -1563,13 +1630,14 @@ const FORMULA_TEMPLATES = {
       {id:'butter',phase:'A',label:'Butter',pct:[20,35],candidates:['cocoa-butter','shea-butter','mango-butter'],required:true},
       {id:'oil1',phase:'A',label:'Oil 1',pct:[20,35],candidates:['castor','sweet-almond','jojoba'],required:true},
       {id:'oil2',phase:'A',label:'Oil 2',pct:[10,20],candidates:['mct','jojoba','squalane'],required:false},
+      {id:'tint',phase:'A',label:'Tint / Pigment',pct:[2,5],candidates:['titanium-dioxide','arrowroot-powder'],onlyFor:['Tinted Lip Balm'],required:true},
       {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.3,0.5],candidates:['vitamin-e'],required:true},
       {id:'fragrance',phase:'A',label:'Flavor/Fragrance',pct:[0.5,2],candidates:['peppermint-eo','frankincense-eo'],required:false},
     ],
     instructions:[
       'Melt wax and butter together over double boiler to ~75–80°C.',
       'Add liquid oils and vitamin E. Stir until combined.',
-      'Remove from heat. Cool slightly to ~60°C.',
+      'Remove from heat. Cool slightly to ~60°C. If making a tinted balm, disperse the tint/pigment thoroughly at this stage to avoid streaks.',
       'Add flavor/fragrance (if using). Stir gently.',
       'Pour immediately into lip balm tubes or pots.',
       'Allow to fully set (1–2 hours) before capping.',
@@ -1720,6 +1788,35 @@ const FORMULA_TEMPLATES = {
     ]
   },
 
+  'sunscreen': {
+    name:'Sunscreen / SPF Lotion', category:'skincare', difficulty:3,
+    phTarget:'6.0–7.0', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Base',pct:[42,52],candidates:['water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','panthenol'],required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf'],required:true},
+      {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
+      {id:'dispersion-oil',phase:'B',label:'Dispersing Oil',pct:[6,10],candidates:['mct','jojoba','squalane'],required:true},
+      {id:'uv-filter-primary',phase:'B',label:'Primary UV Filter (Mineral)',pct:[16,20],candidates:['zinc-oxide'],required:true},
+      {id:'uv-filter-secondary',phase:'C',label:'Secondary UV Filter (Mineral)',pct:[3,5],candidates:['titanium-dioxide'],required:false},
+      {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'soother',phase:'C',label:'Soothing Active',pct:[1,3],candidates:['allantoin','centella','colloidal-oatmeal'],skinMap:{sensitive:'colloidal-oatmeal',dry:'centella',normal:'allantoin'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance (light, optional)',pct:[0.05,0.15],candidates:['lavender-eo'],required:false},
+    ],
+    instructions:[
+      'Weigh Phase A (water, humectant) into a heat-resistant beaker. Heat to 75°C.',
+      'Weigh Phase B (emulsifier, fatty alcohol, dispersing oil) into a separate beaker. Heat to 75°C until fully melted.',
+      'Thoroughly disperse the zinc oxide (and titanium dioxide, if used) into the warm oil phase using a stick blender or high-shear mixer — clumping causes uneven coverage and poor protection, and a heavy white cast.',
+      'With both phases at 75°C, slowly pour the oil/mineral phase into the water phase while mixing continuously on medium-high speed.',
+      'Homogenize for 3–5 minutes until you have a smooth, lump-free, uniform emulsion.',
+      'Cool with continued stirring. Below 40°C, add the antioxidant, soothing active, preservative, and fragrance one at a time, mixing well after each.',
+      'Check and adjust pH to 6.0–7.0.',
+      '⚠️ Important: this is an educational/DIY formulation. Mineral UV filters provide broad-spectrum protection, but the actual SPF value of a homemade batch CANNOT be verified without standardized in-vitro/in-vivo lab testing (e.g., ISO 24444 / FDA monograph testing). Do not label or rely on this as a tested-SPF product — treat it as a learning exercise, and use a certified commercial sunscreen for actual sun protection.',
+      'Transfer to a clean, sanitized, opaque or UV-protective container. Label with batch number, date, and a clear "untested — not a substitute for certified sunscreen" note.',
+    ]
+  },
+
   'hair-mask': {
     name:'Hair Mask', category:'haircare', difficulty:2,
     phTarget:'4.0–5.5', shelfLife:'6 months',
@@ -1760,6 +1857,27 @@ const FORMULA_TEMPLATES = {
     ]
   },
 
+  'hair-gel': {
+    name:'Hair Gel', category:'haircare', difficulty:2,
+    phTarget:'5.0–6.0', shelfLife:'6–9 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water / Aloe Base',pct:[78,86],candidates:['water','aloe-vera'],required:true},
+      {id:'gel-former',phase:'A',label:'Gel Former',pct:[0.6,1.2],candidates:['carbomer','xanthan'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['glycerin','polyglutamic-acid'],required:true},
+      {id:'hold-polymer',phase:'C',label:'Hold / Styling Polymer',pct:[2,5],candidates:['polyquaternium-10','polyglutamic-acid'],required:true},
+      {id:'conditioning',phase:'C',label:'Conditioning Agent',pct:[0.5,2],candidates:['panthenol','silk-amino'],required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo'],required:false},
+    ],
+    instructions:[
+      'Disperse the gel former into water slowly while mixing to avoid clumps; let it fully hydrate.',
+      'Neutralize/thicken per the gel former\'s instructions (e.g. a trace of triethanolamine or as directed) until a clear gel forms.',
+      'Mix in humectant and hold/styling polymer until uniform.',
+      'Add conditioning agent, preservative, and fragrance; mix gently to avoid trapping air bubbles.',
+      'Transfer to a jar or pump bottle. Apply to damp hair for hold and definition.',
+    ]
+  },
+
   'leave-in-conditioner': {
     name:'Leave-In Conditioner', category:'haircare', difficulty:2,
     phTarget:'4.0–5.0', shelfLife:'6 months',
@@ -1769,13 +1887,16 @@ const FORMULA_TEMPLATES = {
       {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','panthenol'],required:true},
       {id:'oil',phase:'C',label:'Lightweight Oil',pct:[1,4],candidates:['argan','marula-oil','jojoba'],required:false},
       {id:'silicone',phase:'C',label:'Anti-Frizz Agent',pct:[1,3],candidates:['dimethicone'],goalMap:{frizz:'dimethicone'},required:false},
+      {id:'hold-polymer',phase:'C',label:'Hold / Film-Forming Polymer',pct:[2,5],candidates:['polyglutamic-acid','carbomer'],onlyFor:['Hair Spray / Styling Mist','Volumizing Mousse','Curl Defining Cream'],required:true},
+      {id:'foaming-agent',phase:'A',label:'Foaming Agent (for mousse pump)',pct:[1,3],candidates:['decyl-glucoside'],onlyFor:['Volumizing Mousse'],required:true},
+      {id:'heat-protectant',phase:'C',label:'Heat-Protecting Agent',pct:[2,4],candidates:['dimethicone'],onlyFor:['Heat Protectant Spray'],required:true},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo'],required:false},
     ],
     instructions:[
       'Combine water, humectant, and conditioning polymer; mix until dissolved.',
-      'Add oil, anti-frizz agent, preservative, and fragrance.',
-      'Mix gently to avoid foaming, then transfer to a fine-mist spray bottle.',
+      'Add oil, anti-frizz/heat-protecting agent, hold polymer or foaming agent (as applicable), preservative, and fragrance.',
+      'Mix gently to avoid foaming (unless making a mousse, where light foaming is expected), then transfer to a fine-mist spray bottle, foam pump, or jar depending on product format.',
       'Spray onto damp hair after washing — do not rinse out.',
     ]
   },
@@ -2098,13 +2219,13 @@ const TYPE_TO_TEMPLATE = {
   'Face Wash / Cleanser':'face-wash','Face Serum':'face-serum','Toner':'toner',
   'Face Moisturizer':'face-moisturizer','Face Cream':'face-moisturizer','Face Mask':'face-mask',
   'Face Scrub / Exfoliator':'face-scrub','Eye Cream':'eye-cream','Spot Treatment':'face-serum',
-  'Night Cream':'night-cream','Sunscreen / SPF Lotion':'face-moisturizer',
-  'Micellar Water':'toner','Facial Oil':'face-serum','Exfoliating Acid Toner':'toner',
-  'Setting / Refreshing Facial Mist':'toner','BB Cream / Tinted Moisturizer':'face-moisturizer',
+  'Night Cream':'night-cream','Sunscreen / SPF Lotion':'sunscreen',
+  'Micellar Water':'micellar-water','Facial Oil':'facial-oil','Exfoliating Acid Toner':'toner',
+  'Setting / Refreshing Facial Mist':'toner','BB Cream / Tinted Moisturizer':'bb-cream',
   'Retinol / Anti-Aging Treatment':'face-serum','Clay Mask':'face-mask','Brightening Essence':'face-serum',
   'Shampoo':'shampoo','Conditioner':'conditioner','Hair Mask':'hair-mask','Hair Serum':'hair-serum',
   'Hair Oil':'hair-oil','Leave-In Conditioner':'leave-in-conditioner','Scalp Treatment':'scalp-treatment',
-  'Hair Growth Tonic':'scalp-treatment','Anti-Frizz Cream':'hair-mask','Hair Gel':'hair-serum',
+  'Hair Growth Tonic':'scalp-treatment','Anti-Frizz Cream':'hair-mask','Hair Gel':'hair-gel',
   'Hair Spray / Styling Mist':'leave-in-conditioner','Curl Defining Cream':'leave-in-conditioner',
   'Co-Wash / Cleansing Conditioner':'conditioner','Hot Oil Treatment':'hair-oil',
   'Heat Protectant Spray':'leave-in-conditioner','Volumizing Mousse':'leave-in-conditioner',
@@ -2124,6 +2245,35 @@ const TYPE_TO_TEMPLATE = {
   'Cream Deodorant':'cream-deodorant','Spray Deodorant':'spray-deodorant',
   'Perfume Oil':'perfume-oil','Body Mist':'body-mist','Eau de Toilette / Parfum':'perfume-oil',
 };
+
+// Goals that are implied by the chosen product type itself — these are merged
+// ahead of the user's selected goals so the formula always reflects what the
+// product actually claims to be (e.g. picking "Anti-Dandruff Shampoo" should
+// always pull in an anti-dandruff active, regardless of which goal chips were
+// selected in the wizard).
+const PRODUCT_TYPE_IMPLIED_GOALS = {
+  'Sunscreen / SPF Lotion': ['spf'],
+  'Anti-Dandruff Shampoo': ['dandruff'],
+  'Retinol / Anti-Aging Treatment': ['retinoid-treatment','anti-aging'],
+  'Spot Treatment': ['spot-acne','acne'],
+  'Brightening Essence': ['brightening'],
+  'Exfoliating Acid Toner': ['exfoliation'],
+  'Hair Growth Tonic': ['hair-growth'],
+  'Beard Growth Serum': ['growth'],
+  'Scalp Treatment': ['scalp-health','dandruff'],
+  'Anti-Frizz Cream': ['frizz'],
+  'Stretch Mark Oil': ['stretch-marks'],
+  'After-Sun / Cooling Lotion': ['cooling','healing'],
+  'Body Firming / Toning Cream': ['firming'],
+  'Cracked Heel Repair Cream': ['healing'],
+  'Intensive Repair Balm': ['healing'],
+  'Heat Protectant Spray': ['frizz'],
+  'Hot Oil Treatment': ['damage-repair'],
+  'Pre-Shampoo Treatment': ['damage-repair'],
+};
+function impliedGoalsFor(productType) {
+  return PRODUCT_TYPE_IMPLIED_GOALS[productType] || [];
+}
 
 // ═══════════════════════════════════════
 // CURRENCIES
@@ -2403,7 +2553,7 @@ function resolveIngredient(slot, wizard) {
       if (slot.skinMap[stKey] && INGREDIENTS[slot.skinMap[stKey]]) { pick = slot.skinMap[stKey]; break; }
     }
   }
-  // Natural-ingredient preference + budget filters
+  // Natural-ingredient preference + budget + texture filters
   if (!pick) {
     let candidates = slot.candidates.filter(k => INGREDIENTS[k]);
     if (naturalPref === 'certified-organic' || naturalPref === 'mostly-natural') {
@@ -2412,10 +2562,47 @@ function resolveIngredient(slot, wizard) {
     }
     if (budget === 'economy') candidates = candidates.filter(k => INGREDIENTS[k].costLevel <= 2) || candidates;
     if (budget === 'premium') candidates = candidates.filter(k => INGREDIENTS[k].costLevel >= 3) || candidates;
+    // Texture preference — for emollient/oil/butter slots, favor lighter,
+    // fast-absorbing ingredients for "lightweight" and richer butters/oils
+    // for "rich" so the chosen ingredients actually match the requested feel.
+    if ((slot.phase === 'B' || slot.id === 'emollient' || slot.id === 'butter' || slot.id === 'oil') && candidates.length > 1) {
+      const tagText = k => ((INGREDIENTS[k].functions||[]).join(' ') + ' ' + (INGREDIENTS[k].description||'')).toLowerCase();
+      if (wizard.texture === 'lightweight') {
+        const light = candidates.filter(k => /light|fast.absor|non-greasy|silky/.test(tagText(k)));
+        if (light.length) candidates = light;
+      } else if (wizard.texture === 'rich') {
+        const rich = candidates.filter(k => INGREDIENTS[k].category === 'butter' || /butter|rich|nourish|heavy/.test(tagText(k)));
+        if (rich.length) candidates = rich;
+      }
+    }
     if (candidates.length === 0) candidates = slot.candidates.filter(k => INGREDIENTS[k]);
     pick = candidates[0];
   }
   return INGREDIENTS[pick] ? {...INGREDIENTS[pick], key: pick} : null;
+}
+
+// Texture/base change how heavy the oil phase is vs. the water phase —
+// these multipliers are applied to each slot's target percentage (by phase)
+// before normalization, so the generated formula actually shifts in
+// composition based on what the user asked for, not just in name.
+function phaseWeight(phase, wizard) {
+  let m = 1;
+  const tex = wizard.texture;
+  const base = wizard.base;
+  if (phase === 'A') {
+    if (tex === 'lightweight') m *= 1.15;
+    else if (tex === 'rich') m *= 0.82;
+    if (base === 'gel-based') m *= 1.25;
+    else if (base === 'oil-based') m *= 0.4;
+    else if (base === 'anhydrous') m *= 0;
+  } else if (phase === 'B') {
+    if (tex === 'lightweight') m *= 0.72;
+    else if (tex === 'rich') m *= 1.35;
+    if (base === 'gel-based') m *= 0.4;
+    else if (base === 'oil-based') m *= 1.55;
+    else if (base === 'anhydrous') m *= 1.7;
+  }
+  return m;
 }
 
 function generateFormula(wizard) {
@@ -2423,14 +2610,27 @@ function generateFormula(wizard) {
   const tmpl = FORMULA_TEMPLATES[tmplKey];
   if (!tmpl) return null;
 
+  // Merge product-type-implied goals ahead of the user's selected goals so
+  // the formula always contains the active(s) the product name promises.
+  const effectiveGoals = [...new Set([...impliedGoalsFor(wizard.productType), ...(wizard.goals||[])])];
+  const resolveWizard = {...wizard, goals: effectiveGoals};
+
   const rows = [];
   let totalPct = 0;
 
   for (const slot of tmpl.slots) {
+    // Slots tagged onlyFor a specific list of product types are skipped for
+    // every other product type that shares this template (e.g. the tint slot
+    // in the lip balm template only applies to "Tinted Lip Balm").
+    if (slot.onlyFor && !slot.onlyFor.includes(wizard.productType)) continue;
     if (slot.required === false && wizard.fragrance === 'unscented' && slot.id === 'fragrance') continue;
-    const ing = resolveIngredient(slot, wizard);
+    // Anhydrous formulas contain no water — skip the main aqueous slot entirely.
+    if (wizard.base === 'anhydrous' && slot.id === 'water' && slot.phase === 'A') continue;
+    const ing = resolveIngredient(slot, resolveWizard);
     if (!ing) continue;
-    const pct = (slot.pct[0] + slot.pct[1]) / 2;
+    let pct = (slot.pct[0] + slot.pct[1]) / 2;
+    pct *= phaseWeight(slot.phase, wizard);
+    if (pct <= 0) continue;
     rows.push({ slot, ing, pct });
     totalPct += pct;
   }
@@ -3001,8 +3201,7 @@ function renderResult() {
     </div>
 
     <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-secondary" onclick="saveCurrentFormula()">💾 Save Formula</button>
-      <button class="btn btn-accent" onclick="addResultToNotebook()">📓 Add to Notebook</button>
+      <button class="btn btn-accent" style="width:100%" onclick="addResultToNotebook()">📓 Add to Notebook</button>
     </div>
   `;
 }
