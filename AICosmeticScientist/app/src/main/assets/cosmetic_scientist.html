@@ -139,6 +139,7 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit;font-size:inh
 /* ── Modal ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center}
 .modal-overlay.hidden{display:none}
+.hidden{display:none}
 .modal{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
 .modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
 .modal h2{font-size:18px;font-weight:700;margin-bottom:16px}
@@ -214,7 +215,7 @@ select.form-input option{background:var(--card)}
         <h1 class="gradient-text">AI Cosmetic Scientist</h1>
         <p>Your personal formulation lab</p>
       </div>
-      <div style="font-size:28px">🧪</div>
+      <button class="back-btn" style="font-size:13px" onclick="navigate('ai-settings')">⚙️ AI Settings</button>
     </div>
   </div>
   <div class="content" id="home-content"></div>
@@ -299,6 +300,31 @@ select.form-input option{background:var(--card)}
     </div>
   </div>
   <div class="content" id="notebook-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: AI SETTINGS ══════════════ -->
+<div id="screen-ai-settings" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('home')">← Back</button>
+    </div>
+    <h1>AI Settings</h1>
+    <p>Connect your own AI provider & API key</p>
+  </div>
+  <div class="content" id="ai-settings-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: AI MENTOR ══════════════ -->
+<div id="screen-ai-mentor" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('home')">← Back</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearMentorChat()">🗑 Clear</button>
+    </div>
+    <h1>AI Mentor</h1>
+    <p>Ask formulation questions, get expert guidance</p>
+  </div>
+  <div class="content" id="ai-mentor-content"></div>
 </div>
 
 <!-- ══════════════ BOTTOM NAV ══════════════ -->
@@ -929,6 +955,374 @@ const INGREDIENTS = {
     mechanism:'Boswellic acids may inhibit 5-LOX inflammatory pathway.',
     safety:{score:80,notes:'Generally safe. Dilute properly.'},
     alternatives:['lavender-eo']},
+
+  // ── EXPANDED ACTIVES ──
+  'bakuchiol': {name:'Bakuchiol',inci:'Bakuchiol',emoji:'🌱',category:'active',phase:'C',functions:['Retinol Alternative','Anti-aging','Antioxidant'],
+    usage:{min:0.5,max:2,typical:1},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:900,goals:['anti-aging','sensitive'],skinTypes:['all','sensitive','mature'],
+    evidence:78,description:'Plant-derived retinol alternative with similar gene-signaling effects but less irritation.',
+    mechanism:'Activates retinoid-like pathways (RAR) without retinoid-associated irritation.',
+    safety:{score:90,notes:'Well tolerated, including by sensitive skin and pregnancy (consult provider).'},
+    alternatives:['retinol','retinyl-palmitate']},
+
+  'alpha-arbutin': {name:'Alpha-Arbutin',inci:'Alpha-Arbutin',emoji:'✨',category:'active',phase:'C',functions:['Brightening','Tyrosinase Inhibitor'],
+    usage:{min:1,max:2,typical:1.5},solubility:'water',heatSensitive:true,
+    costLevel:4,costPerKg:1500,goals:['brightening','dark-spots'],skinTypes:['all'],
+    evidence:80,description:'Stable, gentle skin-brightening active derived from bearberry plants.',
+    mechanism:'Slowly releases hydroquinone in skin, inhibiting tyrosinase to reduce melanin production.',
+    safety:{score:88,notes:'Gentler than hydroquinone. Generally well tolerated.'},
+    alternatives:['niacinamide','kojic-acid','tranexamic-acid']},
+
+  'magnesium-ascorbyl-phosphate': {name:'Magnesium Ascorbyl Phosphate',inci:'Magnesium Ascorbyl Phosphate',emoji:'🍊',category:'active',phase:'C',functions:['Vitamin C (Stable)','Brightening','Antioxidant'],
+    usage:{min:3,max:10,typical:5},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:300,goals:['brightening','anti-aging'],skinTypes:['all','sensitive'],
+    evidence:74,description:'Stable, water-soluble vitamin C derivative that converts to ascorbic acid in skin.',
+    mechanism:'Antioxidant that supports collagen synthesis and inhibits melanin formation.',
+    safety:{score:90,notes:'Gentler and more stable than pure ascorbic acid; good for sensitive skin.'},
+    alternatives:['vitamin-c-aa','sodium-ascorbyl-phosphate']},
+
+  'sodium-ascorbyl-phosphate': {name:'Sodium Ascorbyl Phosphate',inci:'Sodium Ascorbyl Phosphate',emoji:'🍊',category:'active',phase:'C',functions:['Vitamin C (Stable)','Anti-acne','Brightening'],
+    usage:{min:3,max:5,typical:3},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:280,goals:['brightening','acne'],skinTypes:['oily','acne','all'],
+    evidence:72,description:'Stable vitamin C derivative with extra benefit for acne-prone skin.',
+    mechanism:'Converts to active ascorbic acid in skin; also shows antibacterial action against acne bacteria.',
+    safety:{score:90,notes:'Stable and non-irritating, suitable for daily use.'},
+    alternatives:['magnesium-ascorbyl-phosphate','niacinamide']},
+
+  'ferulic-acid': {name:'Ferulic Acid',inci:'Ferulic Acid',emoji:'🌾',category:'antioxidant',phase:'C',functions:['Antioxidant','Vitamin C Booster'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:600,goals:['anti-aging','brightening'],skinTypes:['all'],
+    evidence:80,description:'Plant-based antioxidant that stabilizes and boosts vitamin C/E efficacy.',
+    mechanism:'Neutralizes free radicals and synergizes with vitamins C and E to extend antioxidant activity.',
+    safety:{score:88,notes:'Well tolerated; typically used in combination formulas.'},
+    alternatives:['vitamin-e','resveratrol']},
+
+  'green-tea-extract': {name:'Green Tea Extract',inci:'Camellia Sinensis Leaf Extract',emoji:'🍵',category:'antioxidant',phase:'C',functions:['Antioxidant','Anti-inflammatory','Soothing'],
+    usage:{min:0.5,max:2,typical:1},solubility:'water',heatSensitive:true,
+    costLevel:2,costPerKg:120,goals:['anti-aging','redness','acne'],skinTypes:['all','sensitive','oily'],
+    evidence:76,description:'Polyphenol-rich extract with antioxidant and calming benefits for irritated skin.',
+    mechanism:'EGCG polyphenols neutralize free radicals and reduce inflammatory signaling.',
+    safety:{score:90,notes:'Gentle and well-tolerated for most skin types.'},
+    alternatives:['centella','licorice-extract']},
+
+  'resveratrol': {name:'Resveratrol',inci:'Resveratrol',emoji:'🍇',category:'antioxidant',phase:'C',functions:['Antioxidant','Anti-aging'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:1200,goals:['anti-aging'],skinTypes:['mature','all'],
+    evidence:74,description:'Grape-derived polyphenol antioxidant popular in anti-aging serums.',
+    mechanism:'Scavenges free radicals and may activate longevity-associated sirtuin pathways in skin cells.',
+    safety:{score:88,notes:'Generally well tolerated; combine with vitamin C/E for synergy.'},
+    alternatives:['ferulic-acid','coq10']},
+
+  'coq10': {name:'Coenzyme Q10',inci:'Ubiquinone',emoji:'⚡',category:'antioxidant',phase:'B',functions:['Antioxidant','Anti-aging','Energizing'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:800,goals:['anti-aging'],skinTypes:['mature','all'],
+    evidence:72,description:'Naturally-occurring cellular antioxidant that declines with age; popular anti-aging active.',
+    mechanism:'Supports mitochondrial energy production in skin cells and neutralizes oxidative stress.',
+    safety:{score:90,notes:'Very well tolerated, including sensitive skin.'},
+    alternatives:['vitamin-e','resveratrol']},
+
+  'ceramide-np': {name:'Ceramide NP',inci:'Ceramide NP',emoji:'🧱',category:'active',phase:'B',functions:['Barrier Repair','Moisturizing'],
+    usage:{min:0.5,max:2,typical:1},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:2000,goals:['hydration','sensitive','damage-repair'],skinTypes:['dry','sensitive','mature','all'],
+    evidence:84,description:'Lipid identical to those naturally found in skin; key for barrier repair formulas.',
+    mechanism:'Replenishes the skin lipid matrix, reducing transepidermal water loss and reinforcing the barrier.',
+    safety:{score:94,notes:'Excellent safety profile; ideal for compromised or sensitive skin barriers.'},
+    alternatives:['phytosphingosine','squalane']},
+
+  'colloidal-oatmeal': {name:'Colloidal Oatmeal',inci:'Avena Sativa Kernel Flour',emoji:'🌾',category:'active',phase:'A',functions:['Soothing','Anti-itch','Moisturizing'],
+    usage:{min:0.5,max:5,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:40,goals:['sensitive','redness'],skinTypes:['sensitive','dry','all'],
+    evidence:80,description:'Finely milled oats; FDA-recognized skin protectant for itching and irritation.',
+    mechanism:'Avenanthramides reduce inflammation; beta-glucans form a soothing protective film.',
+    safety:{score:96,notes:'One of the gentlest soothing actives; suitable for infants and sensitive skin.'},
+    alternatives:['allantoin','centella']},
+
+  'licorice-extract': {name:'Licorice Root Extract',inci:'Glycyrrhiza Glabra Root Extract',emoji:'🌿',category:'active',phase:'A',functions:['Brightening','Soothing','Anti-inflammatory'],
+    usage:{min:0.5,max:2,typical:1},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:180,goals:['brightening','redness','sensitive'],skinTypes:['sensitive','all'],
+    evidence:74,description:'Calming botanical extract that helps even skin tone and soothe redness.',
+    mechanism:'Glabridin inhibits tyrosinase (brightening) while glycyrrhizin reduces inflammation.',
+    safety:{score:88,notes:'Gentle; good for redness-prone and sensitive skin.'},
+    alternatives:['alpha-arbutin','centella']},
+
+  'zinc-pca': {name:'Zinc PCA',inci:'Zinc PCA',emoji:'🔹',category:'active',phase:'A',functions:['Oil Control','Anti-acne','Astringent'],
+    usage:{min:0.5,max:2,typical:1},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:250,goals:['acne','oily'],skinTypes:['oily','acne'],
+    evidence:72,description:'Zinc salt that helps regulate sebum and supports clear, balanced skin.',
+    mechanism:'Modulates sebaceous gland activity and has mild antimicrobial action against acne bacteria.',
+    safety:{score:90,notes:'Well tolerated; complements niacinamide and salicylic acid.'},
+    alternatives:['niacinamide','salicylic-acid']},
+
+  'mandelic-acid': {name:'Mandelic Acid',inci:'Mandelic Acid',emoji:'🍑',category:'active',phase:'C',functions:['Exfoliant (AHA)','Brightening','Anti-acne'],
+    usage:{min:2,max:10,typical:5},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:200,goals:['exfoliation','acne','brightening'],skinTypes:['sensitive','oily','all'],
+    evidence:76,description:'Larger-molecule AHA that exfoliates gently — popular for sensitive or melanin-rich skin.',
+    mechanism:'Loosens corneodesmosomes to shed dead skin cells more gently than glycolic acid.',
+    safety:{score:84,notes:'Gentler than glycolic acid; lower irritation and photosensitivity risk.'},
+    alternatives:['lactic-acid','glycolic-acid']},
+
+  'polyglutamic-acid': {name:'Polyglutamic Acid',inci:'Polyglutamic Acid',emoji:'💧',category:'humectant',phase:'A',functions:['Humectant','Film Former','Moisture Lock'],
+    usage:{min:0.1,max:1,typical:0.3},solubility:'water',heatSensitive:false,
+    costLevel:4,costPerKg:1000,goals:['hydration','anti-aging'],skinTypes:['dry','mature','all'],
+    evidence:72,description:'Holds even more water than hyaluronic acid and forms a moisture-trapping film on skin.',
+    mechanism:'Forms a hygroscopic film that reduces water evaporation from the skin surface.',
+    safety:{score:92,notes:'Very gentle; pairs well with hyaluronic acid for layered hydration.'},
+    alternatives:['sodium-hyaluronate','glycerin']},
+
+  'retinyl-palmitate': {name:'Retinyl Palmitate',inci:'Retinyl Palmitate',emoji:'🌙',category:'active',phase:'C',functions:['Vitamin A (Mild)','Anti-aging'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'oil',heatSensitive:true,
+    costLevel:3,costPerKg:400,goals:['anti-aging'],skinTypes:['sensitive','all'],
+    evidence:62,description:'Milder, more stable vitamin A ester — a gentler entry point than retinol.',
+    mechanism:'Slowly converts to retinol then retinoic acid in skin, offering gradual cell-turnover support.',
+    safety:{score:88,notes:'Lower irritation than retinol; good starter active for sensitive skin.'},
+    alternatives:['retinol','bakuchiol']},
+
+  'rosemary-extract': {name:'Rosemary Extract',inci:'Rosmarinus Officinalis Leaf Extract',emoji:'🌿',category:'antioxidant',phase:'B',functions:['Antioxidant','Preservative Booster','Scalp Stimulant'],
+    usage:{min:0.05,max:0.5,typical:0.1},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:90,goals:['hair-growth','anti-aging'],skinTypes:['all'],
+    evidence:68,description:'Natural antioxidant that helps protect oils from rancidity and supports scalp circulation.',
+    mechanism:'Carnosic acid and rosmarinic acid scavenge free radicals and extend oil shelf life.',
+    safety:{score:92,notes:'Often used as a natural antioxidant (CO2 extract) at low levels.'},
+    alternatives:['vitamin-e','green-tea-extract']},
+
+  // ── EXPANDED OILS / BUTTERS ──
+  'neem-oil': {name:'Neem Oil',inci:'Azadirachta Indica Seed Oil',emoji:'🌳',category:'emollient',phase:'B',functions:['Antimicrobial','Anti-acne','Scalp Care'],
+    usage:{min:1,max:10,typical:3},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:30,goals:['acne','dandruff','scalp-health'],skinTypes:['oily','acne'],
+    evidence:64,description:'Traditional oil with strong odor, valued for antimicrobial and scalp benefits.',
+    mechanism:'Nimbidin and other compounds show antibacterial and antifungal activity.',
+    safety:{score:78,notes:'Strong smell — usually blended. Patch test recommended; not for use during pregnancy.'},
+    alternatives:['tea-tree-eo','jojoba']},
+
+  'sea-buckthorn-oil': {name:'Sea Buckthorn Oil',inci:'Hippophae Rhamnoides Fruit Oil',emoji:'🧡',category:'emollient',phase:'B',functions:['Antioxidant','Healing','Nourishing'],
+    usage:{min:1,max:5,typical:2},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:350,goals:['anti-aging','healing','damage-repair'],skinTypes:['dry','mature','all'],
+    evidence:66,description:'Vivid orange oil rich in omega-7 and carotenoids; valued for skin healing and tone.',
+    mechanism:'Omega-7 (palmitoleic acid) supports skin regeneration; carotenoids provide antioxidant action.',
+    safety:{score:84,notes:'Can stain fabrics/skin orange at high %; use at low concentration in blends.'},
+    alternatives:['rosehip','evening-primrose-oil']},
+
+  'tamanu-oil': {name:'Tamanu Oil',inci:'Calophyllum Inophyllum Seed Oil',emoji:'🌴',category:'emollient',phase:'B',functions:['Healing','Anti-inflammatory','Antimicrobial'],
+    usage:{min:2,max:10,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:150,goals:['healing','acne','scalp-health'],skinTypes:['acne','sensitive','all'],
+    evidence:62,description:'Rich green oil traditionally used for scars, blemishes, and skin healing.',
+    mechanism:'Calophyllolide and fatty acids support tissue repair and reduce inflammation.',
+    safety:{score:82,notes:'Distinct nutty aroma; usually blended with lighter oils.'},
+    alternatives:['rosehip','centella']},
+
+  'marula-oil': {name:'Marula Oil',inci:'Sclerocarya Birrea Seed Oil',emoji:'🌰',category:'emollient',phase:'B',functions:['Lightweight Emollient','Antioxidant','Fast Absorbing'],
+    usage:{min:5,max:20,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:4,costPerKg:200,goals:['hydration','anti-aging'],skinTypes:['dry','normal','combination','all'],
+    evidence:64,description:'Lightweight, fast-absorbing oil rich in oleic acid and antioxidants — luxe finish.',
+    mechanism:'High oleic acid content nourishes while antioxidants protect against environmental stress.',
+    safety:{score:90,notes:'Non-comedogenic for most; lovely silky finish.'},
+    alternatives:['jojoba','squalane']},
+
+  'evening-primrose-oil': {name:'Evening Primrose Oil',inci:'Oenothera Biennis Oil',emoji:'🌼',category:'emollient',phase:'B',functions:['Anti-inflammatory','Barrier Support'],
+    usage:{min:2,max:10,typical:5},solubility:'oil',heatSensitive:true,
+    costLevel:3,costPerKg:120,goals:['sensitive','hydration','damage-repair'],skinTypes:['dry','sensitive','mature'],
+    evidence:66,description:'GLA-rich oil traditionally used to support skin barrier and calm irritation.',
+    mechanism:'Gamma-linolenic acid (omega-6) supports the skin barrier and modulates inflammation.',
+    safety:{score:86,notes:'Oxidizes relatively fast; store cool and use with antioxidants.'},
+    alternatives:['evening-primrose-oil','hemp-seed']},
+
+  'meadowfoam-oil': {name:'Meadowfoam Seed Oil',inci:'Limnanthes Alba Seed Oil',emoji:'🌾',category:'emollient',phase:'B',functions:['Stabilizing Emollient','Long-Lasting Moisture'],
+    usage:{min:5,max:15,typical:8},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:90,goals:['hydration','damage-repair'],skinTypes:['all','dry'],
+    evidence:62,description:'Highly stable oil that resists oxidation and forms a silky, breathable finish.',
+    mechanism:'Long-chain fatty acids form a protective film and extend formula shelf life.',
+    safety:{score:90,notes:'Excellent oxidative stability — great for blends and hair oils.'},
+    alternatives:['jojoba','sweet-almond']},
+
+  'baobab-oil': {name:'Baobab Oil',inci:'Adansonia Digitata Seed Oil',emoji:'🌳',category:'emollient',phase:'B',functions:['Nourishing','Antioxidant','Elasticity Support'],
+    usage:{min:3,max:10,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:3,costPerKg:110,goals:['hydration','anti-aging'],skinTypes:['dry','mature','all'],
+    evidence:60,description:'Vitamin-rich African oil prized for restoring softness and elasticity.',
+    mechanism:'Vitamins A, D, E and omegas 3/6/9 nourish and support the skin barrier.',
+    safety:{score:90,notes:'Well tolerated; lovely in body and hair oil blends.'},
+    alternatives:['marula-oil','argan']},
+
+  'flaxseed-oil': {name:'Flaxseed Oil',inci:'Linum Usitatissimum Seed Oil',emoji:'🌾',category:'emollient',phase:'B',functions:['Omega-3 Rich','Soothing','Hair Conditioning'],
+    usage:{min:2,max:8,typical:4},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:50,goals:['frizz','sensitive','hydration'],skinTypes:['dry','sensitive'],
+    evidence:60,description:'Omega-3 rich oil popular in DIY hair gels and nourishing hair/skin oils.',
+    mechanism:'Alpha-linolenic acid supports barrier lipids and reduces moisture loss.',
+    safety:{score:86,notes:'Oxidizes quickly — store refrigerated and use fresh.'},
+    alternatives:['hemp-seed','evening-primrose-oil']},
+
+  // ── HUMECTANTS / SOLVENTS / TEXTURE MODIFIERS ──
+  'propanediol': {name:'Propanediol',inci:'Propanediol',emoji:'💧',category:'humectant',phase:'A',functions:['Humectant','Solvent','Preservative Booster'],
+    usage:{min:2,max:10,typical:5},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:70,goals:['hydration','natural'],skinTypes:['all','sensitive'],
+    evidence:74,description:'Plant-derived glycol that boosts hydration and helps preservatives work better.',
+    mechanism:'Draws and binds water to skin while improving solubility and antimicrobial efficacy of actives.',
+    safety:{score:92,notes:'Lighter feel than glycerin; widely used in modern "clean" formulas.'},
+    alternatives:['glycerin','butylene-glycol']},
+
+  'butylene-glycol': {name:'Butylene Glycol',inci:'Butylene Glycol',emoji:'💧',category:'humectant',phase:'A',functions:['Humectant','Solvent','Texture Enhancer'],
+    usage:{min:2,max:8,typical:4},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:35,goals:['hydration'],skinTypes:['all'],
+    evidence:72,description:'Lightweight glycol that improves spreadability and helps dissolve actives.',
+    mechanism:'Humectant action plus improved solubility/penetration of co-formulated actives.',
+    safety:{score:90,notes:'Generally well tolerated at typical use levels.'},
+    alternatives:['propanediol','glycerin']},
+
+  'sodium-lactate': {name:'Sodium Lactate',inci:'Sodium Lactate',emoji:'💧',category:'humectant',phase:'A',functions:['Humectant','Natural Moisturizing Factor','pH Adjuster'],
+    usage:{min:1,max:3,typical:1.5},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:60,goals:['hydration','sensitive'],skinTypes:['dry','sensitive','all'],
+    evidence:70,description:'Component of skin’s natural moisturizing factor; humectant and gentle pH adjuster.',
+    mechanism:'Mimics naturally-occurring NMF components to support skin hydration and barrier function.',
+    safety:{score:92,notes:'Naturally occurring in skin; very well tolerated.'},
+    alternatives:['sodium-pca','glycerin']},
+
+  // ── EMULSIFIERS / CONDITIONING / SILICONES ──
+  'polyquaternium-10': {name:'Polyquaternium-10',inci:'Polyquaternium-10',emoji:'🧴',category:'hair-active',phase:'C',functions:['Conditioning Polymer','Detangling','Anti-Static'],
+    usage:{min:0.1,max:1,typical:0.3},solubility:'water',heatSensitive:false,
+    costLevel:3,costPerKg:200,goals:['frizz','damage-repair'],skinTypes:[],
+    evidence:74,description:'Cationic conditioning polymer that smooths hair and reduces static and tangling.',
+    mechanism:'Positively-charged polymer binds to negatively-charged damaged hair, smoothing the cuticle.',
+    safety:{score:90,notes:'Standard conditioning ingredient in shampoos and conditioners.'},
+    alternatives:['btms-50','silk-amino']},
+
+  'behentrimonium-chloride': {name:'Behentrimonium Chloride',inci:'Behentrimonium Chloride',emoji:'🧴',category:'emulsifier',phase:'B',functions:['Conditioning Emulsifier','Detangler'],
+    usage:{min:1,max:5,typical:2},solubility:'oil',heatSensitive:true,
+    costLevel:3,costPerKg:160,goals:['damage-repair','frizz'],skinTypes:[],
+    evidence:76,description:'Premium cationic conditioning agent — the workhorse of luxury hair conditioners.',
+    mechanism:'Cationic charge binds to hair fiber, smoothing the cuticle and easing detangling.',
+    safety:{score:88,notes:'Gentler than older quats like BTMS; standard in rinse-off conditioners.'},
+    alternatives:['btms-50']},
+
+  'dimethicone': {name:'Dimethicone',inci:'Dimethicone',emoji:'💎',category:'emollient',phase:'B',functions:['Silicone Emollient','Slip','Frizz Control'],
+    usage:{min:1,max:5,typical:2},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:80,goals:['frizz','damage-repair'],skinTypes:['all'],
+    evidence:78,description:'Silicone that coats hair/skin for a smooth, silky, frizz-free finish.',
+    mechanism:'Forms a breathable film that reduces friction, adds shine, and seals in moisture.',
+    safety:{score:88,notes:'Non-comedogenic grades available; build-up possible without clarifying wash.'},
+    alternatives:['marula-oil','squalane']},
+
+  'isopropyl-myristate': {name:'Isopropyl Myristate',inci:'Isopropyl Myristate',emoji:'💧',category:'emollient',phase:'B',functions:['Lightweight Emollient','Spreadability Enhancer'],
+    usage:{min:2,max:10,typical:5},solubility:'oil',heatSensitive:false,
+    costLevel:1,costPerKg:40,goals:['hydration'],skinTypes:['oily','combination','all'],
+    evidence:64,description:'Lightweight ester that gives lotions a silky, non-greasy after-feel.',
+    mechanism:'Reduces the oily feel of richer emollients and improves spreadability/absorption.',
+    safety:{score:80,notes:'Mildly comedogenic for some; use moderate levels in facial products.'},
+    alternatives:['mct','marula-oil']},
+
+  'glycol-distearate': {name:'Glycol Distearate',inci:'Glycol Distearate',emoji:'✨',category:'thickener',phase:'B',functions:['Pearlizer','Opacifier','Thickener'],
+    usage:{min:1,max:3,typical:2},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:70,goals:[],skinTypes:[],
+    evidence:50,description:'Gives shampoos and lotions an attractive pearly sheen.',
+    mechanism:'Forms crystalline structures that scatter light, creating a pearl-like appearance.',
+    safety:{score:88,notes:'Cosmetic/aesthetic ingredient with a strong safety record.'},
+    alternatives:['cetyl-alcohol']},
+
+  // ── PRESERVATION BOOSTERS ──
+  'caprylyl-glycol': {name:'Caprylyl Glycol',inci:'Caprylyl Glycol',emoji:'🛡️',category:'preservative',phase:'C',functions:['Preservative Booster','Humectant','Skin Conditioning'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:90,goals:[],skinTypes:['all'],
+    evidence:70,description:'Multifunctional glycol that boosts preservative systems and conditions skin.',
+    mechanism:'Mild antimicrobial action that enhances the efficacy of the primary preservative.',
+    safety:{score:90,notes:'Often paired with phenoxyethanol or ethylhexylglycerin in broad-spectrum systems.'},
+    alternatives:['ethylhexylglycerin','phenoxyethanol']},
+
+  'ethylhexylglycerin': {name:'Ethylhexylglycerin',inci:'Ethylhexylglycerin',emoji:'🛡️',category:'preservative',phase:'C',functions:['Preservative Booster','Deodorizing','Skin Conditioning'],
+    usage:{min:0.5,max:1,typical:0.5},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:140,goals:['odor-control'],skinTypes:['all'],
+    evidence:70,description:'Glycerin derivative that enhances preservatives and has mild deodorizing action.',
+    mechanism:'Disrupts microbial cell membranes, boosting broad-spectrum preservation.',
+    safety:{score:88,notes:'Common in "preservative-free label" systems alongside phenoxyethanol.'},
+    alternatives:['caprylyl-glycol']},
+
+  // ── FUNCTIONAL / SPECIALTY ──
+  'arrowroot-powder': {name:'Arrowroot Powder',inci:'Maranta Arundinacea Root Powder',emoji:'🌾',category:'mineral',phase:'A',functions:['Oil Absorber','Texture Modifier'],
+    usage:{min:5,max:20,typical:10},solubility:'powder',heatSensitive:false,
+    costLevel:1,costPerKg:15,goals:['oily','natural'],skinTypes:['oily','combination'],
+    evidence:55,description:'Natural starch that absorbs excess oil — popular natural alternative to talc/cornstarch.',
+    mechanism:'Physically absorbs sebum and moisture, leaving a smooth, matte after-feel.',
+    safety:{score:94,notes:'Gentle, natural, and biodegradable — favored in natural deodorants and powders.'},
+    alternatives:['kaolin','bentonite']},
+
+  'titanium-dioxide': {name:'Titanium Dioxide',inci:'Titanium Dioxide',emoji:'⚪',category:'mineral',phase:'C',functions:['UV Filter','Opacifier','Tinting'],
+    usage:{min:5,max:25,typical:10},solubility:'oil',heatSensitive:false,
+    costLevel:2,costPerKg:60,goals:['spf'],skinTypes:['sensitive','all'],
+    evidence:82,description:'Mineral UV filter and whitening pigment used in sunscreens and tinted balms.',
+    mechanism:'Physically reflects and scatters UVA/UVB radiation away from the skin surface.',
+    safety:{score:92,notes:'Non-nano grades preferred for leave-on facial products; broad-spectrum protection.'},
+    alternatives:['zinc-oxide']},
+
+  'seaweed-extract': {name:'Seaweed Extract',inci:'Algae Extract',emoji:'🌊',category:'humectant',phase:'A',functions:['Hydrating','Mineral-Rich','Firming'],
+    usage:{min:0.5,max:3,typical:1},solubility:'water',heatSensitive:true,
+    costLevel:3,costPerKg:160,goals:['hydration','firming','detox'],skinTypes:['all','dry'],
+    evidence:62,description:'Mineral- and polysaccharide-rich marine extract popular in hydrating and firming formulas.',
+    mechanism:'Polysaccharides form a hydrating film while trace minerals support skin metabolism.',
+    safety:{score:88,notes:'Generally well tolerated; check for iodine sensitivity in rare cases.'},
+    alternatives:['aloe-vera','centella']},
+
+  'phytosphingosine': {name:'Phytosphingosine',inci:'Phytosphingosine',emoji:'🧱',category:'active',phase:'B',functions:['Barrier Lipid','Anti-inflammatory','Anti-acne'],
+    usage:{min:0.1,max:0.5,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:3000,goals:['sensitive','damage-repair','acne'],skinTypes:['sensitive','dry','acne','all'],
+    evidence:70,description:'Skin-identical lipid that supports barrier repair and calms blemish-prone skin.',
+    mechanism:'Restores ceramide-pathway lipids in the skin barrier and inhibits acne-causing bacteria.',
+    safety:{score:92,notes:'Very gentle; often used at low % alongside ceramides.'},
+    alternatives:['ceramide-np']},
+
+  // ── EXFOLIANTS / SCRUB PARTICLES ──
+  'sugar-crystals': {name:'Sugar Crystals',inci:'Sucrose',emoji:'🍬',category:'mineral',phase:'C',functions:['Physical Exfoliant','Humectant'],
+    usage:{min:30,max:60,typical:45},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:5,goals:['exfoliation','natural'],skinTypes:['all','dry'],
+    evidence:55,description:'Gentle, water-soluble exfoliating granules — softer on skin than salt.',
+    mechanism:'Physically buffs away dead skin cells while dissolving for a non-abrasive finish.',
+    safety:{score:92,notes:'Dissolves in water — gentler than salt scrubs for facial/sensitive use.'},
+    alternatives:['sea-salt']},
+
+  'sea-salt': {name:'Sea Salt (Fine)',inci:'Maris Sal',emoji:'🧂',category:'mineral',phase:'C',functions:['Physical Exfoliant','Mineral-Rich'],
+    usage:{min:30,max:70,typical:50},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:8,goals:['exfoliation','detox'],skinTypes:['oily','normal'],
+    evidence:55,description:'Mineral-rich exfoliating crystals popular in body scrubs and bath salts.',
+    mechanism:'Physically exfoliates skin while trace minerals (magnesium, potassium) condition.',
+    safety:{score:84,notes:'Can sting on broken or freshly-shaved skin; avoid on the face.'},
+    alternatives:['sugar-crystals']},
+
+  'epsom-salt': {name:'Epsom Salt',inci:'Magnesium Sulfate',emoji:'🧂',category:'mineral',phase:'A',functions:['Muscle Soak','Detoxifying','Relaxing'],
+    usage:{min:50,max:90,typical:80},solubility:'water',heatSensitive:false,
+    costLevel:1,costPerKg:6,goals:['relaxation','detox'],skinTypes:['all'],
+    evidence:58,description:'Classic bath-soak mineral valued for soothing tired muscles and relaxation rituals.',
+    mechanism:'Dissolves in warm bathwater; magnesium may be mildly absorbed through skin during soaking.',
+    safety:{score:92,notes:'Very safe for bathing; avoid on broken skin or open wounds.'},
+    alternatives:['sea-salt']},
+
+  // ── DEODORANT / SOAP / FRAGRANCE SPECIALTIES ──
+  'magnesium-hydroxide': {name:'Magnesium Hydroxide',inci:'Magnesium Hydroxide',emoji:'⚪',category:'active',phase:'C',functions:['Odor Neutralizer','pH Buffer (Aluminum-Free)'],
+    usage:{min:5,max:15,typical:8},solubility:'powder',heatSensitive:false,
+    costLevel:2,costPerKg:30,goals:['odor-control','natural','sensitive'],skinTypes:['sensitive','all'],
+    evidence:68,description:'Gentle alkaline mineral that neutralizes odor-causing bacteria — popular aluminum-free deodorant active.',
+    mechanism:'Raises underarm skin pH slightly, creating conditions less hospitable to odor-causing bacteria.',
+    safety:{score:90,notes:'Gentler than baking soda for sensitive underarm skin.'},
+    alternatives:[{name:'Potassium Alum',inci:'Potassium Alum',emoji:'💎'}]},
+
+  'soap-base-melt-pour': {name:'Melt-and-Pour Soap Base',inci:'Sodium Cocoate / Glycerin (varies)',emoji:'🧼',category:'base',phase:'A',functions:['Soap Base','Cleansing'],
+    usage:{min:80,max:95,typical:90},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:12,goals:['natural'],skinTypes:['all'],
+    evidence:50,description:'Pre-made glycerin soap base that melts down for easy at-home soap making.',
+    mechanism:'Surfactant soap molecules lift dirt and oils from skin and rinse away with water.',
+    safety:{score:86,notes:'Choose a goat-milk or shea base for sensitive skin; avoid harsh sulfates.'},
+    alternatives:['sci']},
+
+  'fragrance-oil-blend': {name:'Fragrance Oil (Cosmetic Grade)',inci:'Parfum (Fragrance)',emoji:'🌸',category:'fragrance',phase:'C',functions:['Fragrance'],
+    usage:{min:0.5,max:3,typical:1},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:80,goals:['fragrance','long-lasting'],skinTypes:['all'],
+    evidence:50,description:'Synthetic or nature-identical fragrance compound formulated for skin-safe use.',
+    mechanism:'Blended aroma compounds provide a consistent, long-lasting scent profile.',
+    safety:{score:80,notes:'Use IFRA-compliant cosmetic-grade fragrance and respect max usage levels.'},
+    alternatives:['lavender-eo','rose-eo']},
+
+  'perfumers-alcohol': {name:"Perfumer's Alcohol",inci:'Alcohol Denat.',emoji:'🧪',category:'base',phase:'A',functions:['Fragrance Carrier','Solvent','Quick-Dry Base'],
+    usage:{min:60,max:85,typical:75},solubility:'water',heatSensitive:false,
+    costLevel:2,costPerKg:25,goals:['long-lasting','fresh-citrus'],skinTypes:['all'],
+    evidence:50,description:'High-proof denatured alcohol used as the carrier base for sprays and perfumes.',
+    mechanism:'Dissolves fragrance oils evenly and evaporates quickly, leaving scent on skin/fabric.',
+    safety:{score:82,notes:'Can be drying; not recommended for direct application to broken or sensitive skin.'},
+    alternatives:['propanediol']},
 };
 
 // ═══════════════════════════════════════
@@ -1105,7 +1499,7 @@ const FORMULA_TEMPLATES = {
       {id:'base-oil2',phase:'A',label:'Base Oil 2',pct:[20,40],candidates:['castor','mct','jojoba','sunflower'],required:true},
       {id:'base-oil3',phase:'A',label:'Lightweight Oil',pct:[5,20],candidates:['mct','squalane','jojoba'],required:false},
       {id:'antioxidant',phase:'A',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
-      {id:'fragrance',phase:'A',label:'Essential Oil',pct:[0.5,2],candidates:['lavender-eo','rosemary-eo','peppermint-eo','tea-tree-eo'],required:false},
+      {id:'fragrance',phase:'A',label:'Essential Oil',pct:[0.5,2],candidates:['lavender-eo','frankincense-eo','peppermint-eo','tea-tree-eo'],required:false},
     ],
     instructions:[
       'Combine all oil phase ingredients in a clean, dry bottle or beaker.',
@@ -1263,27 +1657,575 @@ const FORMULA_TEMPLATES = {
       'Fill into roll-on bottles.',
     ]
   },
+
+  'face-scrub': {
+    name:'Face Scrub / Exfoliator', category:'skincare', difficulty:1,
+    phTarget:'5.0–6.0', shelfLife:'6 months',
+    slots:[
+      {id:'base',phase:'A',label:'Cleansing Base',pct:[35,45],candidates:['aloe-vera','decyl-glucoside'],required:true},
+      {id:'oil',phase:'B',label:'Carrier Oil',pct:[15,25],candidates:['jojoba','sweet-almond','marula-oil'],goalMap:{oily:'jojoba',hydration:'sweet-almond'},required:true},
+      {id:'exfoliant',phase:'C',label:'Exfoliating Particles',pct:[25,35],candidates:['sugar-crystals'],required:true},
+      {id:'active',phase:'C',label:'Active',pct:[1,3],candidates:['niacinamide','mandelic-acid','allantoin'],goalMap:{brightening:'niacinamide',exfoliation:'mandelic-acid',sensitive:'allantoin'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Combine cleansing base and carrier oil; mix until smooth.',
+      'Stir in active ingredient.',
+      'Fold in exfoliating particles last to avoid premature dissolving.',
+      'Add preservative and fragrance, mix gently.',
+      'Fill into wide-mouth jars (scrub settles — stir before each use).',
+    ]
+  },
+
+  'eye-cream': {
+    name:'Eye Cream', category:'skincare', difficulty:3,
+    phTarget:'5.0–5.5', shelfLife:'6 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Phase',pct:[55,65],candidates:['water','rose-water'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['sodium-hyaluronate','polyglutamic-acid','glycerin'],goalMap:{hydration:'sodium-hyaluronate'},required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[3,5],candidates:['emulsifying-wax-nf','btms-50'],required:true},
+      {id:'emollient',phase:'B',label:'Lightweight Emollient',pct:[8,14],candidates:['squalane','marula-oil','mct'],required:true},
+      {id:'active',phase:'C',label:'Eye Active',pct:[1,3],candidates:['caffeine','peptides','centella'],goalMap:{'anti-aging':'peptides',sensitive:'centella'},required:true},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','leucidal'],required:true},
+    ],
+    instructions:[
+      'Heat Phase A (water + humectant) to 75°C.',
+      'Heat Phase B (emulsifier + emollient) to 75°C separately.',
+      'Combine A into B while blending; emulsify 3–5 minutes.',
+      'Cool to below 40°C, then add eye active and preservative.',
+      'Fill into small airless-pump jars or tubes — store cool.',
+    ]
+  },
+
+  'night-cream': {
+    name:'Night Cream', category:'skincare', difficulty:3,
+    phTarget:'5.0–5.5', shelfLife:'6 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Phase',pct:[45,55],candidates:['water','rose-water'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['glycerin','sodium-hyaluronate'],required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf','btms-50'],required:true},
+      {id:'butter',phase:'B',label:'Rich Butter',pct:[6,12],candidates:['shea-butter','cocoa-butter','mango-butter'],required:true},
+      {id:'oil',phase:'B',label:'Nourishing Oil',pct:[8,14],candidates:['rosehip','sea-buckthorn-oil','evening-primrose-oil'],goalMap:{'anti-aging':'rosehip',healing:'sea-buckthorn-oil'},required:true},
+      {id:'active',phase:'C',label:'Overnight Active',pct:[1,3],candidates:['retinol','bakuchiol','peptides'],goalMap:{'anti-aging':'retinol',sensitive:'bakuchiol'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Heat Phase A and Phase B separately to 75°C.',
+      'Combine A into B and homogenize 3–5 minutes until creamy.',
+      'Cool to below 40°C with continued mixing.',
+      'Add overnight active, preservative, and fragrance.',
+      'Fill into jars; this rich cream is designed for nightly application.',
+    ]
+  },
+
+  'hair-mask': {
+    name:'Hair Mask', category:'haircare', difficulty:2,
+    phTarget:'4.0–5.5', shelfLife:'6 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Phase',pct:[50,60],candidates:['water','aloe-vera'],required:true},
+      {id:'emulsifier',phase:'B',label:'Conditioning Emulsifier',pct:[4,6],candidates:['btms-50','behentrimonium-chloride'],required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[5,10],candidates:['shea-butter','mango-butter','cocoa-butter'],required:true},
+      {id:'oil',phase:'B',label:'Conditioning Oil',pct:[5,10],candidates:['argan','coconut','baobab-oil'],goalMap:{frizz:'argan','damage-repair':'coconut'},required:true},
+      {id:'protein',phase:'C',label:'Protein / Repair',pct:[1,4],candidates:['keratin','silk-amino','panthenol'],goalMap:{'damage-repair':'keratin'},required:false},
+      {id:'silicone',phase:'C',label:'Smoothing Agent',pct:[1,3],candidates:['dimethicone','polyquaternium-10'],goalMap:{frizz:'dimethicone'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Heat water phase to 75°C.',
+      'Heat emulsifier, butter, and oil together to 75°C until melted.',
+      'Combine phases and blend until creamy and emulsified.',
+      'Cool to below 40°C, add protein, smoothing agent, preservative, fragrance.',
+      'Apply generously to damp hair, leave 10–20 minutes, rinse thoroughly.',
+    ]
+  },
+
+  'hair-serum': {
+    name:'Hair Serum', category:'haircare', difficulty:1,
+    phTarget:'N/A (anhydrous)', shelfLife:'12 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Lightweight Base Oil',pct:[40,55],candidates:['marula-oil','jojoba','meadowfoam-oil'],goalMap:{frizz:'marula-oil',shine:'jojoba'},required:true},
+      {id:'base-oil2',phase:'A',label:'Conditioning Oil',pct:[20,35],candidates:['argan','baobab-oil','sea-buckthorn-oil'],required:true},
+      {id:'silicone',phase:'B',label:'Smoothing Agent',pct:[5,15],candidates:['dimethicone','isopropyl-myristate'],goalMap:{frizz:'dimethicone'},required:false},
+      {id:'active',phase:'C',label:'Hair Active',pct:[1,4],candidates:['vitamin-e','rosemary-extract','panthenol'],goalMap:{'hair-growth':'rosemary-extract','damage-repair':'panthenol'},required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Combine base oils in a clean glass bottle.',
+      'Add smoothing agent and hair active; shake gently to blend.',
+      'Add fragrance drop by drop, swirling between additions.',
+      'Apply 2–3 drops to damp or dry hair, focusing on mid-lengths and ends.',
+    ]
+  },
+
+  'leave-in-conditioner': {
+    name:'Leave-In Conditioner', category:'haircare', difficulty:2,
+    phTarget:'4.0–5.0', shelfLife:'6 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Phase',pct:[80,88],candidates:['water','aloe-vera'],required:true},
+      {id:'conditioner',phase:'C',label:'Conditioning Polymer',pct:[1,3],candidates:['polyquaternium-10','behentrimonium-chloride'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','panthenol'],required:true},
+      {id:'oil',phase:'C',label:'Lightweight Oil',pct:[1,4],candidates:['argan','marula-oil','jojoba'],required:false},
+      {id:'silicone',phase:'C',label:'Anti-Frizz Agent',pct:[1,3],candidates:['dimethicone'],goalMap:{frizz:'dimethicone'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo'],required:false},
+    ],
+    instructions:[
+      'Combine water, humectant, and conditioning polymer; mix until dissolved.',
+      'Add oil, anti-frizz agent, preservative, and fragrance.',
+      'Mix gently to avoid foaming, then transfer to a fine-mist spray bottle.',
+      'Spray onto damp hair after washing — do not rinse out.',
+    ]
+  },
+
+  'scalp-treatment': {
+    name:'Scalp Treatment / Hair Growth Tonic', category:'haircare', difficulty:2,
+    phTarget:'4.5–5.5', shelfLife:'6 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water / Hydrosol Base',pct:[75,85],candidates:['water','aloe-vera','rose-water'],required:true},
+      {id:'solubilizer',phase:'A',label:'Solubilizer',pct:[2,4],candidates:['propanediol','butylene-glycol'],required:false},
+      {id:'active',phase:'C',label:'Scalp Active',pct:[1,5],candidates:['caffeine','biotin','rosemary-extract','salicylic-acid'],goalMap:{'hair-growth':'caffeine',dandruff:'salicylic-acid','scalp-health':'rosemary-extract'},required:true},
+      {id:'soothing',phase:'C',label:'Soothing Agent',pct:[1,3],candidates:['centella','allantoin','colloidal-oatmeal'],required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.8],candidates:['peppermint-eo','tea-tree-eo'],required:false},
+    ],
+    instructions:[
+      'Combine water-based ingredients and mix until uniform.',
+      'Add scalp active and soothing agent; stir to dissolve.',
+      'Add preservative and fragrance, mix gently.',
+      'Transfer to a bottle with a fine applicator tip for direct scalp application.',
+      'Massage into scalp 2–3 times weekly; do not rinse for best results.',
+    ]
+  },
+
+  'beard-wash': {
+    name:'Beard Wash / Shampoo', category:'beard', difficulty:2,
+    phTarget:'5.0–6.0', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[45,55],candidates:['water','aloe-vera'],required:true},
+      {id:'surfactant1',phase:'A',label:'Gentle Surfactant',pct:[20,30],candidates:['decyl-glucoside','sci','capb'],goalMap:{sensitive:'decyl-glucoside'},required:true},
+      {id:'oil',phase:'C',label:'Conditioning Oil',pct:[3,8],candidates:['argan','jojoba','castor'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
+      {id:'thickener',phase:'A',label:'Thickener',pct:[0.5,1.5],candidates:['xanthan','hec'],required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['frankincense-eo','tea-tree-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Combine water and humectant; sprinkle in thickener while stirring.',
+      'Add surfactants slowly, stirring gently to minimize foam.',
+      'Blend in conditioning oil until uniform.',
+      'Cool, then add preservative and fragrance.',
+      'Bottle with a flip-cap or pump for easy beard application.',
+    ]
+  },
+
+  'body-wash': {
+    name:'Body Wash', category:'body', difficulty:2,
+    phTarget:'5.0–6.0', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[45,55],candidates:['water','aloe-vera'],required:true},
+      {id:'surfactant1',phase:'A',label:'Primary Surfactant',pct:[25,35],candidates:['sles','sci','decyl-glucoside'],goalMap:{sensitive:'decyl-glucoside',natural:'decyl-glucoside'},required:true},
+      {id:'surfactant2',phase:'A',label:'Co-Surfactant',pct:[5,10],candidates:['capb'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
+      {id:'thickener',phase:'A',label:'Thickener',pct:[0.5,1.5],candidates:['xanthan','hec'],required:false},
+      {id:'active',phase:'C',label:'Active',pct:[0.5,2],candidates:['niacinamide','allantoin','colloidal-oatmeal'],goalMap:{sensitive:'colloidal-oatmeal',hydration:'niacinamide'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1.5],candidates:['lavender-eo','rose-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Combine water, humectant, and active; mix until dissolved.',
+      'Sprinkle in thickener while stirring continuously to avoid clumps.',
+      'Slowly add surfactants, stirring gently to minimize foam.',
+      'Add preservative and fragrance once uniform.',
+      'Bottle with a pump dispenser; let rest 24 hours before first use.',
+    ]
+  },
+
+  'body-scrub': {
+    name:'Body Scrub', category:'body', difficulty:1,
+    phTarget:'N/A (oil-based)', shelfLife:'9 months',
+    slots:[
+      {id:'oil',phase:'A',label:'Carrier Oil Blend',pct:[40,55],candidates:['sweet-almond','coconut','sunflower','baobab-oil'],required:true},
+      {id:'butter',phase:'A',label:'Butter',pct:[5,10],candidates:['shea-butter','cocoa-butter'],required:false},
+      {id:'exfoliant',phase:'C',label:'Exfoliating Particles',pct:[35,50],candidates:['sea-salt','sugar-crystals'],goalMap:{exfoliation:'sea-salt'},required:true},
+      {id:'vitamin',phase:'C',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.5,1.5],candidates:['lavender-eo','peppermint-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Melt butter (if using) gently and combine with carrier oils.',
+      'Stir in antioxidant to extend shelf life.',
+      'Fold in exfoliating particles until evenly distributed.',
+      'Add fragrance and mix thoroughly.',
+      'Spoon into wide-mouth jars; use a dry scoop to avoid contamination.',
+    ]
+  },
+
+  'hand-cream': {
+    name:'Hand / Foot Cream', category:'body', difficulty:2,
+    phTarget:'5.0–5.5', shelfLife:'9 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water Phase',pct:[45,55],candidates:['water','aloe-vera'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['glycerin','sodium-pca'],required:true},
+      {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf','btms-50'],required:true},
+      {id:'butter',phase:'B',label:'Rich Butter',pct:[10,18],candidates:['shea-butter','cocoa-butter','mango-butter'],required:true},
+      {id:'oil',phase:'B',label:'Emollient Oil',pct:[6,12],candidates:['sweet-almond','sunflower','jojoba'],required:true},
+      {id:'active',phase:'C',label:'Active',pct:[0.5,2],candidates:['allantoin','panthenol','colloidal-oatmeal'],goalMap:{healing:'allantoin'},required:false},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Heat Phase A and Phase B separately to 75°C.',
+      'Combine A into B and emulsify with thorough mixing for 3–5 minutes.',
+      'Cool to below 40°C, then add active, preservative, and fragrance.',
+      'Fill into tubes or jars — a thicker, richer cream than facial moisturizer.',
+    ]
+  },
+
+  'body-oil': {
+    name:'Body Oil / Stretch Mark Oil', category:'body', difficulty:1,
+    phTarget:'N/A (anhydrous)', shelfLife:'12 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Base Oil',pct:[50,65],candidates:['sweet-almond','sunflower','coconut'],required:true},
+      {id:'oil2',phase:'A',label:'Nourishing Oil',pct:[20,35],candidates:['rosehip','marula-oil','sea-buckthorn-oil','evening-primrose-oil'],goalMap:{'stretch-marks':'rosehip',hydration:'marula-oil'},required:true},
+      {id:'vitamin',phase:'C',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.5,1.5],candidates:['lavender-eo','frankincense-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Combine all oils in a clean glass bottle.',
+      'Add antioxidant to extend shelf life and prevent rancidity.',
+      'Add fragrance gradually, swirling to blend.',
+      'Apply to damp skin after bathing for best absorption.',
+    ]
+  },
+
+  'lip-scrub': {
+    name:'Lip Scrub', category:'lip', difficulty:1,
+    phTarget:'N/A (oil-based)', shelfLife:'6 months',
+    slots:[
+      {id:'oil',phase:'A',label:'Carrier Oil',pct:[35,45],candidates:['sweet-almond','coconut','castor'],required:true},
+      {id:'butter',phase:'A',label:'Butter',pct:[10,20],candidates:['shea-butter','cocoa-butter'],required:true},
+      {id:'exfoliant',phase:'C',label:'Sugar Exfoliant',pct:[35,45],candidates:['sugar-crystals'],required:true},
+      {id:'vitamin',phase:'C',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:false},
+      {id:'fragrance',phase:'C',label:'Flavor / Fragrance',pct:[0.5,1.5],candidates:['rose-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Melt butter and combine with carrier oil.',
+      'Stir in antioxidant to extend shelf life.',
+      'Fold in sugar crystals once mixture cools slightly (prevents dissolving).',
+      'Add flavor/fragrance and spoon into small jars or tins.',
+    ]
+  },
+
+  'lip-oil': {
+    name:'Lip Oil', category:'lip', difficulty:1,
+    phTarget:'N/A (anhydrous)', shelfLife:'9 months',
+    slots:[
+      {id:'base-oil1',phase:'A',label:'Lightweight Oil',pct:[55,70],candidates:['jojoba','sweet-almond','marula-oil'],required:true},
+      {id:'oil2',phase:'A',label:'Nourishing Oil',pct:[20,35],candidates:['castor','coconut','sunflower'],goalMap:{plumping:'castor'},required:true},
+      {id:'vitamin',phase:'C',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:false},
+      {id:'flavor',phase:'C',label:'Flavor / Fragrance',pct:[0.5,2],candidates:['rose-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Combine lightweight and nourishing oils in a small glass bottle.',
+      'Add antioxidant to extend shelf life.',
+      'Add flavor/fragrance and shake gently.',
+      'Decant into a lip-oil applicator tube with a doe-foot or roller wand.',
+    ]
+  },
+
+  'bath-salts': {
+    name:'Bath Salts', category:'bath', difficulty:1,
+    phTarget:'N/A', shelfLife:'18 months',
+    slots:[
+      {id:'salt',phase:'A',label:'Epsom Salt',pct:[60,75],candidates:['epsom-salt'],required:true},
+      {id:'sea-salt',phase:'A',label:'Sea Salt',pct:[15,25],candidates:['sea-salt'],required:true},
+      {id:'carrier',phase:'B',label:'Dispersing Oil',pct:[2,5],candidates:['sweet-almond','jojoba'],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[1,3],candidates:['lavender-eo','rose-eo','frankincense-eo'],required:false},
+      {id:'color',phase:'C',label:'Botanical / Colorant',pct:[0.5,2],candidates:[{name:'Dried Flower Petals',inci:'Flower Petals (decorative)',emoji:'🌸'}],required:false},
+    ],
+    instructions:[
+      'Combine Epsom salt and sea salt in a large bowl.',
+      'Mix carrier oil and fragrance together, then drizzle over salts while stirring.',
+      'Fold in dried botanicals for visual appeal.',
+      'Store in an airtight jar; use ½–1 cup per warm bath.',
+    ]
+  },
+
+  'bubble-bath': {
+    name:'Bubble Bath', category:'bath', difficulty:2,
+    phTarget:'5.0–6.0', shelfLife:'9 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water',pct:[45,55],candidates:['water'],required:true},
+      {id:'surfactant1',phase:'A',label:'Foaming Surfactant',pct:[25,35],candidates:['sci','sles','decyl-glucoside'],goalMap:{sensitive:'decyl-glucoside'},required:true},
+      {id:'surfactant2',phase:'A',label:'Foam Booster',pct:[5,10],candidates:['capb'],required:true},
+      {id:'humectant',phase:'A',label:'Humectant',pct:[3,6],candidates:['glycerin'],required:true},
+      {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.5,2],candidates:['lavender-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Combine water and humectant; warm slightly.',
+      'Slowly stir in surfactants — avoid excess agitation to limit foam during mixing.',
+      'Add preservative and fragrance once cooled and uniform.',
+      'Bottle and pour ¼ cup under running warm water for a bubbly soak.',
+    ]
+  },
+
+  'soap-bar': {
+    name:'Soap Bar (Melt & Pour)', category:'bath', difficulty:1,
+    phTarget:'9–10 (soap)', shelfLife:'18 months',
+    slots:[
+      {id:'base',phase:'A',label:'Melt & Pour Soap Base',pct:[80,92],candidates:['soap-base-melt-pour'],required:true},
+      {id:'oil',phase:'B',label:'Nourishing Oil',pct:[3,8],candidates:['sweet-almond','coconut','shea-butter'],required:false},
+      {id:'exfoliant',phase:'C',label:'Exfoliant (optional)',pct:[0,5],candidates:['sea-salt','sugar-crystals'],required:false},
+      {id:'colorant',phase:'C',label:'Natural Colorant',pct:[0.5,2],candidates:[{name:'Cosmetic Mica / Clay',inci:'Mica / Kaolin (cosmetic colorant)',emoji:'🎨'}],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[1,3],candidates:['lavender-eo','tea-tree-eo','rose-eo'],required:false},
+    ],
+    instructions:[
+      'Cut soap base into cubes and melt gently in a double boiler (do not boil).',
+      'Stir in nourishing oil once melted.',
+      'Cool slightly, then add colorant, exfoliant, and fragrance.',
+      'Pour into silicone moulds and let set for 1–2 hours before unmoulding.',
+    ]
+  },
+
+  'stick-deodorant': {
+    name:'Stick Deodorant', category:'deodorant', difficulty:2,
+    phTarget:'N/A (anhydrous)', shelfLife:'12 months',
+    slots:[
+      {id:'wax',phase:'B',label:'Wax / Hardener',pct:[15,22],candidates:['beeswax','candelilla'],required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[20,28],candidates:['shea-butter','cocoa-butter'],required:true},
+      {id:'oil',phase:'B',label:'Carrier Oil',pct:[15,22],candidates:['coconut','sweet-almond'],required:true},
+      {id:'powder1',phase:'C',label:'Odor-Absorbing Powder',pct:[15,22],candidates:['arrowroot-powder'],required:true},
+      {id:'active-deo',phase:'C',label:'Deodorizing Active',pct:[6,12],candidates:['magnesium-hydroxide',{name:'Sodium Bicarbonate',inci:'Sodium Bicarbonate',emoji:'⚪'}],goalMap:{sensitive:'magnesium-hydroxide'},required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.5,1.5],candidates:['tea-tree-eo','lavender-eo'],required:false},
+    ],
+    instructions:[
+      'Melt wax, butter, and oil together in a double boiler.',
+      'Remove from heat and whisk in powders until fully dispersed (no clumps).',
+      'Stir in deodorizing active and fragrance.',
+      'Pour into empty deodorant stick containers and let set at room temperature.',
+    ]
+  },
+
+  'cream-deodorant': {
+    name:'Cream Deodorant', category:'deodorant', difficulty:2,
+    phTarget:'N/A (anhydrous)', shelfLife:'9 months',
+    slots:[
+      {id:'oil',phase:'B',label:'Carrier Oil',pct:[25,35],candidates:['coconut','sweet-almond','jojoba'],required:true},
+      {id:'butter',phase:'B',label:'Butter',pct:[20,28],candidates:['shea-butter','cocoa-butter'],required:true},
+      {id:'wax',phase:'B',label:'Thickening Wax',pct:[6,10],candidates:['beeswax','candelilla'],required:false},
+      {id:'powder1',phase:'C',label:'Odor-Absorbing Powder',pct:[15,22],candidates:['arrowroot-powder'],required:true},
+      {id:'active-deo',phase:'C',label:'Deodorizing Active',pct:[6,12],candidates:['magnesium-hydroxide'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.5,1.5],candidates:['tea-tree-eo','lavender-eo','frankincense-eo'],required:false},
+    ],
+    instructions:[
+      'Melt oil, butter, and wax together gently.',
+      'Whisk in powder and deodorizing active until smooth and lump-free.',
+      'Add fragrance, mix, and pour into small jars.',
+      'Allow to set at room temperature; apply with clean fingertips.',
+    ]
+  },
+
+  'spray-deodorant': {
+    name:'Spray Deodorant', category:'deodorant', difficulty:1,
+    phTarget:'N/A', shelfLife:'9 months',
+    slots:[
+      {id:'carrier',phase:'A',label:"Perfumer's Alcohol",pct:[55,70],candidates:['perfumers-alcohol','propanediol'],goalMap:{sensitive:'propanediol'},required:true},
+      {id:'water',phase:'A',label:'Water / Hydrosol',pct:[20,30],candidates:['water','aloe-vera'],required:true},
+      {id:'active-deo',phase:'C',label:'Deodorizing Active',pct:[3,6],candidates:['magnesium-hydroxide','ethylhexylglycerin'],required:true},
+      {id:'soothing',phase:'C',label:'Skin Conditioner',pct:[1,3],candidates:['glycerin','panthenol'],required:false},
+      {id:'fragrance',phase:'C',label:'Fragrance',pct:[1,3],candidates:['tea-tree-eo','lavender-eo','peppermint-eo'],required:false},
+    ],
+    instructions:[
+      'Combine alcohol/propanediol carrier with water/hydrosol.',
+      'Dissolve deodorizing active and skin conditioner into the mixture.',
+      'Add fragrance and shake well.',
+      'Fill into a fine-mist spray bottle; shake before each use and spray onto clean underarms.',
+    ]
+  },
+
+  'perfume-oil': {
+    name:'Perfume Oil / Eau de Parfum', category:'perfume', difficulty:2,
+    phTarget:'N/A', shelfLife:'24 months',
+    slots:[
+      {id:'carrier',phase:'A',label:'Carrier (Oil or Alcohol)',pct:[80,92],candidates:['jojoba','perfumers-alcohol','propanediol'],goalMap:{'long-lasting':'jojoba'},required:true},
+      {id:'top-note',phase:'C',label:'Top Note',pct:[2,5],candidates:['peppermint-eo',{name:'Bergamot Essential Oil',inci:'Citrus Bergamia Oil',emoji:'🍋'}],goalMap:{'fresh-citrus':'peppermint-eo'},required:true},
+      {id:'mid-note',phase:'C',label:'Heart / Mid Note',pct:[3,8],candidates:['rose-eo','lavender-eo','fragrance-oil-blend'],goalMap:{floral:'rose-eo'},required:true},
+      {id:'base-note',phase:'C',label:'Base Note',pct:[2,6],candidates:['frankincense-eo',{name:'Sandalwood Essential Oil',inci:'Santalum Album Oil',emoji:'🪵'}],goalMap:{woody:'frankincense-eo'},required:true},
+    ],
+    instructions:[
+      'Measure carrier into a dark glass bottle.',
+      'Add base notes first, then mid (heart) notes, then top notes — building the fragrance pyramid.',
+      'Swirl gently to combine; avoid shaking to limit oxidation.',
+      'Let the blend mature ("macerate") in a cool, dark place for 1–4 weeks before use.',
+      'Decant into a roller bottle or spray atomizer.',
+    ]
+  },
+
+  'body-mist': {
+    name:'Body Mist', category:'perfume', difficulty:1,
+    phTarget:'N/A', shelfLife:'12 months',
+    slots:[
+      {id:'water',phase:'A',label:'Water / Floral Hydrosol',pct:[70,80],candidates:['water','rose-water','aloe-vera'],required:true},
+      {id:'carrier',phase:'A',label:"Perfumer's Alcohol / Solubilizer",pct:[15,25],candidates:['perfumers-alcohol','propanediol'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance Blend',pct:[2,5],candidates:['fragrance-oil-blend','lavender-eo','rose-eo'],required:true},
+      {id:'humectant',phase:'C',label:'Skin Conditioner',pct:[1,2],candidates:['glycerin','panthenol'],required:false},
+    ],
+    instructions:[
+      'Combine water/hydrosol with the alcohol or solubilizer carrier.',
+      'Add fragrance blend and skin conditioner; mix gently.',
+      'Let rest for 24 hours, then filter if needed for clarity.',
+      'Fill into a fine-mist spray bottle and mist over body or hair.',
+    ]
+  },
 };
 
 // Product type → template key mapping
 const PRODUCT_TYPES = {
-  'Skincare': ['Face Moisturizer','Face Serum','Face Wash','Toner','Face Mask'],
-  'Haircare': ['Shampoo','Conditioner','Hair Oil'],
-  'Beard Care': ['Beard Oil','Beard Balm'],
-  'Body Care': ['Body Lotion','Body Butter'],
-  'Lip Care': ['Lip Balm'],
-  'Bath Products': ['Bath Bomb'],
-  'Deodorants': ['Roll-On Deodorant'],
+  'Skincare': ['Face Wash / Cleanser','Face Serum','Toner','Face Moisturizer','Face Cream','Face Mask','Face Scrub / Exfoliator','Eye Cream','Spot Treatment','Night Cream','Sunscreen / SPF Lotion'],
+  'Haircare': ['Shampoo','Conditioner','Hair Mask','Hair Serum','Hair Oil','Leave-In Conditioner','Scalp Treatment','Hair Growth Tonic','Anti-Frizz Cream','Hair Gel'],
+  'Beard Care': ['Beard Oil','Beard Balm','Beard Wash / Shampoo','Beard Conditioner','Beard Growth Serum'],
+  'Body Care': ['Body Lotion','Body Butter','Body Wash','Body Scrub','Hand Cream','Foot Cream','Stretch Mark Oil','Body Oil'],
+  'Lip Care': ['Lip Balm','Lip Scrub','Lip Oil','Tinted Lip Balm'],
+  'Bath Products': ['Bath Bomb','Bath Salts','Bubble Bath','Soap Bar'],
+  'Deodorants': ['Roll-On Deodorant','Stick Deodorant','Cream Deodorant','Spray Deodorant'],
+  'Perfumes': ['Perfume Oil','Body Mist','Eau de Toilette / Parfum'],
 };
 
 const TYPE_TO_TEMPLATE = {
-  'Face Moisturizer':'face-moisturizer','Face Serum':'face-serum',
-  'Face Wash':'face-wash','Toner':'toner','Face Mask':'face-mask',
-  'Shampoo':'shampoo','Conditioner':'conditioner','Hair Oil':'hair-oil',
-  'Beard Oil':'beard-oil','Beard Balm':'beard-balm',
-  'Body Lotion':'body-lotion','Body Butter':'body-butter',
-  'Lip Balm':'lip-balm','Bath Bomb':'bath-bomb',
-  'Roll-On Deodorant':'roll-on-deodorant',
+  'Face Wash / Cleanser':'face-wash','Face Serum':'face-serum','Toner':'toner',
+  'Face Moisturizer':'face-moisturizer','Face Cream':'face-moisturizer','Face Mask':'face-mask',
+  'Face Scrub / Exfoliator':'face-scrub','Eye Cream':'eye-cream','Spot Treatment':'face-serum',
+  'Night Cream':'night-cream','Sunscreen / SPF Lotion':'face-moisturizer',
+  'Shampoo':'shampoo','Conditioner':'conditioner','Hair Mask':'hair-mask','Hair Serum':'hair-serum',
+  'Hair Oil':'hair-oil','Leave-In Conditioner':'leave-in-conditioner','Scalp Treatment':'scalp-treatment',
+  'Hair Growth Tonic':'scalp-treatment','Anti-Frizz Cream':'hair-mask','Hair Gel':'hair-serum',
+  'Beard Oil':'beard-oil','Beard Balm':'beard-balm','Beard Wash / Shampoo':'beard-wash',
+  'Beard Conditioner':'beard-oil','Beard Growth Serum':'beard-oil',
+  'Body Lotion':'body-lotion','Body Butter':'body-butter','Body Wash':'body-wash',
+  'Body Scrub':'body-scrub','Hand Cream':'hand-cream','Foot Cream':'hand-cream',
+  'Stretch Mark Oil':'body-oil','Body Oil':'body-oil',
+  'Lip Balm':'lip-balm','Lip Scrub':'lip-scrub','Lip Oil':'lip-oil','Tinted Lip Balm':'lip-balm',
+  'Bath Bomb':'bath-bomb','Bath Salts':'bath-salts','Bubble Bath':'bubble-bath','Soap Bar':'soap-bar',
+  'Roll-On Deodorant':'roll-on-deodorant','Stick Deodorant':'stick-deodorant',
+  'Cream Deodorant':'cream-deodorant','Spray Deodorant':'spray-deodorant',
+  'Perfume Oil':'perfume-oil','Body Mist':'body-mist','Eau de Toilette / Parfum':'perfume-oil',
+};
+
+// ═══════════════════════════════════════
+// CURRENCIES
+// ═══════════════════════════════════════
+const CURRENCIES = {
+  USD: { symbol:'$', rate:1,     name:'US Dollar' },
+  EUR: { symbol:'€', rate:0.92,  name:'Euro' },
+  GBP: { symbol:'£', rate:0.79,  name:'British Pound' },
+  INR: { symbol:'₹', rate:83.3,  name:'Indian Rupee' },
+  AUD: { symbol:'A$',rate:1.52,  name:'Australian Dollar' },
+  CAD: { symbol:'C$',rate:1.36,  name:'Canadian Dollar' },
+  JPY: { symbol:'¥', rate:151,   name:'Japanese Yen' },
+  AED: { symbol:'د.إ',rate:3.67, name:'UAE Dirham' },
+  SAR: { symbol:'﷼', rate:3.75,  name:'Saudi Riyal' },
+  ZAR: { symbol:'R', rate:18.9,  name:'South African Rand' },
+  SGD: { symbol:'S$',rate:1.35,  name:'Singapore Dollar' },
+  BRL: { symbol:'R$',rate:5.4,   name:'Brazilian Real' },
+};
+function getCurrency() { return loadData('currency', 'USD'); }
+function formatCost(usd) {
+  const cur = CURRENCIES[getCurrency()] || CURRENCIES.USD;
+  const val = (usd || 0) * cur.rate;
+  const decimals = cur.rate >= 50 ? 0 : 2;
+  return cur.symbol + val.toFixed(decimals);
+}
+
+// ═══════════════════════════════════════
+// CATEGORY-SPECIFIC GOALS
+// ═══════════════════════════════════════
+const GOALS_BY_CATEGORY = {
+  'Skincare': [
+    {label:'Hydration', key:'hydration'}, {label:'Anti-Aging', key:'anti-aging'},
+    {label:'Brightening', key:'brightening'}, {label:'Acne Control', key:'acne'},
+    {label:'Sensitive Skin Care', key:'sensitive'}, {label:'Pore Minimizing', key:'pore-minimizing'},
+    {label:'Oil Control', key:'oily'}, {label:'Exfoliation', key:'exfoliation'},
+    {label:'Redness Reduction', key:'redness'}, {label:'Firming & Lifting', key:'firming'},
+    {label:'Dark Spot Correction', key:'dark-spots'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Haircare': [
+    {label:'Hair Growth', key:'hair-growth'}, {label:'Frizz Control', key:'frizz'},
+    {label:'Damage Repair', key:'damage-repair'}, {label:'Scalp Health', key:'scalp-health'},
+    {label:'Volume & Thickening', key:'volume'}, {label:'Shine Enhancement', key:'shine'},
+    {label:'Dandruff Control', key:'dandruff'}, {label:'Color Protection', key:'color-protect'},
+    {label:'Curl Definition', key:'curl-definition'}, {label:'Dry Hair Care', key:'dry'},
+    {label:'Fine Hair Care', key:'fine'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Beard Care': [
+    {label:'Beard Softening', key:'softening'}, {label:'Beard Growth', key:'growth'},
+    {label:'Itch & Dandruff Relief', key:'itch-relief'}, {label:'Shine & Conditioning', key:'shine'},
+    {label:'Styling Hold', key:'hold'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Body Care': [
+    {label:'Hydration', key:'hydration'}, {label:'Firming & Toning', key:'firming'},
+    {label:'Exfoliation', key:'exfoliation'}, {label:'Stretch Mark Care', key:'stretch-marks'},
+    {label:'Cooling & Soothing', key:'cooling'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Lip Care': [
+    {label:'Hydration', key:'hydration'}, {label:'Lip Plumping', key:'plumping'},
+    {label:'Sun Protection', key:'spf'}, {label:'Healing & Repair', key:'healing'},
+    {label:'Tinted Color', key:'tinted'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Bath Products': [
+    {label:'Relaxation', key:'relaxation'}, {label:'Skin Softening', key:'softening'},
+    {label:'Aromatherapy', key:'aromatherapy'}, {label:'Detoxifying', key:'detox'},
+    {label:'Energizing', key:'energizing'}, {label:'Natural / Organic', key:'natural'},
+  ],
+  'Deodorants': [
+    {label:'Odor Control', key:'odor-control'}, {label:'Sweat / Wetness Control', key:'sweat-control'},
+    {label:'Sensitive Skin', key:'sensitive'}, {label:'Long-Lasting', key:'long-lasting'},
+    {label:'Natural / Aluminum-Free', key:'natural'},
+  ],
+  'Perfumes': [
+    {label:'Long-Lasting', key:'long-lasting'}, {label:'Fresh & Citrus', key:'fresh-citrus'},
+    {label:'Floral', key:'floral'}, {label:'Woody & Earthy', key:'woody'},
+    {label:'Oriental & Spicy', key:'oriental'}, {label:'Natural / Organic', key:'natural'},
+  ],
+};
+
+// ═══════════════════════════════════════
+// SKIN / HAIR TYPES (multi-select)
+// ═══════════════════════════════════════
+const SKIN_TYPES = ['Normal','Dry','Oily','Combination','Sensitive','Mature','Acne-Prone','All Types'];
+const HAIR_TYPES = ['Straight','Wavy','Curly','Coily','Fine','Thick','Oily Scalp','Dry Scalp','Color-Treated','Chemically Treated'];
+
+// ═══════════════════════════════════════
+// TEXTURE / CONSISTENCY / NATURAL PREFERENCE
+// ═══════════════════════════════════════
+const TEXTURES = [
+  {key:'lightweight', label:'Lightweight', desc:'Fast-absorbing, light feel', icon:'💧'},
+  {key:'medium',      label:'Medium',      desc:'Balanced, everyday feel', icon:'🌊'},
+  {key:'rich',        label:'Rich',        desc:'Nourishing, heavier feel', icon:'🧈'},
+];
+const BASES = [
+  {key:'water-based', label:'Water-Based', desc:'Lightweight gel/lotion, high water content', icon:'💦'},
+  {key:'gel-based',   label:'Gel-Based',   desc:'Cooling gel texture, minimal oils', icon:'🧊'},
+  {key:'oil-based',   label:'Oil-Based',   desc:'Oil-rich lotion or balm', icon:'🫒'},
+  {key:'anhydrous',   label:'Anhydrous',   desc:'No water — balms, oils, sticks', icon:'🕯️'},
+];
+const NATURAL_PREFS = [
+  {key:'any',               label:'No Preference',              desc:'Best ingredient for the job, natural or synthetic'},
+  {key:'mostly-natural',    label:'Mostly Natural',             desc:'Prefer plant-derived & naturally-sourced ingredients'},
+  {key:'certified-organic', label:'Certified Natural / Organic',desc:'Strongly prefer certified organic / natural actives'},
+  {key:'conventional',      label:'Conventional (Performance)', desc:'Prioritize proven synthetic actives & performance'},
+];
+
+// ═══════════════════════════════════════
+// AI PROVIDER CONFIG
+// ═══════════════════════════════════════
+const AI_PROVIDERS = {
+  claude: { name:'Anthropic Claude', defaultModel:'claude-sonnet-4-6', placeholder:'sk-ant-...' },
+  openai: { name:'OpenAI', defaultModel:'gpt-4o-mini', placeholder:'sk-...' },
+  gemini: { name:'Google Gemini', defaultModel:'gemini-2.0-flash', placeholder:'AIza...' },
+  custom: { name:'Custom (OpenAI-Compatible)', defaultModel:'', placeholder:'API key' },
 };
 
 // ═══════════════════════════════════════
@@ -1292,7 +2234,7 @@ const TYPE_TO_TEMPLATE = {
 const state = {
   currentScreen: 'home',
   prevScreen: null,
-  wizard: { step:1, category:'', productType:'', goals:[], skinType:'', budget:'mid', fragrance:'light', batchSize:100 },
+  wizard: { step:1, category:'', productType:'', goals:[], skinTypes:[], texture:'', base:'', naturalPref:'any', budget:'mid', fragrance:'light', batchSize:100 },
   currentFormula: null,
   currentIngredientKey: null,
   currentFormulaIndex: null,
@@ -1306,6 +2248,89 @@ function loadData(key, def=[]) {
 }
 function saveData(key, val) {
   localStorage.setItem('acs_'+key, JSON.stringify(val));
+}
+
+// ═══════════════════════════════════════
+// AI INTEGRATION (provider-agnostic — user supplies their own key)
+// ═══════════════════════════════════════
+function getAISettings() {
+  return loadData('aiSettings', null);
+}
+function aiConfigured() {
+  const cfg = getAISettings();
+  return !!(cfg && cfg.provider && cfg.apiKey);
+}
+
+async function callAI(systemPrompt, userPrompt) {
+  const cfg = getAISettings();
+  if (!cfg || !cfg.apiKey || !cfg.provider) throw new Error('No AI provider configured. Add your API key in AI Settings.');
+
+  if (cfg.provider === 'claude') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': cfg.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: cfg.model || AI_PROVIDERS.claude.defaultModel,
+        max_tokens: 1200,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || 'Claude request failed');
+    return (data.content && data.content[0] && data.content[0].text) || '';
+  }
+
+  if (cfg.provider === 'openai' || cfg.provider === 'custom') {
+    const endpoint = cfg.endpoint || 'https://api.openai.com/v1/chat/completions';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + cfg.apiKey },
+      body: JSON.stringify({
+        model: cfg.model || AI_PROVIDERS.openai.defaultModel,
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error((data.error && data.error.message) || 'AI request failed');
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  }
+
+  if (cfg.provider === 'gemini') {
+    const model = cfg.model || AI_PROVIDERS.gemini.defaultModel;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }] }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error((data.error && data.error.message) || 'Gemini request failed');
+    return (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0].text) || '';
+  }
+
+  throw new Error('Unknown AI provider: ' + cfg.provider);
+}
+
+async function getAIFormulaInsights(formula, wizard) {
+  const ingList = formula.rows.map(r => `${r.ing.name} (${r.pct}%, ${phaseLabel(r.slot.phase)})`).join(', ');
+  const system = "You are an expert cosmetic chemist and formulation mentor speaking to a hobbyist DIY formulator. " +
+    "Be concise, encouraging, and specific. Use short paragraphs or bullet points. Avoid medical claims; remind users to patch-test.";
+  const user = `I just generated this cosmetic formula in my app — please give me personalized formulator insights.\n\n` +
+    `Product: ${formula.name} (${formula.productType})\n` +
+    `Goals: ${(formula.goals||[]).join(', ') || 'general'}\n` +
+    `Skin/Hair Type(s): ${(formula.skinTypes||[]).join(', ') || 'not specified'}\n` +
+    `Texture: ${formula.texture || 'n/a'} | Base: ${formula.base || 'n/a'} | Ingredient preference: ${formula.naturalPref || 'any'}\n` +
+    `Batch size: ${formula.batchSize}g | Target pH: ${formula.phTarget} | Shelf life: ${formula.shelfLife}\n` +
+    `Ingredients chosen: ${ingList}\n\n` +
+    `Please explain (briefly): 1) why this combination works well for the stated goals, 2) one tip to improve results or stability, ` +
+    `and 3) one common mistake to avoid when making this product at home.`;
+  const text = await callAI(system, user);
+  return (text || '').trim();
 }
 
 // ═══════════════════════════════════════
@@ -1325,6 +2350,7 @@ function navigate(screen) {
   const renders = {
     home: renderHome, formulate: renderFormulate, ingredients: renderIngredients,
     inventory: renderInventory, notebook: renderNotebook, 'my-formulas': renderMyFormulas,
+    'ai-settings': renderAISettings, 'ai-mentor': renderAIMentor,
   };
   if (renders[screen]) renders[screen]();
 }
@@ -1332,10 +2358,24 @@ function navigate(screen) {
 // ═══════════════════════════════════════
 // FORMULATION ENGINE
 // ═══════════════════════════════════════
-function resolveIngredient(slot, goals, skinType, budget) {
+// Heuristic: flag ingredients whose INCI suggests a synthetic/lab-made origin
+const SYNTHETIC_MARKERS = ['PEG','Polysorbate','Sodium Laureth','Sodium Lauryl','Dimethicone','Phenoxyethanol',
+  'Carbomer','Polyquaternium','Cetrimonium','Behentrimonium','EDTA','Acrylates','Silicone','Paraffin',
+  'Mineral Oil','Triethanolamine','Propylene Glycol','Polyacrylate','Alcohol Denat'];
+function isNaturalIngredient(ing) {
+  if (!ing || !ing.inci) return true;
+  const inci = ing.inci.toUpperCase();
+  return !SYNTHETIC_MARKERS.some(m => inci.includes(m.toUpperCase()));
+}
+
+function resolveIngredient(slot, wizard) {
   if (Array.isArray(slot.candidates) && slot.candidates.length > 0 && typeof slot.candidates[0] === 'object') {
     return slot.candidates[0]; // inline ingredient objects (bath bomb, deodorant dry phase)
   }
+  const goals = wizard.goals || [];
+  const skinTypes = wizard.skinTypes || [];
+  const budget = wizard.budget;
+  const naturalPref = wizard.naturalPref || 'any';
   let pick = null;
   // Goal-based selection
   if (slot.goalMap) {
@@ -1345,11 +2385,20 @@ function resolveIngredient(slot, goals, skinType, budget) {
       }
     }
   }
-  // Skin type fallback
-  if (!pick && slot.skinMap && slot.skinMap[skinType]) pick = slot.skinMap[skinType];
-  // Budget filter
+  // Skin/hair type fallback (multi-select — first matching type wins)
+  if (!pick && slot.skinMap) {
+    for (const st of skinTypes) {
+      const stKey = st.toLowerCase();
+      if (slot.skinMap[stKey] && INGREDIENTS[slot.skinMap[stKey]]) { pick = slot.skinMap[stKey]; break; }
+    }
+  }
+  // Natural-ingredient preference + budget filters
   if (!pick) {
     let candidates = slot.candidates.filter(k => INGREDIENTS[k]);
+    if (naturalPref === 'certified-organic' || naturalPref === 'mostly-natural') {
+      const natural = candidates.filter(k => isNaturalIngredient(INGREDIENTS[k]));
+      if (natural.length > 0) candidates = natural;
+    }
     if (budget === 'economy') candidates = candidates.filter(k => INGREDIENTS[k].costLevel <= 2) || candidates;
     if (budget === 'premium') candidates = candidates.filter(k => INGREDIENTS[k].costLevel >= 3) || candidates;
     if (candidates.length === 0) candidates = slot.candidates.filter(k => INGREDIENTS[k]);
@@ -1368,7 +2417,7 @@ function generateFormula(wizard) {
 
   for (const slot of tmpl.slots) {
     if (slot.required === false && wizard.fragrance === 'unscented' && slot.id === 'fragrance') continue;
-    const ing = resolveIngredient(slot, wizard.goals, wizard.skinType, wizard.budget);
+    const ing = resolveIngredient(slot, wizard);
     if (!ing) continue;
     const pct = (slot.pct[0] + slot.pct[1]) / 2;
     rows.push({ slot, ing, pct });
@@ -1406,7 +2455,10 @@ function generateFormula(wizard) {
     productType: wizard.productType,
     category: tmpl.category,
     goals: wizard.goals,
-    skinType: wizard.skinType,
+    skinTypes: wizard.skinTypes,
+    texture: wizard.texture,
+    base: wizard.base,
+    naturalPref: wizard.naturalPref,
     batchSize: wizard.batchSize,
     rows,
     instructions: tmpl.instructions,
@@ -1489,7 +2541,7 @@ function renderHome() {
       <div class="qa-card" onclick="navigate('ingredients')">
         <div class="qa-icon" style="background:rgba(124,58,237,.15)">🌿</div>
         <h3>Ingredients</h3>
-        <p>Browse 70+ ingredients</p>
+        <p>Browse 100+ ingredients</p>
       </div>
       <div class="qa-card" onclick="navigate('inventory')">
         <div class="qa-icon" style="background:rgba(6,182,212,.15)">📦</div>
@@ -1501,6 +2553,11 @@ function renderHome() {
         <h3>Lab Notebook</h3>
         <p>Record experiments</p>
       </div>
+      <div class="qa-card" onclick="navigate('ai-mentor')">
+        <div class="qa-icon" style="background:rgba(16,185,129,.15)">✨</div>
+        <h3>AI Mentor</h3>
+        <p>${aiConfigured() ? 'Chat with your AI formulation expert' : 'Connect an AI key to unlock'}</p>
+      </div>
     </div>
     ${formulas.length > 0 ? `
     <div class="section-title">Recent Formulas</div>
@@ -1511,7 +2568,7 @@ function renderHome() {
             <div style="font-weight:600;font-size:14px">${f.name}</div>
             <div style="font-size:12px;color:var(--sub)">${f.productType} · ${f.batchSize}g · ${f.createdAt}</div>
           </div>
-          <span class="badge badge-primary">$${f.totalCost}</span>
+          <span class="badge badge-primary">${formatCost(f.totalCost)}</span>
         </div>
       </div>`).join('')}
     <button class="btn btn-secondary" style="margin-top:4px" onclick="navigate('my-formulas')">View All Formulas</button>
@@ -1527,18 +2584,28 @@ function renderHome() {
   `;
 }
 
+function freshWizard(cat='') {
+  return { step:1, category:cat, productType:'', goals:[], skinTypes:[], texture:'', base:'', naturalPref:'any', budget:'mid', fragrance:'light', batchSize:100 };
+}
 function startWizardCategory(cat) {
-  state.wizard = { step:1, category:cat, productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+  state.wizard = freshWizard(cat);
   navigate('formulate');
 }
+
+const CATEGORY_ICONS = {Skincare:'🧴',Haircare:'💇','Beard Care':'🧔','Body Care':'🫧','Lip Care':'💄','Bath Products':'🛁',Deodorants:'🌸',Perfumes:'🌺'};
+function isHairCategory(cat) { return cat === 'Haircare' || cat === 'Beard Care'; }
+function typeOptionsForCategory(cat) { return isHairCategory(cat) ? HAIR_TYPES : SKIN_TYPES; }
+function typeLabelForCategory(cat) { return isHairCategory(cat) ? 'Hair Type(s)' : 'Skin Type(s)'; }
+
+const WIZARD_STEPS = ['Category','Product Type','Goals','Skin / Hair Type','Texture & Base','Natural Preference','Settings','Review'];
 
 // ═══════════════════════════════════════
 // RENDER: FORMULATION WIZARD
 // ═══════════════════════════════════════
 function renderFormulate() {
   const w = state.wizard;
-  const steps = ['Category','Product Type','Goals','Skin / Hair','Settings','Review'];
-  document.getElementById('wizard-step-label').textContent = `Step ${w.step} of ${steps.length}`;
+  const steps = WIZARD_STEPS;
+  document.getElementById('wizard-step-label').textContent = `Step ${w.step} of ${steps.length} — ${steps[w.step-1]}`;
 
   const stepsHtml = `<div class="step-indicator">${steps.map((_,i)=>`<div class="step-dot ${i+1===w.step?'active':i+1<w.step?'done':''}"></div>`).join('')}</div>`;
 
@@ -1550,7 +2617,7 @@ function renderFormulate() {
     ${Object.keys(PRODUCT_TYPES).map(cat=>`
       <div class="card-sm" style="cursor:pointer;border-color:${w.category===cat?'var(--primary)':'var(--border)'};background:${w.category===cat?'rgba(217,79,160,.08)':'var(--card)'}" onclick="selectCategory('${cat}')">
         <div style="display:flex;align-items:center;gap:12px">
-          <div style="font-size:26px">${{Skincare:'🧴',Haircare:'💇',Beard:'🧔','Beard Care':'🧔','Body Care':'🫧','Lip Care':'💄','Bath Products':'🛁',Deodorants:'🌸',Perfumes:'🌺'}[cat]||'🧪'}</div>
+          <div style="font-size:26px">${CATEGORY_ICONS[cat]||'🧪'}</div>
           <span style="font-size:15px;font-weight:500">${cat}</span>
           ${w.category===cat?'<span style="margin-left:auto;color:var(--primary)">✓</span>':''}
         </div>
@@ -1580,14 +2647,12 @@ function renderFormulate() {
   }
 
   else if (w.step === 3) {
-    const goalOptions = ['Hydration','Anti-Aging','Brightening','Acne Control','Sensitive Skin','Hair Growth','Frizz Control','Damage Repair','Natural/Organic','Premium Performance','Economy'];
-    const goalKeys = {Hydration:'hydration','Anti-Aging':'anti-aging',Brightening:'brightening','Acne Control':'acne','Sensitive Skin':'sensitive','Hair Growth':'hair-growth','Frizz Control':'frizz','Damage Repair':'damage-repair','Natural/Organic':'natural','Premium Performance':'premium',Economy:'economy'};
+    const goalOptions = GOALS_BY_CATEGORY[w.category] || GOALS_BY_CATEGORY['Skincare'];
     html += `<div class="section-title">Your Goals (select all that apply)</div>
-    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Choose goals to customize your formula with targeted ingredients.</p>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Choose goals to customize your formula with targeted ingredients for ${w.category}.</p>
     <div>${goalOptions.map(g=>{
-      const k = goalKeys[g];
-      const sel = w.goals.includes(k);
-      return `<div class="chip ${sel?'selected':''}" onclick="toggleGoal('${k}')" style="margin:4px;display:inline-block">${g}</div>`;
+      const sel = w.goals.includes(g.key);
+      return `<div class="chip ${sel?'selected':''}" onclick="toggleGoal('${g.key}')" style="margin:4px;display:inline-block">${g.label}</div>`;
     }).join('')}</div>
     <div class="btn-row" style="margin-top:20px">
       <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
@@ -1596,13 +2661,14 @@ function renderFormulate() {
   }
 
   else if (w.step === 4) {
-    const skinTypes = ['Normal','Dry','Oily','Combination','Sensitive','Mature','All'];
-    html += `<div class="section-title">Skin / Hair Type</div>
+    const options = typeOptionsForCategory(w.category);
+    html += `<div class="section-title">${typeLabelForCategory(w.category)}</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Select all that apply — your formula will be tailored to match.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
-    ${skinTypes.map(t=>{
-      const k = t.toLowerCase();
-      return `<div class="card-sm" style="cursor:pointer;text-align:center;border-color:${w.skinType===k?'var(--primary)':'var(--border)'}" onclick="state.wizard.skinType='${k}';renderFormulate()">
-        <span style="font-size:14px;font-weight:500">${t}</span>
+    ${options.map(t=>{
+      const sel = w.skinTypes.includes(t);
+      return `<div class="card-sm" style="cursor:pointer;text-align:center;border-color:${sel?'var(--primary)':'var(--border)'};background:${sel?'rgba(217,79,160,.08)':'var(--card)'}" onclick="toggleSkinType('${t.replace(/'/g,"\\'")}')">
+        <span style="font-size:14px;font-weight:500">${t}</span>${sel?' <span style="color:var(--primary)">✓</span>':''}
       </div>`;
     }).join('')}
     </div>
@@ -1613,6 +2679,62 @@ function renderFormulate() {
   }
 
   else if (w.step === 5) {
+    html += `<div class="section-title">Texture & Consistency</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:10px">How should your formula feel and what should its base be?</p>
+    <div class="form-group">
+      <label class="form-label">Texture / Weight</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        ${TEXTURES.map(t=>`
+          <div class="card-sm" style="cursor:pointer;text-align:center;border-color:${w.texture===t.key?'var(--primary)':'var(--border)'}" onclick="state.wizard.texture='${t.key}';renderFormulate()">
+            <div style="font-size:18px">${t.icon}</div>
+            <div style="font-size:12px;font-weight:600;margin-top:4px">${t.label}</div>
+            <div style="font-size:10px;color:var(--sub);margin-top:2px">${t.desc}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Base / Consistency</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${BASES.map(b=>`
+          <div class="card-sm" style="cursor:pointer;border-color:${w.base===b.key?'var(--primary)':'var(--border)'}" onclick="state.wizard.base='${b.key}';renderFormulate()">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">${b.icon}</span>
+              <div>
+                <div style="font-size:12px;font-weight:600">${b.label}</div>
+                <div style="font-size:10px;color:var(--sub)">${b.desc}</div>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 6) {
+    html += `<div class="section-title">Ingredient Preference</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:14px">Should we favor naturally-derived ingredients when choosing candidates for your formula?</p>
+    <div style="display:grid;gap:8px">
+    ${NATURAL_PREFS.map(p=>`
+      <div class="card-sm" style="cursor:pointer;border-color:${w.naturalPref===p.key?'var(--primary)':'var(--border)'};background:${w.naturalPref===p.key?'rgba(217,79,160,.08)':'var(--card)'}" onclick="state.wizard.naturalPref='${p.key}';renderFormulate()">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:600">${p.label}</div>
+            <div style="font-size:11px;color:var(--sub);margin-top:2px">${p.desc}</div>
+          </div>
+          ${w.naturalPref===p.key?'<span style="color:var(--primary)">✓</span>':''}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
+      <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
+    </div>`;
+  }
+
+  else if (w.step === 7) {
     html += `<div class="section-title">Formula Settings</div>
     <div class="form-group">
       <label class="form-label">Budget Level</label>
@@ -1638,19 +2760,29 @@ function renderFormulate() {
       <label class="form-label">Batch Size (grams)</label>
       <input class="form-input" type="number" value="${w.batchSize}" oninput="state.wizard.batchSize=+this.value" min="10" max="1000" placeholder="100">
     </div>
+    <div class="form-group">
+      <label class="form-label">Currency for Cost Estimates</label>
+      <select class="form-input" onchange="saveData('currency', this.value); renderFormulate();">
+        ${Object.keys(CURRENCIES).map(code=>`<option value="${code}" ${getCurrency()===code?'selected':''}>${code} — ${CURRENCIES[code].name} (${CURRENCIES[code].symbol})</option>`).join('')}
+      </select>
+    </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
       <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
     </div>`;
   }
 
-  else if (w.step === 6) {
+  else if (w.step === 8) {
+    const goalLabels = (GOALS_BY_CATEGORY[w.category]||[]).filter(g=>w.goals.includes(g.key)).map(g=>g.label);
     html += `<div class="section-title">Review & Generate</div>
     <div class="card">
       <div class="detail-row"><label>Category</label><span>${w.category}</span></div>
       <div class="detail-row"><label>Product Type</label><span>${w.productType}</span></div>
-      <div class="detail-row"><label>Goals</label><span>${w.goals.length>0?w.goals.join(', '):'General'}</span></div>
-      <div class="detail-row"><label>Skin/Hair Type</label><span>${w.skinType}</span></div>
+      <div class="detail-row"><label>Goals</label><span>${goalLabels.length>0?goalLabels.join(', '):'General'}</span></div>
+      <div class="detail-row"><label>${typeLabelForCategory(w.category)}</label><span>${w.skinTypes.length>0?w.skinTypes.join(', '):'Not specified'}</span></div>
+      <div class="detail-row"><label>Texture</label><span>${(TEXTURES.find(t=>t.key===w.texture)||{}).label||'Not specified'}</span></div>
+      <div class="detail-row"><label>Base</label><span>${(BASES.find(b=>b.key===w.base)||{}).label||'Not specified'}</span></div>
+      <div class="detail-row"><label>Ingredient Preference</label><span>${(NATURAL_PREFS.find(p=>p.key===w.naturalPref)||{}).label}</span></div>
       <div class="detail-row"><label>Budget</label><span>${w.budget}</span></div>
       <div class="detail-row"><label>Fragrance</label><span>${w.fragrance}</span></div>
       <div class="detail-row"><label>Batch Size</label><span>${w.batchSize}g</span></div>
@@ -1659,38 +2791,65 @@ function renderFormulate() {
       <label class="form-label">Formula Name (optional)</label>
       <input class="form-input" id="formula-name-input" placeholder="${w.productType} Formula" value="${w.productName||''}">
     </div>
+    ${aiConfigured() ? `<p style="font-size:12px;color:var(--accent);margin-bottom:6px">✨ AI Mentor is connected — your result will include AI-generated formulator insights.</p>` : `<p style="font-size:12px;color:var(--sub);margin-bottom:6px">💡 Tip: Connect an AI provider in Settings for personalized AI formulator insights.</p>`}
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
-      <button class="btn btn-primary" onclick="doGenerate()">🧬 Generate Formula</button>
+      <button class="btn btn-primary" id="generate-btn" onclick="doGenerate()">🧬 Generate Formula</button>
     </div>`;
   }
 
   document.getElementById('formulate-content').innerHTML = html;
 }
 
-function selectCategory(cat) { state.wizard.category = cat; state.wizard.productType = ''; renderFormulate(); }
+function selectCategory(cat) {
+  state.wizard.category = cat;
+  state.wizard.productType = '';
+  state.wizard.goals = [];
+  state.wizard.skinTypes = [];
+  renderFormulate();
+}
 function selectType(t) { state.wizard.productType = t; renderFormulate(); }
 function toggleGoal(k) {
   const idx = state.wizard.goals.indexOf(k);
   if (idx >= 0) state.wizard.goals.splice(idx,1); else state.wizard.goals.push(k);
   renderFormulate();
 }
+function toggleSkinType(t) {
+  const idx = state.wizard.skinTypes.indexOf(t);
+  if (idx >= 0) state.wizard.skinTypes.splice(idx,1); else state.wizard.skinTypes.push(t);
+  renderFormulate();
+}
 function wizardNext() {
   const nameInput = document.getElementById('formula-name-input');
   if (nameInput) state.wizard.productName = nameInput.value;
-  if (state.wizard.step < 6) { state.wizard.step++; renderFormulate(); }
+  if (state.wizard.step < WIZARD_STEPS.length) { state.wizard.step++; renderFormulate(); }
 }
 function wizardPrev() { if (state.wizard.step > 1) { state.wizard.step--; renderFormulate(); } }
 
-function doGenerate() {
+async function doGenerate() {
   const nameInput = document.getElementById('formula-name-input');
   if (nameInput) state.wizard.productName = nameInput.value;
-  const formula = generateFormula(state.wizard);
+  const wizardSnapshot = {...state.wizard};
+  const formula = generateFormula(wizardSnapshot);
   state.currentFormula = formula;
   navigate('result');
   renderResult();
   // Reset wizard for next use
-  state.wizard = { step:1, category:'', productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+  state.wizard = freshWizard();
+
+  // If an AI provider is configured, fetch personalized formulator insights asynchronously
+  if (formula && aiConfigured()) {
+    formula.aiNotes = '__loading__';
+    renderResult();
+    try {
+      const notes = await getAIFormulaInsights(formula, wizardSnapshot);
+      formula.aiNotes = notes;
+    } catch(e) {
+      formula.aiNotes = null;
+      showToast('AI insights unavailable: ' + (e.message || 'request failed'));
+    }
+    if (state.currentFormula === formula) renderResult();
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1714,7 +2873,7 @@ function renderResult() {
       <td><span style="font-size:18px">${ing.emoji||'🧪'}</span></td>
       <td><div style="font-weight:500;font-size:13px">${ing.name}</div><div style="font-size:11px;color:var(--sub)">${ing.inci||''}</div></td>
       <td style="text-align:right;color:var(--accent);font-weight:600;white-space:nowrap">${r.pct}%</td>
-      <td style="text-align:right;white-space:nowrap">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">$${r.cost}</span></td>
+      <td style="text-align:right;white-space:nowrap">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">${formatCost(r.cost)}</span></td>
     </tr>`;
   }
 
@@ -1735,9 +2894,22 @@ function renderResult() {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${(f.goals||[]).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
-        <span class="badge badge-accent">${f.skinType}</span>
+        ${(f.skinTypes||[]).map(t=>`<span class="badge badge-accent">${t}</span>`).join('')}
       </div>
     </div>
+
+    ${f.aiNotes ? `
+    <div class="card" style="border-color:var(--accent);margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:18px">✨</span><strong style="font-size:14px">AI Formulator Insights</strong>
+      </div>
+      ${f.aiNotes === '__loading__'
+        ? `<p style="font-size:13px;color:var(--sub)">Generating personalized insights…</p>`
+        : `<p style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escapeHtml(f.aiNotes)}</p>`}
+    </div>` : (aiConfigured() ? '' : `
+    <div class="card" style="margin-bottom:14px">
+      <p style="font-size:12px;color:var(--sub)">💡 Connect an AI provider in <a href="#" onclick="navigate('ai-settings');return false" style="color:var(--accent)">AI Settings</a> to get personalized AI Formulator Insights for every formula.</p>
+    </div>`)}
 
     <div class="tabs" id="result-tabs">
       <div class="tab active" onclick="switchResultTab('formula',this)">Formula</div>
@@ -1752,8 +2924,8 @@ function renderResult() {
         </tr></thead><tbody>${tableRows}</tbody></table>
       </div>
       <div class="card">
-        <div class="detail-row"><label>Total Batch Cost</label><span style="color:var(--success);font-weight:700">$${f.totalCost}</span></div>
-        <div class="detail-row"><label>Cost per Gram</label><span>$${f.costPerG}/100g</span></div>
+        <div class="detail-row"><label>Total Batch Cost</label><span style="color:var(--success);font-weight:700">${formatCost(f.totalCost)}</span></div>
+        <div class="detail-row"><label>Cost per Gram</label><span>${formatCost(f.costPerG)}/100g</span></div>
         <div class="detail-row"><label>Target pH</label><span>${f.phTarget}</span></div>
         <div class="detail-row"><label>Estimated Shelf Life</label><span>${f.shelfLife}</span></div>
       </div>
@@ -1812,7 +2984,7 @@ function renderResult() {
           <div class="cost-item">
             <div class="cost-name">${r.ing.emoji} ${r.ing.name}</div>
             <div class="cost-bar-wrap"><div class="cost-bar-fill" style="width:${Math.round(r.cost/f.totalCost*100)||1}%"></div></div>
-            <div class="cost-val">$${r.cost}</div>
+            <div class="cost-val">${formatCost(r.cost)}</div>
           </div>`).join('')}
       </div>
     </div>
@@ -1844,7 +3016,7 @@ function saveCurrentFormula() {
 function addResultToNotebook() {
   if (!state.currentFormula) return;
   document.getElementById('note-title').value = state.currentFormula.name + ' — Notes';
-  document.getElementById('note-text').value = `Product: ${state.currentFormula.productType}\nBatch: ${state.currentFormula.batchSize}g\nCost: $${state.currentFormula.totalCost}\nGoals: ${state.currentFormula.goals.join(', ')}\n\nObservations:\n`;
+  document.getElementById('note-text').value = `Product: ${state.currentFormula.productType}\nBatch: ${state.currentFormula.batchSize}g\nCost: ${formatCost(state.currentFormula.totalCost)}\nGoals: ${state.currentFormula.goals.join(', ')}\n\nObservations:\n`;
   openAddNote();
 }
 
@@ -1921,7 +3093,7 @@ function renderIngredientDetail(key) {
       <div class="detail-section">
         <h3>💰 Cost Intelligence</h3>
         <div class="detail-row"><label>Cost Level</label><span>${costLevelStars(ing.costLevel)} (${['','Very Cheap','Cheap','Moderate','Premium','Luxury'][ing.costLevel]})</span></div>
-        <div class="detail-row"><label>Approx. Cost</label><span>$${ing.costPerKg}/kg</span></div>
+        <div class="detail-row"><label>Approx. Cost</label><span>${formatCost(ing.costPerKg)}/kg</span></div>
       </div>
       ${ing.alternatives && ing.alternatives.length > 0 ? `
       <div class="detail-section">
@@ -2003,7 +3175,7 @@ function renderMyFormulas() {
             <div style="font-size:15px;font-weight:700">${f.name}</div>
             <div style="font-size:12px;color:var(--sub);margin-top:2px">${f.productType} · ${f.createdAt}</div>
           </div>
-          <span class="badge badge-success">$${f.totalCost}</span>
+          <span class="badge badge-success">${formatCost(f.totalCost)}</span>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span class="badge badge-accent">${f.batchSize}g</span>
@@ -2045,7 +3217,7 @@ function buildFormulaHTML(f) {
       <td><span style="font-size:18px">${ing.emoji||'🧪'}</span></td>
       <td><div style="font-weight:500;font-size:13px">${ing.name}</div><div style="font-size:11px;color:var(--sub)">${ing.inci||''}</div></td>
       <td style="text-align:right;color:var(--accent);font-weight:600">${r.pct}%</td>
-      <td style="text-align:right">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">$${r.cost}</span></td>
+      <td style="text-align:right">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">${formatCost(r.cost)}</span></td>
     </tr>`;
   }
   const instructions = (f.instructions||[]).map((step,i)=>`
@@ -2065,7 +3237,7 @@ function buildFormulaHTML(f) {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${(f.goals||[]).map(g=>`<span class="badge badge-primary">${g}</span>`).join('')}
-        <span class="badge badge-accent">${f.skinType||''}</span>
+        ${(f.skinTypes||[]).map(t=>`<span class="badge badge-accent">${t}</span>`).join('')}
       </div>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
@@ -2074,7 +3246,7 @@ function buildFormulaHTML(f) {
       </tr></thead><tbody>${tableRows}</tbody></table>
     </div>
     <div class="card">
-      <div class="detail-row"><label>Total Cost</label><span style="color:var(--success);font-weight:700">$${f.totalCost}</span></div>
+      <div class="detail-row"><label>Total Cost</label><span style="color:var(--success);font-weight:700">${formatCost(f.totalCost)}</span></div>
       <div class="detail-row"><label>pH Target</label><span>${f.phTarget}</span></div>
       <div class="detail-row"><label>Shelf Life</label><span>${f.shelfLife}</span></div>
       <div class="detail-row"><label>Safety Score</label><span style="color:${scoreColor(f.safetyScore)}">${f.safetyScore}/100</span></div>
@@ -2107,7 +3279,7 @@ function renderInventory() {
   document.getElementById('inventory-content').innerHTML = `
     <div class="stats-row" style="margin-bottom:16px">
       <div class="stat-box"><div class="num">${items.length}</div><div class="lbl">Items</div></div>
-      <div class="stat-box"><div class="num">$${totalValue.toFixed(2)}</div><div class="lbl">Total Value</div></div>
+      <div class="stat-box"><div class="num">${formatCost(totalValue)}</div><div class="lbl">Total Value</div></div>
       <div class="stat-box"><div class="num" style="color:${expiringSoon>0?'var(--warning)':'var(--success)'}">${expiringSoon}</div><div class="lbl">Expiring</div></div>
     </div>
     ${items.length === 0
@@ -2123,7 +3295,7 @@ function renderInventory() {
           </div>
           <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
             <span class="badge badge-accent">${item.qty}g</span>
-            ${item.cost?`<span class="badge badge-success">$${item.cost}</span>`:''}
+            ${item.cost?`<span class="badge badge-success">${formatCost(item.cost)}</span>`:''}
             ${item.expiry?`<span class="badge ${new Date(item.expiry)<new Date()?'badge-danger':'badge-warning'}">${item.expiry}</span>`:''}
           </div>
         </div>`).join('')}
@@ -2219,6 +3391,158 @@ function deleteNote(i) {
 }
 
 // ═══════════════════════════════════════
+// RENDER: AI SETTINGS
+// ═══════════════════════════════════════
+function renderAISettings() {
+  const cfg = getAISettings() || { provider:'', apiKey:'', model:'', endpoint:'' };
+  document.getElementById('ai-settings-content').innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <p style="font-size:13px;color:var(--sub);line-height:1.5">
+        Connect your own AI provider to unlock <strong>AI Formulator Insights</strong> on every generated formula
+        and the <strong>AI Mentor</strong> chat. Your API key is stored only on this device (localStorage) and is sent
+        directly from your phone to your chosen provider — never through our servers.
+      </p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">AI Provider</label>
+      <div style="display:grid;gap:8px">
+        ${Object.keys(AI_PROVIDERS).map(p=>`
+          <div class="card-sm" style="cursor:pointer;border-color:${cfg.provider===p?'var(--primary)':'var(--border)'};background:${cfg.provider===p?'rgba(217,79,160,.08)':'var(--card)'}" onclick="selectAIProvider('${p}')">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:14px;font-weight:500">${AI_PROVIDERS[p].name}</span>
+              ${cfg.provider===p?'<span style="color:var(--primary)">✓</span>':''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${cfg.provider ? `
+    <div class="form-group">
+      <label class="form-label">API Key</label>
+      <input class="form-input" id="ai-api-key" type="password" placeholder="${(AI_PROVIDERS[cfg.provider]||{}).placeholder || 'API key'}" value="${cfg.apiKey||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Model <span style="color:var(--sub);font-weight:400">(optional — defaults shown as placeholder)</span></label>
+      <input class="form-input" id="ai-model" placeholder="${(AI_PROVIDERS[cfg.provider]||{}).defaultModel || 'model name'}" value="${cfg.model||''}">
+    </div>
+    ${cfg.provider === 'custom' ? `
+    <div class="form-group">
+      <label class="form-label">Endpoint URL (OpenAI-compatible /chat/completions)</label>
+      <input class="form-input" id="ai-endpoint" placeholder="https://your-provider.com/v1/chat/completions" value="${cfg.endpoint||''}">
+    </div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="clearAISettings()">Disconnect</button>
+      <button class="btn btn-primary" onclick="saveAISettingsForm()">💾 Save & Connect</button>
+    </div>
+    ` : `<p style="font-size:13px;color:var(--sub)">Select a provider above to continue.</p>`}
+    ${aiConfigured() ? `<div class="card" style="margin-top:16px;border-color:var(--success)"><p style="font-size:13px;color:var(--success)">✅ AI Mentor is connected via ${(AI_PROVIDERS[cfg.provider]||{}).name}.</p></div>` : ''}
+  `;
+}
+
+function selectAIProvider(p) {
+  const cfg = getAISettings() || { provider:'', apiKey:'', model:'', endpoint:'' };
+  cfg.provider = p;
+  saveData('aiSettings', cfg);
+  renderAISettings();
+}
+
+function saveAISettingsForm() {
+  const cfg = getAISettings() || {};
+  const keyInput = document.getElementById('ai-api-key');
+  const modelInput = document.getElementById('ai-model');
+  const endpointInput = document.getElementById('ai-endpoint');
+  if (keyInput) cfg.apiKey = keyInput.value.trim();
+  if (modelInput) cfg.model = modelInput.value.trim();
+  if (endpointInput) cfg.endpoint = endpointInput.value.trim();
+  if (!cfg.provider || !cfg.apiKey) { showToast('Choose a provider and enter your API key'); return; }
+  saveData('aiSettings', cfg);
+  showToast('AI provider connected ✨');
+  renderAISettings();
+}
+
+function clearAISettings() {
+  saveData('aiSettings', { provider:'', apiKey:'', model:'', endpoint:'' });
+  showToast('AI provider disconnected');
+  renderAISettings();
+}
+
+// ═══════════════════════════════════════
+// RENDER: AI MENTOR (chat)
+// ═══════════════════════════════════════
+function renderAIMentor() {
+  const messages = loadData('mentorChat', []);
+  const el = document.getElementById('ai-mentor-content');
+  if (!aiConfigured()) {
+    el.innerHTML = `
+      <div class="card" style="text-align:center;padding:28px">
+        <div style="font-size:36px;margin-bottom:10px">✨</div>
+        <h3 style="margin-bottom:6px">Connect an AI Provider</h3>
+        <p style="color:var(--sub);font-size:13px;margin-bottom:16px">Add your own API key (Claude, OpenAI, Gemini, or any compatible provider) to chat with your AI formulation mentor.</p>
+        <button class="btn btn-primary" onclick="navigate('ai-settings')">⚙️ Open AI Settings</button>
+      </div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div id="mentor-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:90px">
+      ${messages.length === 0 ? `
+        <div class="card" style="text-align:center;padding:20px">
+          <p style="color:var(--sub);font-size:13px">👋 Ask me anything about cosmetic formulation — ingredient swaps, troubleshooting separation, preservation, scaling a recipe, and more.</p>
+        </div>` : messages.map(m => `
+        <div style="align-self:${m.role==='user'?'flex-end':'flex-start'};max-width:85%">
+          <div class="card-sm" style="background:${m.role==='user'?'var(--primary-dark)':'var(--card)'};white-space:pre-wrap;font-size:13px;line-height:1.5">${escapeHtml(m.content)}</div>
+        </div>`).join('')}
+      <div id="mentor-loading" class="hidden" style="align-self:flex-start">
+        <div class="card-sm" style="font-size:13px;color:var(--sub)">✨ Thinking…</div>
+      </div>
+    </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:var(--bg);border-top:1px solid var(--border);display:flex;gap:8px;max-width:480px;margin:0 auto">
+      <input class="form-input" id="mentor-input" placeholder="Ask your AI mentor…" style="flex:1" onkeydown="if(event.key==='Enter')sendMentorMessage()">
+      <button class="btn btn-primary" onclick="sendMentorMessage()">Send</button>
+    </div>
+  `;
+  const wrap = document.getElementById('mentor-messages');
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function sendMentorMessage() {
+  const input = document.getElementById('mentor-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  const messages = loadData('mentorChat', []);
+  messages.push({ role:'user', content:text });
+  saveData('mentorChat', messages);
+  renderAIMentor();
+  const loadingEl = document.getElementById('mentor-loading');
+  if (loadingEl) loadingEl.classList.remove('hidden');
+
+  const system = "You are an expert cosmetic chemist and friendly formulation mentor helping a hobbyist DIY cosmetic maker. " +
+    "Give practical, specific, safety-conscious advice. Keep responses concise (under ~200 words) unless asked for detail. " +
+    "Avoid medical claims and remind users to patch test and follow proper hygiene/preservation practices.";
+  const history = messages.slice(-8).map(m => `${m.role === 'user' ? 'User' : 'Mentor'}: ${m.content}`).join('\n');
+  try {
+    const reply = await callAI(system, history);
+    const updated = loadData('mentorChat', []);
+    updated.push({ role:'assistant', content: (reply || '').trim() || "I couldn't generate a response — please try again." });
+    saveData('mentorChat', updated);
+  } catch(e) {
+    const updated = loadData('mentorChat', []);
+    updated.push({ role:'assistant', content: '⚠️ ' + (e.message || 'Something went wrong reaching the AI provider.') });
+    saveData('mentorChat', updated);
+  }
+  renderAIMentor();
+}
+
+function clearMentorChat() {
+  saveData('mentorChat', []);
+  renderAIMentor();
+}
+
+// ═══════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════
 let toastTimeout;
@@ -2242,7 +3566,7 @@ function showToast(msg) {
 function init() {
   renderHome();
   // Reset wizard
-  state.wizard = { step:1, category:'', productType:'', goals:[], skinType:'normal', budget:'mid', fragrance:'light', batchSize:100 };
+  state.wizard = freshWizard();
 }
 
 init();

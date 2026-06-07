@@ -1,19 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground — safe zone is the inner 72dp (18→90 on each axis).
+  All important shapes kept within 24→84 for conservative safety.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  <!-- Flask body -->
+
+  <!-- ── Soft glow ring (decorative, inside safe zone) ── -->
+  <path
+      android:fillColor="#33FF80FF"
+      android:pathData="M54,26 A28,28 0 1 1 53.99,26 Z"/>
+
+  <!-- ── Serum dropper bottle body (40→68 wide, 38→80 tall) ── -->
   <path
       android:fillColor="#D94FA0"
-      android:pathData="M42,30 L42,52 L28,72 Q24,80 32,84 L76,84 Q84,80 80,72 L66,52 L66,30 Z" />
-  <!-- Flask neck -->
+      android:pathData="M40,46 Q40,43 43,43 L65,43 Q68,43 68,46 L68,76 Q68,80 65,80 L43,80 Q40,80 40,76 Z"/>
+
+  <!-- ── Bottle neck (46→62 wide, 36→45 tall) ── -->
   <path
       android:fillColor="#7C3AED"
-      android:pathData="M38,24 L38,32 L70,32 L70,24 Q70,20 66,20 L42,20 Q38,20 38,24 Z" />
-  <!-- Bubbles -->
-  <circle android:fillColor="#FFFFFF" android:cx="45" cy="65" android:r="4" />
-  <circle android:fillColor="#FFFFFF" android:cx="58" cy="72" android:r="3" />
-  <circle android:fillColor="#FFFFFF" android:cx="50" cy="76" android:r="2.5" />
+      android:pathData="M46,36 L62,36 L62,45 L46,45 Z"/>
+
+  <!-- ── Rubber bulb top ── -->
+  <path
+      android:fillColor="#9B5CFF"
+      android:pathData="M46,36 Q46,27 54,27 Q62,27 62,36 Z"/>
+
+  <!-- ── Dropper tip (tapers to a point) ── -->
+  <path
+      android:fillColor="#B03080"
+      android:pathData="M49,78 L59,78 L56,87 Q54,90 52,87 Z"/>
+
+  <!-- ── Liquid fill (bottom 40% of bottle) ── -->
+  <path
+      android:fillColor="#FF80C8"
+      android:pathData="M40,64 L68,64 L68,76 Q68,80 65,80 L43,80 Q40,80 40,76 Z"/>
+
+  <!-- ── Shine highlight on bottle left side ── -->
+  <path
+      android:fillColor="#55FFFFFF"
+      android:pathData="M43,48 L47,48 L47,74 Q44.5,74 43,72 Z"/>
+
+  <!-- ── Label area: three horizontal lines ── -->
+  <path
+      android:fillColor="#55FFFFFF"
+      android:pathData="M45,55 L63,55 Q63,57 45,57 Z"/>
+  <path
+      android:fillColor="#44FFFFFF"
+      android:pathData="M45,59 L61,59 Q61,61 45,61 Z"/>
+
+  <!-- ── Sparkle star — top right (well within safe zone) ── -->
+  <path
+      android:fillColor="#FFD700"
+      android:pathData="M76,30 L77.4,34.6 L82,36 L77.4,37.4 L76,42 L74.6,37.4 L70,36 L74.6,34.6 Z"/>
+
+  <!-- ── Small sparkle — top left ── -->
+  <path
+      android:fillColor="#06B6D4"
+      android:pathData="M32,34 L33,37 L36,38 L33,39 L32,42 L31,39 L28,38 L31,37 Z"/>
+
+  <!-- ── Accent dots ── -->
+  <path
+      android:fillColor="#FFD700"
+      android:pathData="M80,56 A2.5,2.5 0 1 0 80.01,56 Z"/>
+  <path
+      android:fillColor="#06B6D4"
+      android:pathData="M27,54 A2,2 0 1 0 27.01,54 Z"/>
+  <path
+      android:fillColor="#FF80C8"
+      android:pathData="M80,70 A2,2 0 1 0 80.01,70 Z"/>
+
 </vector>
