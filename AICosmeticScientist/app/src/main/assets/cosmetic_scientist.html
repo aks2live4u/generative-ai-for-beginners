@@ -327,6 +327,30 @@ select.form-input option{background:var(--card)}
   <div class="content" id="ai-mentor-content"></div>
 </div>
 
+<!-- ══════════════ SCREEN: TROUBLESHOOTER ══════════════ -->
+<div id="screen-troubleshooter" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('home')">← Back</button>
+    </div>
+    <h1>Formula Troubleshooter</h1>
+    <p>Diagnose what went wrong and how to fix it</p>
+  </div>
+  <div class="content" id="troubleshooter-content"></div>
+</div>
+
+<!-- ══════════════ SCREEN: FORMULA BATTLE ══════════════ -->
+<div id="screen-battle" class="screen">
+  <div class="topbar">
+    <div class="topbar-row">
+      <button class="back-btn" onclick="navigate('home')">← Back</button>
+    </div>
+    <h1>Formula Battle</h1>
+    <p>Compare two formulas head-to-head</p>
+  </div>
+  <div class="content" id="battle-content"></div>
+</div>
+
 <!-- ══════════════ BOTTOM NAV ══════════════ -->
 <nav id="bottom-nav">
   <div class="nav-item active" data-screen="home" onclick="navigate('home')">
@@ -975,6 +999,55 @@ const INGREDIENTS = {
     mechanism:'Boswellic acids may inhibit 5-LOX inflammatory pathway.',
     safety:{score:80,notes:'Generally safe. Dilute properly.'},
     alternatives:['lavender-eo']},
+  'bergamot-eo': {name:'Bergamot Essential Oil',inci:'Citrus Bergamia (Bergamot) Fruit Oil',emoji:'🍋',category:'fragrance',phase:'C',functions:['Fragrance','Uplifting','Antimicrobial'],
+    usage:{min:0.1,max:0.5,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:130,goals:['fragrance','uplifting'],skinTypes:['all'],
+    evidence:65,description:'Bright, zesty citrus top note with a soft floral undertone — a classic fresh opening accord.',
+    mechanism:'Volatile citrus terpenes (limonene, linalyl acetate) provide fast-evaporating top-note lift.',
+    safety:{score:70,notes:'Phototoxic in sun-exposed leave-on products; use bergapten-free (FCF) grades and dilute properly.'},
+    alternatives:['sweet-orange-eo','peppermint-eo']},
+  'sweet-orange-eo': {name:'Sweet Orange Essential Oil',inci:'Citrus Sinensis Peel Oil',emoji:'🍊',category:'fragrance',phase:'C',functions:['Fragrance','Uplifting','Energizing'],
+    usage:{min:0.1,max:0.5,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:1,costPerKg:60,goals:['fragrance','uplifting'],skinTypes:['all'],
+    evidence:60,description:'Sweet, juicy citrus scent that reads as cheerful and approachable — a friendly, food-like top note.',
+    mechanism:'High limonene content gives a bright, fast-evaporating citrus impression.',
+    safety:{score:75,notes:'Mildly phototoxic; patch test and avoid high concentrations on sun-exposed skin.'},
+    alternatives:['bergamot-eo','peppermint-eo']},
+  'ylang-ylang-eo': {name:'Ylang Ylang Essential Oil',inci:'Cananga Odorata Flower Oil',emoji:'🌼',category:'fragrance',phase:'C',functions:['Fragrance','Calming','Aphrodisiac'],
+    usage:{min:0.1,max:0.4,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:3,costPerKg:160,goals:['fragrance','calming'],skinTypes:['all'],
+    evidence:55,description:'Rich, heady tropical-floral scent with creamy, slightly fruity facets — a lush, exotic heart note.',
+    mechanism:'Complex ester and sesquiterpene profile produces a long-lingering floral diffusion.',
+    safety:{score:75,notes:'Generally safe at low usage; can cause headaches or sensitization if overused — keep concentration low.'},
+    alternatives:['rose-eo','lavender-eo']},
+  'sandalwood-eo': {name:'Sandalwood Essential Oil',inci:'Santalum Album (Sandalwood) Oil',emoji:'🪵',category:'fragrance',phase:'C',functions:['Fragrance','Grounding','Anti-inflammatory'],
+    usage:{min:0.1,max:0.4,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:480,goals:['fragrance','anti-aging'],skinTypes:['mature','all'],
+    evidence:60,description:'Soft, creamy, woody-sweet base note that lingers for hours and anchors a fragrance.',
+    mechanism:'Heavy santalol sesquiterpenols evaporate slowly, acting as a fixative for lighter top and heart notes.',
+    safety:{score:80,notes:'Generally well tolerated. Source from sustainable plantation-grown stock.'},
+    alternatives:['frankincense-eo','cedarwood-eo']},
+  'patchouli-eo': {name:'Patchouli Essential Oil',inci:'Pogostemon Cablin Oil',emoji:'🍂',category:'fragrance',phase:'C',functions:['Fragrance','Grounding','Fixative'],
+    usage:{min:0.1,max:0.4,typical:0.15},solubility:'oil',heatSensitive:true,
+    costLevel:2,costPerKg:140,goals:['fragrance'],skinTypes:['all'],
+    evidence:50,description:'Deep, earthy, slightly sweet base note with a distinctive musky-woody character — a classic oriental fixative.',
+    mechanism:'Heavy, low-volatility sesquiterpenes slow the evaporation of lighter notes, extending wear time.',
+    safety:{score:78,notes:'Generally safe at low usage; strong scent — use sparingly to avoid overpowering a blend.'},
+    alternatives:['sandalwood-eo','frankincense-eo']},
+  'vanilla-oleoresin': {name:'Vanilla Oleoresin (CO2 Extract)',inci:'Vanilla Planifolia Fruit Extract',emoji:'🍮',category:'fragrance',phase:'C',functions:['Fragrance','Warming','Fixative'],
+    usage:{min:0.1,max:0.3,typical:0.15},solubility:'oil',heatSensitive:true,
+    costLevel:4,costPerKg:350,goals:['fragrance'],skinTypes:['all'],
+    evidence:45,description:'Warm, sweet, gourmand base note with rich vanilla-bean depth — softens and rounds out a fragrance.',
+    mechanism:'Vanillin and resinous compounds add sweetness and slow the overall evaporation rate of the blend.',
+    safety:{score:80,notes:'Generally well tolerated. Can darken light-colored formulas — account for in product color.'},
+    alternatives:['sandalwood-eo','frankincense-eo']},
+  'cedarwood-eo': {name:'Cedarwood Essential Oil',inci:'Cedrus Atlantica Bark Oil',emoji:'🌲',category:'fragrance',phase:'C',functions:['Fragrance','Grounding','Calming'],
+    usage:{min:0.1,max:0.5,typical:0.2},solubility:'oil',heatSensitive:true,
+    costLevel:1,costPerKg:55,goals:['fragrance','calming'],skinTypes:['all'],
+    evidence:50,description:'Dry, woody, slightly smoky scent that reads as warm and grounding — an affordable woody backbone.',
+    mechanism:'Cedrol and other sesquiterpenols provide a smooth, long-lasting woody base note.',
+    safety:{score:82,notes:'Generally safe and well tolerated at cosmetic usage levels.'},
+    alternatives:['sandalwood-eo','patchouli-eo']},
 
   // ── EXPANDED ACTIVES ──
   'bakuchiol': {name:'Bakuchiol',inci:'Bakuchiol',emoji:'🌱',category:'active',phase:'C',functions:['Retinol Alternative','Anti-aging','Antioxidant'],
@@ -1386,8 +1459,8 @@ const FORMULA_TEMPLATES = {
       {id:'emulsifier',phase:'B',label:'Emulsifier',pct:[4,6],candidates:['emulsifying-wax-nf'],required:true},
       {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
       {id:'emollient',phase:'B',label:'Emollient Oil',pct:[6,10],candidates:['jojoba','squalane','mct'],required:true},
-      {id:'tint',phase:'C',label:'Tint / Pigment Base',pct:[6,10],candidates:['titanium-dioxide','arrowroot-powder'],required:true},
       {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'tint',phase:'C',label:'Tint / Pigment Base',pct:[6,10],candidates:['titanium-dioxide','arrowroot-powder'],required:true},
       {id:'active',phase:'C',label:'Skin Active',pct:[1,3],candidates:['niacinamide','allantoin'],goalMap:{brightening:'niacinamide',sensitive:'allantoin'},required:false},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.1,0.3],candidates:['lavender-eo'],required:false},
@@ -1605,8 +1678,8 @@ const FORMULA_TEMPLATES = {
       {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[1,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:false},
       {id:'emollient',phase:'B',label:'Emollient',pct:[8,15],candidates:['sweet-almond','jojoba','sunflower','mct'],required:true},
       {id:'butter',phase:'B',label:'Butter',pct:[3,7],candidates:['shea-butter','mango-butter','cocoa-butter'],required:false},
-      {id:'targeted-active',phase:'C',label:'Targeted Active',pct:[0.5,2],candidates:['centella','caffeine','allantoin'],goalMap:{cooling:'centella',healing:'centella',firming:'caffeine'},onlyFor:['After-Sun / Cooling Lotion','Body Firming / Toning Cream'],required:false},
       {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'targeted-active',phase:'C',label:'Targeted Active',pct:[0.5,2],candidates:['centella','caffeine','allantoin'],goalMap:{cooling:'centella',healing:'centella',firming:'caffeine'},onlyFor:['After-Sun / Cooling Lotion','Body Firming / Toning Cream'],required:false},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.2,0.5],candidates:['lavender-eo','frankincense-eo','peppermint-eo'],goalMap:{cooling:'peppermint-eo'},required:false},
     ],
@@ -1818,8 +1891,8 @@ const FORMULA_TEMPLATES = {
       {id:'fatty-alc',phase:'B',label:'Fatty Alcohol',pct:[2,3],candidates:['cetyl-alcohol','cetearyl-alcohol'],required:true},
       {id:'dispersion-oil',phase:'B',label:'Dispersing Oil',pct:[6,10],candidates:['mct','jojoba','squalane'],required:true},
       {id:'uv-filter-primary',phase:'B',label:'Primary UV Filter (Mineral)',pct:[16,20],candidates:['zinc-oxide'],required:true},
-      {id:'uv-filter-secondary',phase:'C',label:'Secondary UV Filter (Mineral)',pct:[3,5],candidates:['titanium-dioxide'],required:false},
       {id:'antioxidant',phase:'B',label:'Antioxidant',pct:[0.5,1],candidates:['vitamin-e'],required:true},
+      {id:'uv-filter-secondary',phase:'C',label:'Secondary UV Filter (Mineral)',pct:[3,5],candidates:['titanium-dioxide'],required:false},
       {id:'soother',phase:'C',label:'Soothing Active',pct:[1,3],candidates:['allantoin','centella','colloidal-oatmeal'],skinMap:{sensitive:'colloidal-oatmeal',dry:'centella',normal:'allantoin'},required:false},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol','optiphen'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance (light, optional)',pct:[0.05,0.15],candidates:['lavender-eo'],required:false},
@@ -1903,12 +1976,12 @@ const FORMULA_TEMPLATES = {
     phTarget:'4.0–5.0', shelfLife:'6 months',
     slots:[
       {id:'water',phase:'A',label:'Water Phase',pct:[80,88],candidates:['water','aloe-vera'],required:true},
-      {id:'conditioner',phase:'C',label:'Conditioning Polymer',pct:[1,3],candidates:['polyquaternium-10','behentrimonium-chloride'],required:true},
       {id:'humectant',phase:'A',label:'Humectant',pct:[2,4],candidates:['glycerin','panthenol'],required:true},
+      {id:'foaming-agent',phase:'A',label:'Foaming Agent (for mousse pump)',pct:[1,3],candidates:['decyl-glucoside'],onlyFor:['Volumizing Mousse'],required:true},
+      {id:'conditioner',phase:'C',label:'Conditioning Polymer',pct:[1,3],candidates:['polyquaternium-10','behentrimonium-chloride'],required:true},
       {id:'oil',phase:'C',label:'Lightweight Oil',pct:[1,4],candidates:['argan','marula-oil','jojoba'],required:false},
       {id:'silicone',phase:'C',label:'Anti-Frizz Agent',pct:[1,3],candidates:['dimethicone'],goalMap:{frizz:'dimethicone'},required:false},
       {id:'hold-polymer',phase:'C',label:'Hold / Film-Forming Polymer',pct:[2,5],candidates:['polyglutamic-acid','carbomer'],onlyFor:['Hair Spray / Styling Mist','Volumizing Mousse','Curl Defining Cream'],required:true},
-      {id:'foaming-agent',phase:'A',label:'Foaming Agent (for mousse pump)',pct:[1,3],candidates:['decyl-glucoside'],onlyFor:['Volumizing Mousse'],required:true},
       {id:'heat-protectant',phase:'C',label:'Heat-Protecting Agent',pct:[2,4],candidates:['dimethicone'],onlyFor:['Heat Protectant Spray'],required:true},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['lavender-eo'],required:false},
@@ -1947,9 +2020,9 @@ const FORMULA_TEMPLATES = {
     slots:[
       {id:'water',phase:'A',label:'Water',pct:[45,55],candidates:['water','aloe-vera'],required:true},
       {id:'surfactant1',phase:'A',label:'Gentle Surfactant',pct:[20,30],candidates:['decyl-glucoside','sci','capb'],goalMap:{sensitive:'decyl-glucoside'},required:true},
-      {id:'oil',phase:'C',label:'Conditioning Oil',pct:[3,8],candidates:['argan','jojoba','castor'],required:true},
       {id:'humectant',phase:'A',label:'Humectant',pct:[2,5],candidates:['glycerin','panthenol'],required:true},
       {id:'thickener',phase:'A',label:'Thickener',pct:[0.5,1.5],candidates:['xanthan','hec'],required:false},
+      {id:'oil',phase:'C',label:'Conditioning Oil',pct:[3,8],candidates:['argan','jojoba','castor'],required:true},
       {id:'preservative',phase:'C',label:'Preservative',pct:[0.8,1],candidates:['phenoxyethanol'],required:true},
       {id:'fragrance',phase:'C',label:'Fragrance',pct:[0.3,1],candidates:['frankincense-eo','tea-tree-eo','peppermint-eo'],required:false},
     ],
@@ -2192,9 +2265,12 @@ const FORMULA_TEMPLATES = {
     phTarget:'N/A', shelfLife:'24 months',
     slots:[
       {id:'carrier',phase:'A',label:'Carrier (Oil or Alcohol)',pct:[80,92],candidates:['jojoba','perfumers-alcohol','propanediol'],baseMap:{'oil-based':'jojoba','alcohol-based':'perfumers-alcohol'},required:true},
-      {id:'top-note',phase:'C',label:'Top Note',pct:[2,5],candidates:['peppermint-eo',{name:'Bergamot Essential Oil',inci:'Citrus Bergamia Oil',emoji:'🍋'}],goalMap:{'fresh-citrus':'peppermint-eo'},required:true},
-      {id:'mid-note',phase:'C',label:'Heart / Mid Note',pct:[3,8],candidates:['rose-eo','lavender-eo','fragrance-oil-blend'],goalMap:{floral:'rose-eo'},required:true},
-      {id:'base-note',phase:'C',label:'Base Note',pct:[2,6],candidates:['frankincense-eo',{name:'Sandalwood Essential Oil',inci:'Santalum Album Oil',emoji:'🪵'}],goalMap:{woody:'frankincense-eo'},required:true},
+      {id:'top-note',phase:'C',label:'Top Note',pct:[2,5],candidates:['bergamot-eo','sweet-orange-eo','peppermint-eo','lavender-eo'],
+        goalMap:{'long-lasting':'sweet-orange-eo','fresh-citrus':'bergamot-eo',floral:'bergamot-eo',woody:'peppermint-eo',oriental:'sweet-orange-eo',natural:'bergamot-eo'},required:true},
+      {id:'mid-note',phase:'C',label:'Heart / Mid Note',pct:[3,8],candidates:['rose-eo','lavender-eo','ylang-ylang-eo','fragrance-oil-blend'],
+        goalMap:{'long-lasting':'ylang-ylang-eo','fresh-citrus':'lavender-eo',floral:'rose-eo',woody:'rose-eo',oriental:'ylang-ylang-eo',natural:'lavender-eo'},required:true},
+      {id:'base-note',phase:'C',label:'Base Note',pct:[2,6],candidates:['frankincense-eo','sandalwood-eo','patchouli-eo','vanilla-oleoresin','cedarwood-eo'],
+        goalMap:{'long-lasting':'patchouli-eo','fresh-citrus':'cedarwood-eo',floral:'sandalwood-eo',woody:'cedarwood-eo',oriental:'vanilla-oleoresin',natural:'frankincense-eo'},required:true},
     ],
     instructions:[
       'Measure carrier into a dark glass bottle.',
@@ -2211,7 +2287,8 @@ const FORMULA_TEMPLATES = {
     slots:[
       {id:'water',phase:'A',label:'Water / Floral Hydrosol',pct:[70,80],candidates:['water','rose-water','aloe-vera'],required:true},
       {id:'carrier',phase:'A',label:"Perfumer's Alcohol / Solubilizer",pct:[15,25],candidates:['perfumers-alcohol','propanediol'],required:true},
-      {id:'fragrance',phase:'C',label:'Fragrance Blend',pct:[2,5],candidates:['fragrance-oil-blend','lavender-eo','rose-eo'],required:true},
+      {id:'fragrance',phase:'C',label:'Fragrance Blend',pct:[2,5],candidates:['fragrance-oil-blend','lavender-eo','rose-eo','bergamot-eo','sweet-orange-eo','ylang-ylang-eo','cedarwood-eo'],
+        goalMap:{'long-lasting':'fragrance-oil-blend','fresh-citrus':'sweet-orange-eo',floral:'rose-eo',woody:'cedarwood-eo',oriental:'ylang-ylang-eo',natural:'lavender-eo'},required:true},
       {id:'humectant',phase:'C',label:'Skin Conditioner',pct:[1,2],candidates:['glycerin','panthenol'],required:false},
     ],
     instructions:[
@@ -2431,6 +2508,10 @@ const state = {
   noteRating: 3,
   ingFilter: 'all',
   ingSearch: '',
+  troubleshootIssue: null,
+  battleA: null,
+  battleB: null,
+  learningMode: loadData('learningMode', false),
 };
 
 function loadData(key, def=[]) {
@@ -2541,6 +2622,7 @@ function navigate(screen) {
     home: renderHome, formulate: renderFormulate, ingredients: renderIngredients,
     inventory: renderInventory, notebook: renderNotebook, 'my-formulas': renderMyFormulas,
     'ai-settings': renderAISettings, 'ai-mentor': renderAIMentor,
+    troubleshooter: renderTroubleshooter, battle: renderBattle,
   };
   if (renders[screen]) renders[screen]();
 }
@@ -2654,7 +2736,6 @@ function generateFormula(wizard) {
   const resolveWizard = {...wizard, goals: effectiveGoals};
 
   const rows = [];
-  let totalPct = 0;
 
   for (const slot of tmpl.slots) {
     // Slots tagged onlyFor a specific list of product types are skipped for
@@ -2670,21 +2751,46 @@ function generateFormula(wizard) {
     // Texture/base percentage weighting is a skincare/haircare/bodycare concept
     // (lightweight vs. rich, water- vs. oil-based emulsions). Perfume "base" has
     // a different meaning (oil vs. alcohol carrier) handled via baseMap below.
-    if (tmpl.category !== 'perfume') pct *= phaseWeight(slot.phase, wizard);
+    if (tmpl.category !== 'perfume') {
+      const weighted = pct * phaseWeight(slot.phase, wizard);
+      // Keep the texture-driven shift, but never push a slot outside the
+      // safe/effective range its author defined (e.g. UV filters, actives) —
+      // otherwise "rich" textures can over-concentrate ingredients like
+      // mineral sunscreen filters into unusable, ghost-white percentages.
+      pct = weighted > 0 ? Math.min(slot.pct[1], Math.max(slot.pct[0], weighted)) : weighted;
+    }
     if (pct <= 0) continue;
     rows.push({ slot, ing, pct });
-    totalPct += pct;
   }
 
-  // Normalize to 100%
-  const factor = 100 / totalPct;
-  let adjTotal = 0;
-  for (const r of rows) {
-    r.pct = Math.round(r.pct * factor * 10) / 10;
-    adjTotal += r.pct;
+  // Bring the total to exactly 100% without breaking any slot's authored
+  // safe/effective range: redistribute the gap proportionally across each
+  // slot's remaining headroom toward its min/max bound. This keeps UV
+  // filters, actives, and preservatives within the ranges their authors
+  // defined, while letting the rest of the formula flex realistically
+  // (so a "lightweight" sunscreen ends up with more water and less oil,
+  // not an over- or under-dosed UV filter).
+  if (rows.length > 0) {
+    const total = rows.reduce((s, r) => s + r.pct, 0);
+    const delta = 100 - total;
+    if (Math.abs(delta) > 0.01) {
+      const headroom = rows.map(r => delta > 0
+        ? Math.max(0, r.slot.pct[1] - r.pct)
+        : Math.max(0, r.pct - r.slot.pct[0]));
+      const totalHeadroom = headroom.reduce((s, h) => s + h, 0);
+      if (totalHeadroom > 0) {
+        const ratio = Math.min(1, Math.abs(delta) / totalHeadroom);
+        rows.forEach((r, i) => { r.pct += Math.sign(delta) * headroom[i] * ratio; });
+      }
+    }
+    rows.forEach(r => { r.pct = Math.round(r.pct * 10) / 10; });
+    // Final rounding nudge lands on the slot with the widest authored range —
+    // almost always the water/base/carrier that's effectively "qs to 100%".
+    let widest = rows[0];
+    for (const r of rows) if ((r.slot.pct[1] - r.slot.pct[0]) > (widest.slot.pct[1] - widest.slot.pct[0])) widest = r;
+    const adjTotal = rows.reduce((s, r) => s + r.pct, 0);
+    widest.pct = Math.round((widest.pct + (100 - adjTotal)) * 10) / 10;
   }
-  // Fix rounding to exactly 100
-  if (rows.length > 0) rows[0].pct = Math.round((rows[0].pct + (100 - adjTotal)) * 10) / 10;
 
   // Calculate grams and cost
   let totalCost = 0;
@@ -2810,6 +2916,16 @@ function renderHome() {
         <h3>AI Mentor</h3>
         <p>${aiConfigured() ? 'Chat with your AI formulation expert' : 'Connect an AI key to unlock'}</p>
       </div>
+      <div class="qa-card" onclick="navigate('troubleshooter')">
+        <div class="qa-icon" style="background:rgba(239,68,68,.15)">🩺</div>
+        <h3>Troubleshooter</h3>
+        <p>Fix separation, thin batches, pH issues & more</p>
+      </div>
+      <div class="qa-card" onclick="navigate('battle')">
+        <div class="qa-icon" style="background:rgba(245,158,11,.15)">⚔️</div>
+        <h3>Formula Battle</h3>
+        <p>Compare two formulas head-to-head</p>
+      </div>
     </div>
     ${formulas.length > 0 ? `
     <div class="section-title">Recent Formulas</div>
@@ -2847,6 +2963,23 @@ function startWizardCategory(cat) {
 const CATEGORY_ICONS = {Skincare:'🧴',Haircare:'💇','Beard Care':'🧔','Body Care':'🫧','Lip Care':'💄','Bath Products':'🛁',Deodorants:'🌸',Perfumes:'🌺'};
 function isHairCategory(cat) { return cat === 'Haircare' || cat === 'Beard Care'; }
 function isPerfumeCategory(cat) { return cat === 'Perfumes'; }
+// The Base/Consistency question (water-based ↔ anhydrous) only makes sense
+// for emulsion-style products that actually have a water phase to swap out —
+// asking it for inherently oil-only products (hair oil, lip balm, body
+// butter, balms...) produced meaningless or empty (0%) formulas.
+function productTypeHasWaterPhase(productType) {
+  const tmpl = FORMULA_TEMPLATES[TYPE_TO_TEMPLATE[productType]];
+  return !!(tmpl && tmpl.slots.some(s => s.id === 'water' && s.phase === 'A'));
+}
+// "Anhydrous" only makes sense when the formula has an oil/cooldown phase
+// that could plausibly carry the whole product without water (e.g. a lotion
+// reformulated as a balm) — simple all-water-phase products like toners and
+// facial mists have nothing to fall back on, so picking "Anhydrous" for them
+// previously zeroed out every ingredient and produced an empty 0% formula.
+function productTypeSupportsAnhydrous(productType) {
+  const tmpl = FORMULA_TEMPLATES[TYPE_TO_TEMPLATE[productType]];
+  return !!(tmpl && tmpl.slots.some(s => s.phase === 'B' || s.phase === 'C'));
+}
 function typeOptionsForCategory(cat) {
   if (isPerfumeCategory(cat)) return PERFUME_SKIN_TYPES;
   return isHairCategory(cat) ? HAIR_TYPES : SKIN_TYPES;
@@ -2967,10 +3100,11 @@ function renderFormulate() {
           </div>`).join('')}
       </div>
     </div>
+    ${productTypeHasWaterPhase(w.productType) ? `
     <div class="form-group">
       <label class="form-label">Base / Consistency</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${BASES.map(b=>`
+        ${(productTypeSupportsAnhydrous(w.productType) ? BASES : BASES.filter(b=>b.key!=='anhydrous')).map(b=>`
           <div class="card-sm" style="cursor:pointer;border-color:${w.base===b.key?'var(--primary)':'var(--border)'}" onclick="state.wizard.base='${b.key}';renderFormulate()">
             <div style="display:flex;align-items:center;gap:8px">
               <span style="font-size:18px">${b.icon}</span>
@@ -2981,7 +3115,7 @@ function renderFormulate() {
             </div>
           </div>`).join('')}
       </div>
-    </div>
+    </div>` : ''}
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="wizardPrev()">← Back</button>
       <button class="btn btn-primary" onclick="wizardNext()">Next →</button>
@@ -3178,6 +3312,9 @@ function renderResult() {
       <td style="text-align:right;color:var(--accent);font-weight:600;white-space:nowrap">${r.pct}%</td>
       <td style="text-align:right;white-space:nowrap">${r.grams}g<br><span style="font-size:11px;color:var(--sub)">${formatCost(r.cost)}</span></td>
     </tr>`;
+    if (state.learningMode) {
+      tableRows += `<tr><td></td><td colspan="3" style="padding:0 10px 12px;font-size:11px;color:var(--sub);line-height:1.5">📚 ${escapeHtml(explainIngredientRole(r.slot, ing))}</td></tr>`;
+    }
   }
 
   const instructions = (f.instructions||[]).map((step,i)=>`
@@ -3221,6 +3358,12 @@ function renderResult() {
     </div>
 
     <div id="result-tab-formula">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer">
+          <input type="checkbox" id="learning-mode-toggle" ${state.learningMode?'checked':''} onchange="toggleLearningMode(this.checked)">
+          📚 Learning Mode — explain why each ingredient is here
+        </label>
+      </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="formula-table"><thead><tr>
           <th></th><th>Ingredient</th><th style="text-align:right">%</th><th style="text-align:right">${f.batchSize}${batchUnit(f)} / Cost</th>
@@ -3273,6 +3416,9 @@ function renderResult() {
           <div class="score-val" style="color:${scoreColor(f.beginnerScore)}">${f.beginnerScore}</div>
         </div>
       </div>
+      ${renderStabilityCard(f)}
+      ${renderRealityCheckCard(f)}
+      ${renderRegulatoryCard(f)}
       <div class="detail-section">
         <h3>💡 Ingredient Rationale</h3>
         ${f.rows.filter(r=>r.ing.mechanism).slice(0,5).map(r=>`
@@ -3296,6 +3442,23 @@ function renderResult() {
       <button class="btn btn-accent" style="width:100%" onclick="addResultToNotebook()">📓 Add to Notebook</button>
     </div>
   `;
+}
+
+function toggleLearningMode(on) {
+  state.learningMode = on;
+  saveData('learningMode', on);
+  renderResult();
+}
+
+function explainIngredientRole(slot, ing) {
+  const role = slot.label ? `${slot.label} role: ` : '';
+  const firstFn = (ing.functions||[])[0];
+  const firstSentence = (ing.description||'').split(/(?<=[.!?])\s+/)[0];
+  const why = firstSentence || (firstFn ? `Provides ${firstFn.toLowerCase()} for this formula.` : 'Supports the overall formula.');
+  const phaseNote = slot.phase === 'A' ? ' Mixed into the water phase.'
+    : slot.phase === 'B' ? ' Mixed into the oil phase, then combined with the water phase.'
+    : ' Added during cooldown, after the emulsion has formed.';
+  return `${role}${why}${phaseNote}`;
 }
 
 function switchResultTab(name, el) {
@@ -3363,6 +3526,52 @@ function openIngredientDetail(key) {
   renderIngredientDetail(key);
 }
 
+// ═══════════════════════════════════════
+// INGREDIENT SUBSTITUTION ENGINE
+// ═══════════════════════════════════════
+function findSubstitutes(key, limit=4) {
+  const ing = INGREDIENTS[key];
+  if (!ing) return [];
+  const known = new Set([key, ...(ing.alternatives||[])]);
+  const scored = Object.entries(INGREDIENTS)
+    .filter(([k,v]) => !known.has(k) && v.category === ing.category)
+    .map(([k,v]) => {
+      const sharedFns = (v.functions||[]).filter(fn => (ing.functions||[]).includes(fn)).length;
+      const solubilityMatch = v.solubility === ing.solubility ? 1 : 0;
+      const usageOverlap = Math.min(v.usage.max, ing.usage.max) - Math.max(v.usage.min, ing.usage.min);
+      const score = sharedFns * 3 + solubilityMatch * 2 + (usageOverlap > 0 ? 1 : 0);
+      let reason;
+      if (sharedFns === 0 && solubilityMatch === 0) reason = null;
+      else if (v.costLevel < ing.costLevel) reason = 'Fills a similar role at a lower cost level';
+      else if (v.costLevel > ing.costLevel) reason = 'Fills a similar role as a more premium option';
+      else if (isNaturalIngredient(v) && !isNaturalIngredient(ing)) reason = 'Fills a similar role with a more naturally-derived profile';
+      else if (!isNaturalIngredient(v) && isNaturalIngredient(ing)) reason = 'Fills a similar role with a synthetic, often more stable profile';
+      else reason = 'Shares this ingredient\'s core function and usage range';
+      return { key:k, ing:v, score, reason };
+    })
+    .filter(s => s.score > 0 && s.reason)
+    .sort((a,b)=>b.score-a.score);
+  return scored.slice(0, limit);
+}
+
+function renderSubstitutionEngine(key, ing) {
+  const subs = findSubstitutes(key);
+  if (!subs.length) return '';
+  return `
+  <div class="detail-section">
+    <h3>🔁 Substitution Engine</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:10px">Other ${ing.category} ingredients that can often step into a similar role — always re-check usage range, solubility, and pH compatibility before swapping mid-formula.</p>
+    ${subs.map(s => `
+      <div class="card-sm" style="cursor:pointer" onclick="openIngredientDetail('${s.key}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><span style="font-size:16px">${s.ing.emoji||'🧪'}</span> <strong style="font-size:13px">${s.ing.name}</strong></div>
+          <span style="font-size:11px;color:var(--sub)">${s.ing.usage.min}–${s.ing.usage.max}%</span>
+        </div>
+        <p style="font-size:12px;color:var(--sub);margin-top:4px">${s.reason}</p>
+      </div>`).join('')}
+  </div>`;
+}
+
 function renderIngredientDetail(key) {
   const ing = INGREDIENTS[key];
   if (!ing) return;
@@ -3404,6 +3613,7 @@ function renderIngredientDetail(key) {
           ${ing.alternatives.map(a=>INGREDIENTS[a]?`<div class="chip" onclick="openIngredientDetail('${a}')">${INGREDIENTS[a].emoji} ${INGREDIENTS[a].name}</div>`:''  ).join('')}
         </div>
       </div>` : ''}
+      ${renderSubstitutionEngine(key, ing)}
     </div>
 
     <div id="ing-tab-technical" style="display:none">
@@ -3553,6 +3763,9 @@ function buildFormulaHTML(f) {
       <div class="detail-row"><label>Shelf Life</label><span>${f.shelfLife}</span></div>
       <div class="detail-row"><label>Safety Score</label><span style="color:${scoreColor(f.safetyScore)}">${f.safetyScore}/100</span></div>
     </div>
+    ${renderStabilityCard(f)}
+    ${renderRealityCheckCard(f)}
+    ${renderRegulatoryCard(f)}
     <div class="card"><h3 style="font-size:15px;margin-bottom:14px">⚗️ Instructions</h3>${instructions}</div>
   `;
 }
@@ -3896,6 +4109,470 @@ async function sendMentorMessage() {
 function clearMentorChat() {
   saveData('mentorChat', []);
   renderAIMentor();
+}
+
+// ═══════════════════════════════════════
+// FORMULA TROUBLESHOOTER
+// ═══════════════════════════════════════
+const TROUBLESHOOT_ISSUES = [
+  { key:'separation', icon:'💧', label:'Cream / Lotion Separated',
+    causes:[
+      'Emulsifier percentage was too low for the amount of oil phase, or the wrong emulsifier (HLB mismatch) was used for those oils',
+      'Phase A (water) and Phase B (oil) were not at the same temperature when combined — a cold phase can shock and break an emulsion',
+      'Mixed too briefly, too slowly, or without a stick blender / homogenizer during emulsification',
+      'The batch cooled too quickly, or was moved/shaken while it was still setting',
+    ],
+    fixes:[
+      'If caught soon after making it: gently re-melt the whole batch to ~70–75°C and re-emulsify with a stick blender. If it has been days or shows any odd smell, discard it instead.',
+      'On your next batch, raise the emulsifier toward the top of its usage range (e.g. 5–6% for Emulsifying Wax NF) and double-check it suits the oils you chose.',
+      'Heat both phases to the same target temperature (within ~2°C) before combining them.',
+      'Homogenize for at least 3–5 minutes, then let the batch cool undisturbed with only gentle, occasional stirring.',
+    ]},
+  { key:'too-thin', icon:'💦', label:'Too Thin / Runny',
+    causes:[
+      'Not enough thickener, fatty alcohol, or wax relative to the water phase',
+      'Water-phase percentage was set too high for this product type',
+      'Liquid extracts or actives added after thickening diluted the base further',
+      'Cooled or mixed at too high a temperature, so the wax/fatty-alcohol network never set properly',
+    ],
+    fixes:[
+      'Re-melt and add 0.5–1% more of an appropriate thickener (xanthan gum or HEC for water-based gels, cetearyl alcohol for emulsions), mixing well between small additions.',
+      'On your next batch, lower the water-phase percentage slightly and raise the emulsifier/fatty-alcohol percentage to compensate.',
+      'Add liquid actives gradually and re-check the texture before deciding you need more thickener.',
+      'Cool the formula slowly with gentle stirring so structuring agents have time to set.',
+    ]},
+  { key:'too-thick', icon:'🧈', label:'Too Thick / Hard to Use',
+    causes:[
+      'Too much wax, butter, or thickener relative to the liquid phases',
+      'Cooled too quickly without stirring, locking in an uneven structure',
+      'A texture/packaging mismatch — a balm-like formula will always feel "too thick" in a pump bottle',
+    ],
+    fixes:[
+      'Gently re-melt and blend in a small amount of liquid oil or water (matching the original phase), then re-homogenize.',
+      'On your next batch, reduce the wax/butter/thickener percentage by 1–2% and re-test before scaling up.',
+      'Match packaging to texture — rich balms and thick creams belong in jars; lighter lotions belong in pumps or bottles.',
+    ]},
+  { key:'sticky', icon:'🍯', label:'Feels Sticky / Tacky',
+    causes:[
+      'High humectant percentage (glycerin, sodium hyaluronate) drawing moisture to the surface with nothing to "seal" it in',
+      'A film-forming or fixative ingredient used above its comfortable usage range',
+      'Not enough fast-absorbing emollient to balance richer ingredients',
+    ],
+    fixes:[
+      'Lower the humectant percentage toward the bottom of its usage range, or pair it with a lightweight emollient to balance the finish.',
+      'Swap part of a heavier oil/butter for a fast-absorbing one (squalane, MCT oil, jojoba).',
+      'Apply a thinner layer and give it more time to absorb — sometimes this is a usage tweak rather than a formula problem.',
+    ]},
+  { key:'preservative-failed', icon:'🦠', label:'Mold / Contamination',
+    causes:[
+      'Preservative percentage sat below its effective range, or it was not suited to this formula\'s water content / pH',
+      'Water-containing ingredients (hydrosols, juices, fresh extracts) were added after the preservative was already at its working concentration',
+      'Equipment, containers, or hands were not properly sanitized during manufacturing',
+      'The formula\'s final pH landed outside the preservative\'s effective range',
+    ],
+    fixes:[
+      'Discard the contaminated batch immediately — never try to "save" it by adding more preservative afterward.',
+      'Use a broad-spectrum preservative at the upper end of its recommended range, and confirm it is rated for your formula\'s water content and pH.',
+      'Sanitize every tool, container, and surface with high-proof alcohol before each batch, and avoid touching the product directly.',
+      'Measure pH after the batch has fully cooled, and adjust it to fall within both your target range and your preservative\'s effective range.',
+    ]},
+  { key:'ph-off', icon:'🧪', label:'pH Too High or Too Low',
+    causes:[
+      'The formula\'s natural pH (from its raw ingredients) sat outside the target range and was never adjusted',
+      'A pH-adjusting ingredient (citric acid, diluted sodium hydroxide, triethanolamine) was added in too small or too large an amount',
+      'pH was measured before the batch fully cooled and equilibrated — pH can drift as a formula cools',
+    ],
+    fixes:[
+      'Let the batch cool fully to room temperature, then re-measure with calibrated strips or a meter.',
+      'Adjust gradually — a drop at a time of a 10% citric acid solution to lower pH, or a dilute sodium hydroxide/triethanolamine solution to raise it — mixing and re-measuring after each addition.',
+      'Re-confirm your preservative and any acids/actives (AHAs, vitamin C, niacinamide) are actually effective at the corrected pH.',
+    ]},
+  { key:'fragrance-faded', icon:'🌸', label:'Fragrance Faded / Changed',
+    causes:[
+      'Essential oils or fragrance were added while the batch was still hot, evaporating or degrading the volatile top notes',
+      'Citrus or other top-note-heavy oils were used with no fixative to anchor them — they fade fastest',
+      'Oxidation of the fragrance or carrier oils over time, especially without an antioxidant or in clear/UV-exposed packaging',
+    ],
+    fixes:[
+      'Always add fragrance/essential oils below 40°C, right at the very end of cool-down.',
+      'Add a small amount of a base-note "fixative" (a resin or woody essential oil) to anchor lighter top notes and slow the fade.',
+      'Include an antioxidant such as vitamin E (0.5–1%) and store/package in opaque, airtight, UV-protective containers.',
+    ]},
+  { key:'gritty', icon:'⬜', label:'Gritty / Grainy Texture',
+    causes:[
+      'Waxes, butters, or thickeners cooled too quickly and crystallized unevenly',
+      'Powdered ingredients (clays, minerals, pigments, exfoliants) were not fully dispersed before the batch set',
+      'Two waxes/butters with very different melting points were combined without enough mixing during cooling',
+    ],
+    fixes:[
+      'Gently re-melt, then cool slowly to room temperature while mixing continuously so crystals form evenly.',
+      'Pre-disperse powdered ingredients into a small portion of the oil phase with a stick blender before combining with the rest.',
+      'Stick to one primary structuring wax/butter system per formula, or thoroughly test compatibility before pairing different ones.',
+    ]},
+];
+
+function renderTroubleshooter() {
+  const issue = state.troubleshootIssue;
+  const formulas = loadData('formulas', []);
+  const el = document.getElementById('troubleshooter-content');
+  let html = `<p style="font-size:13px;color:var(--sub);margin-bottom:14px">Tap the problem that matches what you're seeing to get the likely causes and how to fix it.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+    ${TROUBLESHOOT_ISSUES.map(t => `
+      <div class="card-sm" style="cursor:pointer;text-align:center;padding:14px 8px;${issue===t.key?'border:1px solid var(--accent)':''}" onclick="selectTroubleshootIssue('${t.key}')">
+        <div style="font-size:24px;margin-bottom:4px">${t.icon}</div>
+        <div style="font-size:12px;font-weight:500">${t.label}</div>
+      </div>`).join('')}
+  </div>`;
+
+  if (issue) {
+    const t = TROUBLESHOOT_ISSUES.find(x=>x.key===issue);
+    html += `
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-bottom:10px">${t.icon} ${t.label}</h3>
+      <div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Likely Causes</div>
+      <ul style="padding-left:18px;font-size:13px;line-height:1.7;margin-bottom:14px">${t.causes.map(c=>`<li>${c}</li>`).join('')}</ul>
+      <div style="font-size:11px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">How To Fix It</div>
+      <ul style="padding-left:18px;font-size:13px;line-height:1.7">${t.fixes.map(f=>`<li>${f}</li>`).join('')}</ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:8px">✨ Get Personalized Help</h3>
+      ${formulas.length > 0 ? `
+      <div class="form-group">
+        <label class="form-label">Which formula is this happening with? (optional)</label>
+        <select class="form-input" id="ts-formula-select">
+          <option value="">— General advice —</option>
+          ${formulas.map((f,i)=>`<option value="${i}">${f.name} (${f.productType})</option>`).join('')}
+        </select>
+      </div>` : ''}
+      <div class="form-group">
+        <label class="form-label">Anything else worth mentioning? (optional)</label>
+        <textarea class="form-input" id="ts-extra-details" rows="2" placeholder="e.g. it happened about 2 weeks in, stored at room temperature..."></textarea>
+      </div>
+      ${aiConfigured()
+        ? `<button class="btn btn-primary" style="width:100%" onclick="askAITroubleshoot('${issue}')">✨ Ask AI Mentor</button>`
+        : `<p style="font-size:12px;color:var(--sub)">💡 Connect an AI provider in <a href="javascript:navigate('ai-settings')" style="color:var(--accent)">AI Settings</a> for advice tailored to your exact formula.</p>`}
+      <div id="ts-ai-result" style="margin-top:12px"></div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function selectTroubleshootIssue(key) {
+  state.troubleshootIssue = key;
+  renderTroubleshooter();
+}
+
+async function askAITroubleshoot(issueKey) {
+  const t = TROUBLESHOOT_ISSUES.find(x=>x.key===issueKey);
+  const sel = document.getElementById('ts-formula-select');
+  const extra = document.getElementById('ts-extra-details');
+  const formulas = loadData('formulas', []);
+  const formula = sel && sel.value !== '' ? formulas[+sel.value] : null;
+  const resultEl = document.getElementById('ts-ai-result');
+  if (!resultEl) return;
+  resultEl.innerHTML = `<div class="card-sm" style="font-size:13px;color:var(--sub)">✨ Thinking…</div>`;
+
+  const system = "You are an expert cosmetic chemist helping a hobbyist DIY formulator troubleshoot a failed batch. " +
+    "Give a focused, practical diagnosis and step-by-step fix, referencing their specific formula/ingredients if given. " +
+    "Keep it under ~200 words, use plain language, and remind them to discard contaminated batches rather than try to 'save' them.";
+  let prompt = `Problem reported: ${t.label}\nKnown general causes for this problem: ${t.causes.join('; ')}\n`;
+  if (formula) {
+    prompt += `\nTheir formula: "${formula.name}" — ${formula.productType}, ${formula.batchSize}${batchUnit(formula)} batch\n` +
+      `Ingredients: ${formula.rows.map(r=>`${r.ing.name} ${r.pct}% (Phase ${r.slot.phase})`).join(', ')}\n` +
+      `Target pH: ${formula.phTarget}\n`;
+  }
+  if (extra && extra.value.trim()) prompt += `\nAdditional details from the user: ${extra.value.trim()}\n`;
+  prompt += `\nWhat is most likely going wrong here, and exactly what should they do about it?`;
+
+  try {
+    const reply = await callAI(system, prompt);
+    resultEl.innerHTML = `<div class="card-sm" style="white-space:pre-wrap;font-size:13px;line-height:1.6">${escapeHtml((reply||'').trim() || "I couldn't generate advice — please try again.")}</div>`;
+  } catch(e) {
+    resultEl.innerHTML = `<div class="card-sm" style="font-size:13px;color:var(--danger)">⚠️ ${escapeHtml(e.message || 'Something went wrong reaching the AI provider.')}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════
+// STABILITY PREDICTION SIMULATOR
+// (heuristic projection — not a substitute for real challenge testing)
+// ═══════════════════════════════════════
+function predictStability(formula) {
+  const rows = formula.rows || [];
+  const hasPreservative = rows.some(r => r.ing.category === 'preservative');
+  const hasAntioxidant = rows.some(r => r.ing.category === 'antioxidant' || r.ing.key === 'vitamin-e' || r.ing.key === 'coq10');
+  const hasWater = rows.some(r => r.slot.id === 'water' || r.ing.solubility === 'water');
+  const anhydrous = !hasWater;
+
+  let score = formula.stabilityScore || 75;
+  if (hasPreservative) score += 6; else if (hasWater) score -= 18;
+  if (hasAntioxidant) score += 4;
+  if (anhydrous) score += 8;
+  score = Math.max(20, Math.min(100, score));
+
+  const milestones = [
+    { label:'1 Month',  decay: 0 },
+    { label:'3 Months', decay: anhydrous ? 4  : (hasPreservative ? 8  : 28) },
+    { label:'6 Months', decay: anhydrous ? 9  : (hasPreservative ? 16 : 55) },
+    { label:'12 Months',decay: anhydrous ? 16 : (hasPreservative ? 28 : 85) },
+  ];
+  return milestones.map(m => {
+    const projected = Math.max(5, Math.round(score - m.decay));
+    let status, cls, note;
+    if (projected >= 80) { status = 'Excellent'; cls = 'badge-success'; note = 'Should still look, smell, and perform like day one.'; }
+    else if (projected >= 60) { status = 'Good'; cls = 'badge-primary'; note = 'Minor drift is possible — check texture, smell, and color before each use.'; }
+    else if (projected >= 40) { status = 'Fair'; cls = 'badge-warning'; note = 'Watch closely for separation, off-smells, or texture changes — consider smaller batches.'; }
+    else { status = 'High Risk'; cls = 'badge-danger'; note = (!hasPreservative && hasWater) ? 'Without a broad-spectrum preservative, water-containing formulas should not be kept this long.' : 'High chance of degradation or contamination by this point — plan to use it up well before this milestone.'; }
+    return { label: m.label, projected, status, cls, note };
+  });
+}
+
+const STABILITY_BAR_COLORS = { 'badge-success':'var(--success)', 'badge-primary':'var(--primary)', 'badge-warning':'var(--warning)', 'badge-danger':'var(--danger)' };
+
+function renderStabilityCard(formula) {
+  const milestones = predictStability(formula);
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:6px">📈 Stability Prediction</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px">A heuristic estimate based on this formula's preservation system, water content, and ingredient sensitivity — not a substitute for real stability testing (heat/freeze-thaw cycles, challenge testing).</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${milestones.map(m => `
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="min-width:62px;font-size:12px;font-weight:600;color:var(--sub);padding-top:2px">${m.label}</div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span class="badge ${m.cls}">${m.status}</span>
+              <span style="font-size:11px;color:var(--sub)">${m.projected}/100</span>
+            </div>
+            <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+              <div style="height:100%;width:${m.projected}%;background:${STABILITY_BAR_COLORS[m.cls]};border-radius:3px"></div>
+            </div>
+            <p style="font-size:11px;color:var(--sub);margin-top:4px">${m.note}</p>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// EXPECTATIONS ENGINE ("Reality Check")
+// ═══════════════════════════════════════
+function realityCheck(formula) {
+  const goals = formula.goals || [];
+  const rows = formula.rows || [];
+  if (!goals.length) return [];
+  const allGoalDefs = Object.values(GOALS_BY_CATEGORY).flat();
+  return goals.map(g => {
+    const goalLabel = (allGoalDefs.find(x=>x.key===g) || {label:g}).label;
+    const matches = rows.filter(r => Array.isArray(r.ing.goals) && r.ing.goals.includes(g) && typeof r.ing.evidence === 'number');
+    let evidence = null, probability, timeline, confidence;
+    if (matches.length === 0) {
+      probability = 35; timeline = '8–12+ weeks, if at all'; confidence = 'Low';
+    } else {
+      evidence = Math.round(matches.reduce((s,r)=>s+r.ing.evidence,0) / matches.length);
+      probability = Math.round(30 + evidence * 0.6);
+      confidence = evidence >= 75 ? 'High' : evidence >= 55 ? 'Moderate' : 'Low';
+      timeline = evidence >= 75 ? '2–6 weeks of consistent use' : evidence >= 55 ? '6–10 weeks of consistent use' : '8–12+ weeks, and results may be subtle';
+    }
+    return { goal: goalLabel, matches: matches.map(r=>r.ing.name), evidence, probability, timeline, confidence };
+  });
+}
+
+function renderRealityCheckCard(formula) {
+  const items = realityCheck(formula);
+  if (!items.length) return '';
+  const confCls = { 'High':'badge-success', 'Moderate':'badge-warning', 'Low':'badge-danger' };
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:6px">🔮 Reality Check</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:8px">How likely is this formula to deliver on its goals, based on the evidence behind the actives it actually contains?</p>
+    ${items.map(it => `
+      <div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <strong style="font-size:13px">${it.goal}</strong>
+          <span class="badge ${confCls[it.confidence]}">${it.confidence} confidence</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;color:var(--sub)">Success likelihood</span>
+          <span style="font-size:11px;color:var(--sub)">${it.probability}%</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-bottom:6px">
+          <div style="height:100%;width:${it.probability}%;background:var(--accent);border-radius:3px"></div>
+        </div>
+        <p style="font-size:12px;color:var(--sub)">
+          ${it.matches.length ? `Backed by ${it.matches.join(', ')} (avg. evidence score ${it.evidence}/100). ` : 'No actives in this formula are specifically evidenced for this goal yet. '}
+          Realistic timeline: ${it.timeline}.
+        </p>
+      </div>`).join('')}
+    <p style="font-size:11px;color:var(--sub);margin-top:10px">⚠️ Evidence-informed estimates, not guarantees — individual results vary with biology, consistency of use, and the rest of your routine.</p>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// FORMULA BATTLE CENTER
+// ═══════════════════════════════════════
+function renderBattle() {
+  const formulas = loadData('formulas', []);
+  const el = document.getElementById('battle-content');
+  if (formulas.length < 2) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:28px">
+      <div style="font-size:36px;margin-bottom:10px">⚔️</div>
+      <h3 style="margin-bottom:6px">Need Two Formulas to Battle</h3>
+      <p style="color:var(--sub);font-size:13px">Save at least two formulas from the wizard, then come back here to compare them head-to-head.</p>
+    </div>`;
+    return;
+  }
+  let a = state.battleA != null ? state.battleA : 0;
+  let b = state.battleB != null ? state.battleB : 1;
+  if (a >= formulas.length) a = 0;
+  if (b >= formulas.length) b = formulas.length > 1 ? 1 : 0;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="form-group">
+        <label class="form-label">Formula A</label>
+        <select class="form-input" onchange="setBattleFormula('A', this.value)">
+          ${formulas.map((f,i)=>`<option value="${i}" ${i===a?'selected':''}>${f.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Formula B</label>
+        <select class="form-input" onchange="setBattleFormula('B', this.value)">
+          ${formulas.map((f,i)=>`<option value="${i}" ${i===b?'selected':''}>${f.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${renderBattleComparison(formulas[a], formulas[b])}
+  `;
+}
+
+function setBattleFormula(which, idx) {
+  if (which === 'A') state.battleA = +idx; else state.battleB = +idx;
+  renderBattle();
+}
+
+function renderBattleComparison(a, b) {
+  if (!a || !b) return '';
+  if (a === b) return `<div class="card" style="text-align:center;padding:20px"><p style="color:var(--sub);font-size:13px">Pick two different formulas to compare them.</p></div>`;
+
+  const metrics = [
+    { key:'safetyScore',     label:'Safety Score',           higherBetter:true,  fmt:v=>`${v}/100` },
+    { key:'stabilityScore',  label:'Stability Score',        higherBetter:true,  fmt:v=>`${v}/100` },
+    { key:'beginnerScore',   label:'Beginner-Friendliness',  higherBetter:true,  fmt:v=>`${v}/100` },
+    { key:'difficultyScore', label:'Difficulty (lower = easier)', higherBetter:false, fmt:v=>`${v}/100` },
+    { key:'totalCost',       label:'Batch Cost',             higherBetter:false, fmt:v=>formatCost(v) },
+    { key:'costPerG',        label:`Cost per 100${batchUnit(a)}`, higherBetter:false, fmt:v=>formatCost(v) },
+  ];
+
+  let aWins = 0, bWins = 0;
+  const rows = metrics.map(m => {
+    const av = a[m.key], bv = b[m.key];
+    let winner = null;
+    if (av !== bv) {
+      winner = (av > bv) === m.higherBetter ? 'A' : 'B';
+      if (winner === 'A') aWins++; else bWins++;
+    }
+    return { ...m, av, bv, winner };
+  });
+
+  const overallWinner = aWins === bWins ? null : (aWins > bWins ? a : b);
+  const valueWinner = a.costPerG <= b.costPerG ? a : b;
+  const premiumWinner = a.totalCost === b.totalCost ? (a.safetyScore >= b.safetyScore ? a : b)
+    : (a.totalCost > b.totalCost ? a : b);
+  const beginnerWinner = a.beginnerScore >= b.beginnerScore ? a : b;
+
+  return `
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:10px;font-size:11px;color:var(--sub)">Metric</th>
+          <th style="text-align:center;padding:10px;font-size:12px;color:var(--primary)">${a.name}</th>
+          <th style="text-align:center;padding:10px;font-size:12px;color:var(--accent)">${b.name}</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map(r => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px 10px;font-size:12px;color:var(--sub)">${r.label}</td>
+            <td style="padding:8px 10px;text-align:center;font-size:13px;font-weight:${r.winner==='A'?'700':'400'}">${r.fmt(r.av)}${r.winner==='A'?' 🏆':''}</td>
+            <td style="padding:8px 10px;text-align:center;font-size:13px;font-weight:${r.winner==='B'?'700':'400'}">${r.fmt(r.bv)}${r.winner==='B'?' 🏆':''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:10px">🏆 Winners</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+        <div><strong>Best Overall:</strong> ${overallWinner ? overallWinner.name : 'Tie — both score similarly overall'}</div>
+        <div><strong>Best Value:</strong> ${valueWinner.name} <span style="color:var(--sub);font-size:12px">— lower cost per batch size</span></div>
+        <div><strong>Best Premium Pick:</strong> ${premiumWinner.name} <span style="color:var(--sub);font-size:12px">— invests more per batch</span></div>
+        <div><strong>Best for Beginners:</strong> ${beginnerWinner.name} <span style="color:var(--sub);font-size:12px">— easiest to make successfully</span></div>
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════
+// REGULATORY CHECKER (general guidance only — not legal advice)
+// ═══════════════════════════════════════
+const REGULATORY_NOTES = {
+  'retinol': { level:'caution', region:'EU', maxPct:0.3, note:'EU rules cap Vitamin A (retinol & its esters) at roughly 0.3% in body lotion and 0.05% in face cream, with a required "contains Vitamin A" label warning. Not recommended during pregnancy or breastfeeding.' },
+  'retinyl-palmitate': { level:'caution', region:'EU', maxPct:0.05, note:'Counts toward the EU\'s combined Vitamin A limit alongside retinol — face creams are capped near 0.05% with a required label warning.' },
+  'salicylic-acid': { level:'caution', region:'EU/US', maxPct:2, note:'Most regions cap leave-on salicylic acid near 2%, and restrict its use in products marketed to children under 3.' },
+  'glycolic-acid': { level:'info', note:'AHAs increase sun sensitivity — many regions expect a sun-protection reminder on the label when AHAs are present at meaningful levels.' },
+  'lactic-acid': { level:'info', note:'AHAs increase sun sensitivity — many regions expect a sun-protection reminder on the label when AHAs are present at meaningful levels.' },
+  'mandelic-acid': { level:'info', note:'AHAs increase sun sensitivity — many regions expect a sun-protection reminder on the label when AHAs are present at meaningful levels.' },
+  'phenoxyethanol': { level:'caution', region:'EU', maxPct:1, note:'The EU caps phenoxyethanol at 1% of the finished product — this is one of the more tightly enforced preservative limits.' },
+  'titanium-dioxide': { level:'caution', region:'EU', note:'Restricted in loose-powder and spray products that could be inhaled; the nano form must be listed on the label as "titanium dioxide (nano)".' },
+  'zinc-oxide': { level:'info', region:'EU', note:'The nano form must be labeled "(nano)" in the ingredient list and is not permitted in spray products that could reach the lungs.' },
+  'kojic-acid': { level:'caution', region:'EU/Japan', maxPct:1, note:'Several markets cap kojic acid near 1% over skin-sensitization concerns, and some restrict it more tightly or require special approval.' },
+  'alpha-arbutin': { level:'info', maxPct:2, note:'Often capped near 2% by formulators — derivatives that can release hydroquinone have drawn extra regulatory attention in some regions.' },
+  'azelaic-acid': { level:'info', note:'Sold over-the-counter at lower strengths in most regions, but higher concentrations are regulated as a drug product (sometimes prescription-only) in parts of the EU.' },
+  'lavender-eo': { level:'info', note:'Essential oil — common allergens it carries (e.g., linalool, geraniol) must be individually declared on the label above set thresholds (EU: ~0.001% leave-on / 0.01% rinse-off).' },
+  'tea-tree-eo': { level:'info', note:'Essential oil — allergens such as limonene and linalool must be individually declared above EU labeling thresholds; oxidized tea tree oil is more sensitizing, so freshness and storage matter.' },
+  'peppermint-eo': { level:'info', note:'Essential oil — contains menthol; many regions cap leave-on usage levels and require allergen declarations (e.g., limonene) above labeling thresholds.' },
+  'rose-eo': { level:'info', note:'Essential oil — typically carries citronellol, geraniol, citral and other allergens that must be individually declared above EU labeling thresholds.' },
+  'frankincense-eo': { level:'info', note:'Essential oil — carries allergens such as limonene that must be declared above EU labeling thresholds; patch-test as with any concentrated essential oil.' },
+  'fragrance-oil-blend': { level:'info', note:'Fragrance blends can contain any of the EU-designated fragrance allergens — check your supplier\'s IFRA certificate and declare allergens individually above labeling thresholds.' },
+  'perfumers-alcohol': { level:'info', note:'High-alcohol fragrance bases are flammable — most regions require a flammability warning on the packaging.' },
+  'sles': { level:'info', note:'Ethoxylated surfactants like SLES can carry trace 1,4-dioxane as a manufacturing byproduct — sourcing from suppliers who test for and minimize this is recommended.' },
+};
+
+function checkRegulatory(formula) {
+  const flagged = [];
+  for (const r of (formula.rows || [])) {
+    const key = r.ing && r.ing.key;
+    const reg = key && REGULATORY_NOTES[key];
+    if (!reg) continue;
+    const exceeds = typeof reg.maxPct === 'number' && r.pct > reg.maxPct;
+    flagged.push({ name: r.ing.name, emoji: r.ing.emoji, pct: r.pct, ...reg, exceeds });
+  }
+  return flagged;
+}
+
+function renderRegulatoryCard(formula) {
+  const items = checkRegulatory(formula);
+  const lvlCls = { 'caution':'badge-warning', 'warning':'badge-danger', 'info':'badge-primary' };
+  const lvlLabel = { 'caution':'Caution', 'warning':'Restricted', 'info':'Note' };
+  if (!items.length) {
+    return `
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-bottom:6px">📋 Regulatory Notes</h3>
+      <p style="font-size:12px;color:var(--sub)">None of this formula's ingredients are on our regulatory watch-list — but always verify the latest cosmetic regulations for any market you plan to sell into.</p>
+    </div>`;
+  }
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:6px">📋 Regulatory Notes</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:8px">General guidance based on commonly-cited EU/US cosmetic rules — not legal advice. Always verify current regulations for the markets you plan to sell into.</p>
+    ${items.map(it => `
+      <div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px">
+          <strong style="font-size:13px">${it.emoji||'🧪'} ${it.name} <span style="color:var(--sub);font-weight:400">(${it.pct}%)</span></strong>
+          <span class="badge ${lvlCls[it.level]||'badge-primary'}" style="white-space:nowrap">${it.region ? it.region+' · ' : ''}${lvlLabel[it.level]||'Note'}</span>
+        </div>
+        ${it.exceeds ? `<p style="font-size:12px;color:var(--danger);font-weight:600;margin-bottom:4px">⚠️ This formula uses ${it.pct}% — above the commonly-cited ${it.maxPct}% limit. Consider reducing it.</p>` : ''}
+        <p style="font-size:12px;color:var(--sub)">${it.note}</p>
+      </div>`).join('')}
+  </div>`;
 }
 
 // ═══════════════════════════════════════
