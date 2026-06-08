@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer ring (number ring, brushed gold) -->
+    <path
+        android:strokeColor="#D4AF6A"
+        android:strokeWidth="3"
+        android:pathData="M54,20 a34,34 0 1,1 -0.1,0 Z" />
+
+    <!-- Inner ring (fountain) -->
+    <circle android:fillColor="#1E3A4C" android:cx="54" android:cy="54" android:r="9" />
+    <circle android:fillColor="#7FB7C9" android:cx="54" android:cy="54" android:r="4" />
+
+    <!-- Hour human marker -->
+    <circle android:fillColor="#D4AF6A" android:cx="54" android:cy="32" android:r="3.5" />
+    <!-- Minute human marker -->
+    <circle android:fillColor="#E8C988" android:cx="74" android:cy="61" android:r="3" />
+    <!-- Second human marker -->
+    <circle android:fillColor="#E8703A" android:cx="38" android:cy="74" android:r="2.5" />
+
+</vector>
