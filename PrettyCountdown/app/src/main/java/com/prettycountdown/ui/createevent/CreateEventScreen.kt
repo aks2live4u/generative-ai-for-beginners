@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -330,9 +331,10 @@ private fun PhotoSection(photoUri: String?, onPick: () -> Unit, onClear: () -> U
                 }
             }
         } else {
-            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                 Icon(Icons.Filled.AddAPhoto, contentDescription = null)
-                Text("  Choose Photo")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Choose Photo")
             }
         }
     }

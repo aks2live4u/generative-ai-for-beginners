@@ -3,6 +3,8 @@ package com.prettycountdown.ui.eventdetail
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.widget.Toast
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,11 +12,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -65,6 +69,7 @@ import com.prettycountdown.data.SettingsRepository
 import com.prettycountdown.data.model.ChecklistItem
 import com.prettycountdown.data.model.ColorPalettes
 import com.prettycountdown.data.model.Event
+import com.prettycountdown.ui.components.FlipCountdownClock
 import com.prettycountdown.ui.components.rememberNowState
 import com.prettycountdown.util.CountdownMath
 import com.prettycountdown.util.SmartNotifications
@@ -139,7 +144,8 @@ fun EventDetailScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Filled.Widgets, contentDescription = null)
-                    Text("  Add to Home Screen")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add to Home Screen")
                 }
             }
             item {
@@ -191,38 +197,49 @@ private fun HeroCountdown(event: Event, now: Long) {
     val background = Color(palette.background)
     val onBackground = Color(palette.onBackground)
     val accent = Color(palette.primary)
+    val hasPhoto = event.photoUri != null
+    val foreground = if (hasPhoto) Color.White else onBackground
+    val highlight = if (hasPhoto) Color.White else accent
 
     val breakdown = CountdownMath.breakdown(event.targetDateTime, now)
     val progress = CountdownMath.progressFraction(event.startDateTime, event.targetDateTime, now)
-    val big = CountdownMath.primaryValue(event.countdownFormat, breakdown, progress)
-    val unit = CountdownMath.unitLabel(event.countdownFormat, breakdown)
+    val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = tween(800), label = "hero-progress")
 
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = background)) {
         Box {
-            if (event.photoUri != null) {
+            if (hasPhoto) {
                 Image(
                     painter = rememberAsyncImagePainter(event.photoUri),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(220.dp)
+                    modifier = Modifier.fillMaxWidth().height(260.dp)
                 )
-                Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(Color.Black.copy(alpha = 0.35f)))
+                Box(modifier = Modifier.fillMaxWidth().height(260.dp).background(Color.Black.copy(alpha = 0.35f)))
             }
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                 Text(
                     "${event.category.emoji}  ${event.category.displayName}",
-                    color = if (event.photoUri != null) Color.White else onBackground,
+                    color = foreground,
                     style = MaterialTheme.typography.labelLarge
                 )
-                Text(
-                    big,
-                    color = if (event.photoUri != null) Color.White else accent,
-                    style = MaterialTheme.typography.displayLarge
+                Spacer(modifier = Modifier.height(12.dp))
+                if (breakdown.isPast) {
+                    Text("🎉 It's happening!", color = highlight, style = MaterialTheme.typography.displaySmall)
+                } else {
+                    FlipCountdownClock(breakdown = breakdown, accentColor = highlight, labelColor = foreground.copy(alpha = 0.7f))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = highlight,
+                    trackColor = highlight.copy(alpha = 0.18f),
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    unit,
-                    color = if (event.photoUri != null) Color.White else onBackground,
-                    style = MaterialTheme.typography.titleMedium
+                    "${(animatedProgress * 100).roundToInt()}% of the way there",
+                    color = foreground.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
         }
@@ -247,20 +264,25 @@ private fun InfoRow(event: Event) {
 
 @Composable
 private fun TimelineSection(event: Event, now: Long) {
+    val palette = ColorPalettes.byKey(event.colorPaletteKey)
+    val accent = Color(palette.primary)
     val progress = CountdownMath.progressFraction(event.startDateTime, event.targetDateTime, now)
+    val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = tween(800), label = "timeline-progress")
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Timeline", style = MaterialTheme.typography.titleMedium)
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = accent,
+                trackColor = accent.copy(alpha = 0.15f),
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text("Started", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(CountdownMath.formatShortDate(event.startDateTime), style = MaterialTheme.typography.bodyMedium)
                 }
-                Text("${(progress * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium)
+                Text("${(animatedProgress * 100).roundToInt()}%", style = MaterialTheme.typography.titleMedium, color = accent)
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Ends", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(CountdownMath.formatShortDate(event.targetDateTime), style = MaterialTheme.typography.bodyMedium)

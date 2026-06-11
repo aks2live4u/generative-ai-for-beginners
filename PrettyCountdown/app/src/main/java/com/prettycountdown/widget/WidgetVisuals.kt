@@ -19,14 +19,21 @@ object WidgetVisuals {
         }
     }
 
-    /** A "🏠 ··🚶·· 🎯" style track showing a traveler walking toward [destinationEmoji]. */
+    /**
+     * A "🎯 ··🚶·· 🏠" style track showing a traveler walking toward [destinationEmoji].
+     * The walker emoji faces left, so the destination sits on the left and "today" (🏠)
+     * on the right - the walker visually advances toward the destination as [progress] grows.
+     */
     fun journeyTrack(progress: Float, destinationEmoji: String, length: Int = 9): String {
         val clamped = progress.coerceIn(0f, 1f)
         val walkerPosition = (clamped * length).roundToInt().coerceIn(0, length)
         return buildString {
-            append("🏠")
-            repeat(length) { index -> append(if (index == walkerPosition) "🚶" else "·") }
             append(destinationEmoji)
+            repeat(length) { index ->
+                val distanceFromHome = length - 1 - index
+                append(if (distanceFromHome == walkerPosition) "🚶" else "·")
+            }
+            append("🏠")
         }
     }
 }

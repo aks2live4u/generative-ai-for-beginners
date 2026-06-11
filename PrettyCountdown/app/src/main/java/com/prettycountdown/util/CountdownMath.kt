@@ -14,6 +14,7 @@ data class CountdownBreakdown(
     val totalDays: Long,
     val hours: Long,
     val minutes: Long,
+    val seconds: Long,
     val isPast: Boolean
 )
 
@@ -34,7 +35,8 @@ object CountdownMath {
         val remainder = absDiff % MS_PER_DAY
         val hours = remainder / MS_PER_HOUR
         val minutes = (remainder % MS_PER_HOUR) / MS_PER_MINUTE
-        return CountdownBreakdown(diff, totalDays, hours, minutes, isPast)
+        val seconds = (remainder % MS_PER_MINUTE) / 1000L
+        return CountdownBreakdown(diff, totalDays, hours, minutes, seconds, isPast)
     }
 
     /** Days remaining, rounded up so "23 hours from now" still reads as "1 day". */
