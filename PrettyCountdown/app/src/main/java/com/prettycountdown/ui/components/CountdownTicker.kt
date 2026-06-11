@@ -1,0 +1,24 @@
+package com.prettycountdown.ui.components
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
+
+/**
+ * A [State] holding the current time in millis, refreshed every [periodMillis].
+ * Lets countdown screens feel "alive" without recomputing on every frame.
+ */
+@Composable
+fun rememberNowState(periodMillis: Long = 60_000L): State<Long> {
+    val now = remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(periodMillis) {
+        while (true) {
+            delay(periodMillis)
+            now.longValue = System.currentTimeMillis()
+        }
+    }
+    return now
+}

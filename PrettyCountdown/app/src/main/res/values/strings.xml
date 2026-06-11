@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pretty Countdown</string>
+    <string name="countdown_widget_description">A countdown to one of your events, in your favorite style.</string>
+    <string name="dashboard_widget_description">All of your upcoming countdowns at a glance.</string>
+</resources>
