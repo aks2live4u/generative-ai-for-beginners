@@ -83,7 +83,10 @@ fun WeeklyDashboardScreen(onBack: () -> Unit) {
                     Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Peak Trigger Time", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                            Text(state.peakHour, style = MaterialTheme.typography.titleMedium, color = AccentAmber)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(state.peakHour, style = MaterialTheme.typography.titleMedium, color = AccentAmber)
+                                Text("${state.peakHourCount} events", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            }
                         }
                     }
                 }
