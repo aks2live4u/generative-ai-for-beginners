@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -33,6 +34,7 @@ import com.prettycountdown.widget.CountdownWidgetReceiver
 import com.prettycountdown.widget.DashboardWidgetReceiver
 
 /** Showcases every widget style and lets the user pin a widget to their home screen. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WidgetGalleryScreen() {
     val context = LocalContext.current
