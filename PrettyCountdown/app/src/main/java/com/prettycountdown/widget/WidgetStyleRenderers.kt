@@ -242,7 +242,7 @@ fun PhotoWidget(event: Event, display: CountdownDisplay, palette: ColorPalette, 
                 modifier = GlanceModifier.fillMaxSize(),
             )
         } else {
-            Box(modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(palette.background))))
+            Box(modifier = GlanceModifier.fillMaxSize().background(ColorProvider(Color(palette.background)))) {}
         }
         Column(
             modifier = GlanceModifier

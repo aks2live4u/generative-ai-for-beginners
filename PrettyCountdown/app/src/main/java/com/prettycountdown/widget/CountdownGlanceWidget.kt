@@ -5,13 +5,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.glance.GlanceId
+import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.material3.GlanceTheme
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.prettycountdown.data.EventRepository
 import com.prettycountdown.data.SettingsRepository

@@ -1,10 +1,13 @@
 package com.prettycountdown.widget
 
+import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
@@ -12,7 +15,6 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.material3.GlanceTheme
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
@@ -26,7 +28,7 @@ import com.prettycountdown.util.CountdownBreakdown
 import com.prettycountdown.util.CountdownMath
 
 /** Everything a style renderer needs to draw the countdown itself. */
-internal data class CountdownDisplay(
+data class CountdownDisplay(
     val big: String,
     val unit: String,
     val progress: Float,
@@ -46,8 +48,12 @@ internal fun computeDisplay(event: Event, format: CountdownFormat): CountdownDis
 }
 
 /** Tapping any countdown widget opens the app to that event's detail screen. */
+@Composable
 internal fun openEventAction(eventId: Long) =
-    actionStartActivity<MainActivity>(actionParametersOf(WidgetActionParams.EVENT_ID to eventId))
+    actionStartActivity(
+        Intent(LocalContext.current, MainActivity::class.java),
+        actionParametersOf(WidgetActionParams.EVENT_ID to eventId),
+    )
 
 /** Headline number size for the given widget size, shared across every style. */
 internal fun bigFontSize(size: WidgetSizeBucket): TextUnit = when (size) {
@@ -87,11 +93,12 @@ fun WidgetContent(
 /** Shown when the widget has no event to display yet (none created, or all deleted). */
 @Composable
 fun EmptyStateWidget() {
+    val context = LocalContext.current
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.background)
-            .clickable(actionStartActivity<MainActivity>()),
+            .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
         contentAlignment = Alignment.Center
     ) {
         Text(
