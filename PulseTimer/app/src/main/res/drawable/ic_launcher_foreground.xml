@@ -5,16 +5,16 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Progress ring track -->
+    <!-- Progress ring track (full circle) -->
     <path
-        android:pathData="M54,18 A36,36 0 1 1 53.9,18.001"
+        android:pathData="M24,54 A30,30 0 1 0 84,54 A30,30 0 1 0 24,54 Z"
         android:strokeColor="#2a2a31"
         android:strokeWidth="4"
         android:fillColor="@android:color/transparent" />
 
     <!-- Progress ring active arc -->
     <path
-        android:pathData="M54,18 A36,36 0 0 1 86.5,67"
+        android:pathData="M54,24 A30,30 0 0 1 82,65"
         android:strokeColor="#00ff88"
         android:strokeWidth="4"
         android:strokeLineCap="round"
@@ -22,7 +22,7 @@
 
     <!-- Heartbeat / pulse trace -->
     <path
-        android:pathData="M28,57 L42,57 L49,40 L58,74 L66,57 L80,57"
+        android:pathData="M32,56 L44,56 L50,42 L57,71 L64,56 L76,56"
         android:strokeColor="#00ff88"
         android:strokeWidth="5"
         android:strokeLineCap="round"
