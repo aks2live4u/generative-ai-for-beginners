@@ -4,6 +4,7 @@ import android.webkit.JavascriptInterface
 import com.braindump.app.MainActivity
 import com.braindump.app.ai.ClaudeClient
 import com.braindump.app.ai.GeminiClient
+import com.braindump.app.ai.QuoteClient
 import com.braindump.app.data.PreferencesStore
 import com.braindump.app.data.Quotes
 import com.braindump.app.data.Thought
@@ -185,6 +186,22 @@ class AppBridge(
             put("text", quote.first)
             put("author", quote.second)
         }.toString()
+    }
+
+    @JavascriptInterface
+    fun fetchOnlineQuote(requestId: String) {
+        ioExecutor.execute {
+            QuoteClient.fetchRandom().fold(
+                onSuccess = { (text, author) ->
+                    resolve(requestId, JSONObject().apply {
+                        put("success", true)
+                        put("text", text)
+                        put("author", author)
+                    })
+                },
+                onFailure = { e -> resolve(requestId, errorObj(e.message ?: "Failed to fetch quote")) }
+            )
+        }
     }
 
     @JavascriptInterface

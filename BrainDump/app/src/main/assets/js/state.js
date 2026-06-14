@@ -126,6 +126,21 @@
     return formatDate(date, dateFormat || "MMM d");
   }
 
+  /** Like relativeTime, but always includes the time alongside the date/day label. */
+  function relativeDateTime(ts, use24h, dateFormat) {
+    const date = new Date(ts);
+    const now = new Date();
+    const today = startOfDay(now);
+    const day = startOfDay(date);
+    const diffDays = Math.round((today - day) / 86400000);
+    let label;
+    if (diffDays === 0) label = "Today";
+    else if (diffDays === 1) label = "Yesterday";
+    else if (diffDays > 1 && diffDays < 7) label = WEEKDAYS_SHORT[date.getDay()];
+    else label = formatDate(date, dateFormat || "MMM d");
+    return label + " · " + formatTime(date, use24h);
+  }
+
   function formatDuration(ms) {
     const totalSec = Math.round(ms / 1000);
     const min = Math.floor(totalSec / 60);
@@ -133,7 +148,7 @@
     return min + ":" + String(sec).padStart(2, "0");
   }
 
-  window.DateUtil = { formatDate, formatTime, greeting, relativeTime, formatDuration, WEEKDAYS, MONTHS };
+  window.DateUtil = { formatDate, formatTime, greeting, relativeTime, relativeDateTime, formatDuration, WEEKDAYS, MONTHS };
 
   // ---- App store ------------------------------------------------------------
 

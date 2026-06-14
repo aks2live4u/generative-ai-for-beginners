@@ -108,6 +108,9 @@
     getQuote(refresh = false) {
       return callJson("getQuote", refresh);
     },
+    fetchOnlineQuote() {
+      return callAsync("fetchOnlineQuote");
+    },
     getAppInfo() {
       return callJson("getAppInfo");
     },

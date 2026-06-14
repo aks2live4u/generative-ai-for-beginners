@@ -70,7 +70,7 @@
           '<div class="thought-card" data-id="' + t.id + '">' +
           '<div class="thought-card__head">' +
           (mood ? '<span class="thought-card__mood">' + mood.emoji + "</span>" : "") +
-          '<span class="thought-card__time">' + DateUtil.relativeTime(t.createdAt, settings.use24HourTime, settings.dateFormat) + "</span>" +
+          '<span class="thought-card__time">' + DateUtil.relativeDateTime(t.createdAt, settings.use24HourTime, settings.dateFormat) + "</span>" +
           "</div>" +
           '<div class="thought-card__text" style="--thought-lines:' + settings.thoughtTextMaxLines + '">' + UI.escapeHtml(t.text) + "</div>" +
           imagesHtml + audioHtml + transcriptHtml +
@@ -82,17 +82,26 @@
         const settings = Store.settings;
         const moodInfo = draft.mood ? Catalog.moodByKey(draft.mood) : null;
 
+        let chips = draft.images.map((img, i) =>
+          '<div class="attachment-chip"><img src="' + Store.mediaBaseUrl + img + '">' +
+          '<button class="attachment-chip__remove" data-action="remove-image" data-index="' + i + '">' + Icon("x") + "</button></div>"
+        ).join("");
+        if (draft.audioPath) {
+          chips += '<div class="attachment-chip">' + Icon("music") +
+            '<button class="attachment-chip__remove" data-action="remove-audio">' + Icon("x") + "</button></div>";
+        }
+
+        let addButtons = "";
+        if (attachOpen && !recording) {
+          addButtons =
+            '<button class="attachment-add" data-action="attach-camera">' + Icon("camera") + "</button>" +
+            '<button class="attachment-add" data-action="attach-gallery">' + Icon("image") + "</button>" +
+            '<button class="attachment-add" data-action="attach-mic">' + Icon("mic") + "</button>";
+        }
+
         let attachmentRow = "";
-        if (draft.images.length || draft.audioPath) {
-          let chips = draft.images.map((img, i) =>
-            '<div class="attachment-chip"><img src="' + Store.mediaBaseUrl + img + '">' +
-            '<button class="attachment-chip__remove" data-action="remove-image" data-index="' + i + '">' + Icon("x") + "</button></div>"
-          ).join("");
-          if (draft.audioPath) {
-            chips += '<div class="attachment-chip">' + Icon("music") +
-              '<button class="attachment-chip__remove" data-action="remove-audio">' + Icon("x") + "</button></div>";
-          }
-          attachmentRow = '<div class="attachment-row">' + chips + "</div>";
+        if (chips || addButtons) {
+          attachmentRow = '<div class="attachment-row">' + chips + addButtons + "</div>";
         }
 
         let moodRow = "";
@@ -100,15 +109,6 @@
           moodRow = '<div class="mood-picker">' + Catalog.MOODS.map((m) =>
             '<button class="mood-chip ' + (draft.mood === m.key ? "selected" : "") + '" data-mood="' + m.key + '">' + m.emoji + " " + m.label + "</button>"
           ).join("") + "</div>";
-        }
-
-        let attachRow = "";
-        if (attachOpen && !recording) {
-          attachRow = '<div class="attachment-row">' +
-            '<button class="icon-btn" data-action="attach-camera">' + Icon("camera") + "</button>" +
-            '<button class="icon-btn" data-action="attach-gallery">' + Icon("image") + "</button>" +
-            '<button class="icon-btn" data-action="attach-mic">' + Icon("mic") + "</button>" +
-            "</div>";
         }
 
         let recordingRow = "";
@@ -129,7 +129,7 @@
 
         return (
           '<div class="input-bar-wrap">' +
-          attachmentRow + moodRow + attachRow + recordingRow +
+          attachmentRow + moodRow + recordingRow +
           '<div class="input-bar ' + (recording ? "hidden" : "") + '">' +
           moodBtn +
           '<textarea class="input-bar__field" id="composer-text" placeholder="What are you thinking?" rows="' + settings.inputMaxLines + '">' + UI.escapeHtml(draft.text) + "</textarea>" +
@@ -167,8 +167,8 @@
           "</div>" +
           '<div class="quote-card__body">' +
           '<span class="quote-card__mark">“</span>' +
-          '<div style="flex:1"><div class="quote-card__text">' + UI.escapeHtml(quote.text) + "</div>" +
-          '<span class="quote-card__author">— ' + UI.escapeHtml(quote.author) + "</span></div>" +
+          '<div style="flex:1"><div class="quote-card__text" id="quote-text">' + UI.escapeHtml(quote.text) + "</div>" +
+          '<span class="quote-card__author" id="quote-author">— ' + UI.escapeHtml(quote.author) + "</span></div>" +
           '<button class="icon-btn quote-card__refresh" data-action="quote-refresh">' + Icon("refresh") + "</button>" +
           "</div></div>";
 
@@ -196,6 +196,21 @@
           el.innerHTML = renderThoughtList();
           attachThoughtCards();
         }
+      }
+
+      function applyQuote(text, author) {
+        quote = { text, author };
+        const textEl = container.querySelector("#quote-text");
+        const authorEl = container.querySelector("#quote-author");
+        if (textEl) textEl.textContent = text;
+        if (authorEl) authorEl.textContent = "— " + author;
+      }
+
+      function refreshQuoteOnline() {
+        return Bridge.fetchOnlineQuote().then((res) => {
+          if (res.success) applyQuote(res.text, res.author);
+          return res;
+        });
       }
 
       function attachThoughtCards() {
@@ -273,8 +288,14 @@
 
         const quoteRefresh = q('[data-action="quote-refresh"]');
         if (quoteRefresh) quoteRefresh.addEventListener("click", () => {
-          quote = Bridge.getQuote(true);
-          renderAll();
+          quoteRefresh.innerHTML = '<div class="spinner"></div>';
+          refreshQuoteOnline().then((res) => {
+            if (!res.success) {
+              const local = Bridge.getQuote(true);
+              applyQuote(local.text, local.author);
+            }
+            quoteRefresh.innerHTML = Icon("refresh");
+          });
         });
 
         attachThoughtCards();
@@ -422,6 +443,10 @@
       // ---- lifecycle ---------------------------------------------------------
 
       renderAll();
+
+      // Fetch a fresh quote from the internet in the background and swap it
+      // in once it arrives, without disturbing the rest of the screen.
+      refreshQuoteOnline();
 
       const clockTimer = setInterval(() => {
         const now = new Date();
