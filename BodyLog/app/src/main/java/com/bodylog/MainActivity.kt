@@ -9,6 +9,7 @@ import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,7 +56,10 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            allowFileAccess = true
+            allowFileAccess = false
+            allowContentAccess = false
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
@@ -64,7 +68,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
-        webView.webViewClient = WebViewClient()
+
+        // Keep the WebView confined to the bundled app: only file:///android_asset/
+        // pages may load, everything else (e.g. links tapped in "notes") is rejected.
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                return !request.url.toString().startsWith("file:///android_asset/")
+            }
+        }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
