@@ -1,0 +1,67 @@
+/* ==========================================================================
+   Brain Dump — color themes
+   All themes are fully unlocked. Each theme defines an accent gradient
+   pair (--accent / --accent-2) used for buttons, highlights and selection
+   states. Base surface/background/text colors come from the light/dark
+   mode block below.
+   ========================================================================== */
+
+:root {
+  --accent: #3B82F6;
+  --accent-2: #60A5FA;
+  --on-accent: #ffffff;
+}
+
+/* ---- Dark mode (default) ------------------------------------------------ */
+[data-mode="dark"] {
+  --bg: #0b0e14;
+  --surface: #161b25;
+  --surface-2: #1f2531;
+  --surface-3: #2a313f;
+  --text: #f5f6f8;
+  --text-secondary: #9aa3b2;
+  --text-muted: #6b7280;
+  --border: #2a313f;
+  --danger: #ef4444;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Light mode ----------------------------------------------------------*/
+[data-mode="light"] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eef0f4;
+  --surface-3: #e2e5ea;
+  --text: #1a1f2b;
+  --text-secondary: #5b6472;
+  --text-muted: #8a93a3;
+  --border: #e2e5ea;
+  --danger: #dc2626;
+  --overlay: rgba(0, 0, 0, 0.35);
+  --shadow: rgba(0, 0, 0, 0.12);
+}
+
+/* ---- Accent palettes ------------------------------------------------------
+   These map to the "Choose Theme" picker. Every theme is unlocked. */
+
+[data-color="ocean_blue"]      { --accent: #3B82F6; --accent-2: #60A5FA; --on-accent: #ffffff; }
+[data-color="classic_purple"]  { --accent: #8B5CF6; --accent-2: #A78BFA; --on-accent: #ffffff; }
+[data-color="warm_sunset"]     { --accent: #F97316; --accent-2: #FB923C; --on-accent: #ffffff; }
+[data-color="forest_green"]    { --accent: #16A34A; --accent-2: #4ADE80; --on-accent: #ffffff; }
+[data-color="neon_glow"]       { --accent: #14B8A6; --accent-2: #5EEAD4; --on-accent: #052e2b; }
+[data-color="sweet_pink"]      { --accent: #EC4899; --accent-2: #F9A8D4; --on-accent: #ffffff; }
+[data-color="rose_gold"]       { --accent: #F43F5E; --accent-2: #FDA4AF; --on-accent: #ffffff; }
+[data-color="soft_lavender"]   { --accent: #A78BFA; --accent-2: #DDD6FE; --on-accent: #2e1065; }
+[data-color="midnight_blue"]   { --accent: #2563EB; --accent-2: #1E3A8A; --on-accent: #ffffff; }
+[data-color="galaxy_purple"]   { --accent: #7C3AED; --accent-2: #C084FC; --on-accent: #ffffff; }
+[data-color="deep_teal"]       { --accent: #0D9488; --accent-2: #2DD4BF; --on-accent: #ffffff; }
+[data-color="golden_amber"]    { --accent: #F59E0B; --accent-2: #FBBF24; --on-accent: #1c1303; }
+[data-color="emerald_green"]   { --accent: #10B981; --accent-2: #34D399; --on-accent: #ffffff; }
+[data-color="bright_turquoise"]{ --accent: #06B6D4; --accent-2: #67E8F9; --on-accent: #04303a; }
+[data-color="cool_slate"]      { --accent: #64748B; --accent-2: #94A3B8; --on-accent: #ffffff; }
+[data-color="pure_black"]      { --accent: #52525B; --accent-2: #A1A1AA; --on-accent: #ffffff; }
+
+.accent-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
