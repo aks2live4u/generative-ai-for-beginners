@@ -129,7 +129,7 @@
 
         return (
           '<div class="input-bar-wrap">' +
-          attachmentRow + moodRow + recordingRow +
+          attachmentRow + moodRow + attachRow + recordingRow +
           '<div class="input-bar ' + (recording ? "hidden" : "") + '">' +
           moodBtn +
           '<textarea class="input-bar__field" id="composer-text" placeholder="What are you thinking?" rows="' + settings.inputMaxLines + '">' + UI.escapeHtml(draft.text) + "</textarea>" +

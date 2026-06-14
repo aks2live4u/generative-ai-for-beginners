@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lightbulb + brainwave mark. All content is kept inside the 24..84 box
-     (60dp out of the 108dp canvas) so it survives circle/squircle/rounded
-     masks on any launcher without being clipped. -->
+<!-- Lightbulb + brainwave mark. Content spans x:36-72, y:30-78, centered on
+     the 108x108 canvas so it survives circle/squircle/rounded masks on any
+     launcher without being clipped or looking off-center. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -10,21 +10,21 @@
 
     <!-- Bulb outline -->
     <path
-        android:pathData="M36,44 A18,18 0 1 1 72,44 A18,18 0 1 1 36,44 Z"
+        android:pathData="M36,48 A18,18 0 1 1 72,48 A18,18 0 1 1 36,48 Z"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="4"
         android:fillColor="#00000000" />
 
     <!-- Brainwave / idea filament -->
     <path
-        android:pathData="M42,50 L48,38 L54,46 L60,34 L66,50"
+        android:pathData="M42,54 L48,42 L54,50 L60,38 L66,54"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="3.5"
+        android:strokeWidth="4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="#00000000" />
 
     <!-- Screw base -->
-    <path android:pathData="M45,62 L63,62 L63,67 L45,67 Z" android:fillColor="#FFFFFF" />
-    <path android:pathData="M47,70 L61,70 L61,74 L47,74 Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M45,66 L63,66 L63,71 L45,71 Z" android:fillColor="#FFFFFF" />
+    <path android:pathData="M47,74 L61,74 L61,78 L47,78 Z" android:fillColor="#FFFFFF" />
 </vector>

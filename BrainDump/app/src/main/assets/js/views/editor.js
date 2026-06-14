@@ -187,10 +187,11 @@
           });
         });
 
-        const toggleMood = q('[data-action="toggle-mood"]');
-        if (toggleMood) toggleMood.addEventListener("click", () => {
-          moodPickerOpen = !moodPickerOpen;
-          renderAll();
+        container.querySelectorAll('[data-action="toggle-mood"]').forEach((btn) => {
+          btn.addEventListener("click", () => {
+            moodPickerOpen = !moodPickerOpen;
+            renderAll();
+          });
         });
 
         container.querySelectorAll("[data-mood]").forEach((chip) => {

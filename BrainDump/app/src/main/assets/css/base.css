@@ -31,6 +31,11 @@ textarea, input[type="text"], input[type="password"], input[type="number"] {
 
 button { cursor: pointer; }
 
+/* Inline icons default to a sensible size unless a more specific rule
+   overrides it — without this, a bare <svg> with no width/height can be
+   rendered at the browser's default replaced-element size (~300x150px). */
+svg { width: 1em; height: 1em; flex-shrink: 0; }
+
 .hidden { display: none !important; }
 
 /* ---- App shell ----------------------------------------------------------- */
@@ -158,6 +163,8 @@ button { cursor: pointer; }
   padding: 16px;
   margin-bottom: 14px;
 }
+
+.card h3 svg { width: 20px; height: 20px; }
 
 .quote-card {
   background: var(--surface);
@@ -794,6 +801,8 @@ button { cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
+
+.editor-add-attachment svg { width: 28px; height: 28px; }
 
 .editor-textarea {
   width: 100%;
