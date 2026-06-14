@@ -64,11 +64,22 @@ class MediaStorage(private val context: Context) {
     /** Allocates a new file (not yet created) for an audio recording. */
     fun newAudioFile(): File = File(mediaDir, "audio_${UUID.randomUUID()}.m4a")
 
-    fun file(name: String): File = File(mediaDir, name)
+    /**
+     * Resolves [name] to a file directly inside [mediaDir], rejecting any
+     * path-traversal attempt. Thought records (including ones brought in via
+     * Import) only ever carry filenames generated here, but a crafted import
+     * file could supply something like "../../shared_prefs/secure_prefs.xml" -
+     * reject anything that isn't a plain filename before touching disk.
+     */
+    private fun resolveSafe(name: String): File? {
+        if (name.isBlank() || name.contains('/') || name.contains('\\') || name == "." || name == "..") {
+            return null
+        }
+        return File(mediaDir, name)
+    }
 
     fun delete(name: String) {
-        if (name.isBlank()) return
-        val file = File(mediaDir, name)
+        val file = resolveSafe(name) ?: return
         if (file.exists()) file.delete()
     }
 
@@ -78,7 +89,8 @@ class MediaStorage(private val context: Context) {
 
     /** Reads a media file and returns it base64-encoded, for sending to Claude/Gemini. */
     fun readAsBase64(name: String): String {
-        val bytes = File(mediaDir, name).readBytes()
+        val file = resolveSafe(name) ?: throw IllegalArgumentException("Invalid media file name")
+        val bytes = file.readBytes()
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }
