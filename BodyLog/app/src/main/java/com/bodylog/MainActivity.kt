@@ -3,12 +3,9 @@ package com.bodylog
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.webkit.JavascriptInterface
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -18,22 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingExportData: ByteArray? = null
-
-    private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val uris: Array<Uri>? = if (result.resultCode == Activity.RESULT_OK) {
-            val data = result.data
-            val clipData = data?.clipData
-            if (clipData != null) {
-                Array(clipData.itemCount) { i -> clipData.getItemAt(i).uri }
-            } else {
-                data?.data?.let { arrayOf(it) }
-            }
-        } else null
-        filePathCallback?.onReceiveValue(uris)
-        filePathCallback = null
-    }
 
     private val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -76,57 +58,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onShowFileChooser(
-                webView: WebView?,
-                filePathCallback: ValueCallback<Array<Uri>>?,
-                fileChooserParams: FileChooserParams?
-            ): Boolean {
-                this@MainActivity.filePathCallback?.onReceiveValue(null)
-                this@MainActivity.filePathCallback = filePathCallback
-
-                val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "*/*"
-                }
-                return try {
-                    fileChooserLauncher.launch(intent)
-                    true
-                } catch (e: Exception) {
-                    this@MainActivity.filePathCallback = null
-                    false
-                }
-            }
-        }
-
-        // BodyLog's Export button creates a Blob + <a download>, which WebView
-        // can't save directly. Intercept it and hand the data to AndroidBridge
-        // so it can be saved via the system "Save As" dialog.
-        webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
-            if (url.startsWith("blob:")) {
-                val filename = parseFilename(contentDisposition) ?: "bodylog-backup.json"
-                val type = mimeType?.takeIf { it.isNotBlank() } ?: "application/json"
-                webView.evaluateJavascript(
-                    """
-                    (function() {
-                        fetch('$url').then(function(r){ return r.blob(); }).then(function(blob){
-                            var reader = new FileReader();
-                            reader.onloadend = function() {
-                                AndroidBridge.exportFile(reader.result.split(',')[1], '$filename', '$type');
-                            };
-                            reader.readAsDataURL(blob);
-                        });
-                    })();
-                    """.trimIndent(), null
-                )
-            }
-        }
-
         webView.loadUrl("file:///android_asset/bodylog.html")
-    }
-
-    private fun parseFilename(contentDisposition: String?): String? {
-        if (contentDisposition == null) return null
-        return Regex("filename=\"?([^\";]+)\"?").find(contentDisposition)?.groupValues?.get(1)
     }
 
     @Suppress("DEPRECATION")

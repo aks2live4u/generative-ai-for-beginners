@@ -59,6 +59,7 @@
     display: flex;
     gap: 6px;
     padding: 16px 20px 0;
+    overflow-x: auto;
   }
   .tab {
     padding: 7px 16px;
@@ -71,6 +72,7 @@
     cursor: pointer;
     transition: all 0.2s;
     letter-spacing: 0.03em;
+    flex-shrink: 0;
   }
   .tab.active {
     background: var(--accent);
@@ -367,8 +369,6 @@
   <div class="logo">Body<span>Log</span></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn-io" onclick="exportData()" title="Export">↑ Export</button>
-    <button class="btn-io" onclick="document.getElementById('import-input').click()" title="Import">↓ Import</button>
-    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
   </div>
 </header>
 
@@ -376,6 +376,7 @@
   <button class="tab active" onclick="switchTab('log')">Log</button>
   <button class="tab" onclick="switchTab('dashboard')">Dashboard</button>
   <button class="tab" onclick="switchTab('history')">History</button>
+  <button class="tab" onclick="switchTab('goals')">Goals</button>
 </div>
 
 <!-- LOG PAGE -->
@@ -624,6 +625,145 @@
   </div>
 </div>
 
+<!-- GOALS PAGE -->
+<div class="page" id="page-goals">
+  <div class="section-label">Units</div>
+  <div class="date-row">
+    <label>Measurement Units</label>
+    <div style="display:flex;gap:6px">
+      <button class="tab" id="unit-metric" onclick="setUnit('metric')">kg / cm</button>
+      <button class="tab" id="unit-imperial" onclick="setUnit('imperial')">lb / in</button>
+    </div>
+  </div>
+
+  <div class="section-label">Starting Point</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Weight</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-weight" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">kg</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Body Fat</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-bodyfat" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">%</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Waist</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-waist" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Chest</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-chest" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Hips</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-hips" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Arms</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-arm-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Thighs</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-thigh-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Calves</div>
+      <div class="field-row">
+        <input type="number" id="goal-start-calf-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Goal</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Weight</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-weight" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">kg</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Body Fat</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-bodyfat" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">%</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Waist</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-waist" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Chest</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-chest" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Hips</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-hips" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Arms</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-arm-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Thighs</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-thigh-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Calves</div>
+      <div class="field-row">
+        <input type="number" id="goal-target-calf-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+
+  <div class="section-label">Progress To Goal</div>
+  <div class="chart-card" id="goal-progress">
+    <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Set a goal and log an entry to see progress.</div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -631,17 +771,6 @@ const FIELDS=['weight','bodyfat','neck','shoulders','chest','arm-l','arm-r','for
 const LABELS={weight:'Weight',bodyfat:'Body Fat',neck:'Neck',shoulders:'Shoulders',chest:'Chest','arm-l':'Arm L','arm-r':'Arm R','forearm-l':'Forearm L','forearm-r':'Forearm R',wrist:'Wrist',waist:'Waist',abdomen:'Abdomen',hips:'Hips','thigh-l':'Thigh L','thigh-r':'Thigh R','knee-l':'Knee L','knee-r':'Knee R','calf-l':'Calf L','calf-r':'Calf R',ankle:'Ankle'};
 const UNITS={weight:'kg',bodyfat:'%',neck:'cm',shoulders:'cm',chest:'cm','arm-l':'cm','arm-r':'cm','forearm-l':'cm','forearm-r':'cm',wrist:'cm',waist:'cm',abdomen:'cm',hips:'cm','thigh-l':'cm','thigh-r':'cm','knee-l':'cm','knee-r':'cm','calf-l':'cm','calf-r':'cm',ankle:'cm'};
 function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function sanitizeEntry(entry){
-  if(!entry||typeof entry!=='object')return null;
-  if(typeof entry.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(entry.date))return null;
-  const clean={date:entry.date};
-  FIELDS.forEach(f=>{
-    if(f==='notes'){if(typeof entry.notes==='string'&&entry.notes.trim())clean.notes=entry.notes.slice(0,1000);return;}
-    const v=entry[f];if(typeof v==='number'&&Number.isFinite(v))clean[f]=v;
-  });
-  if(typeof entry.whr==='number'&&Number.isFinite(entry.whr))clean.whr=entry.whr;
-  return clean;
-}
 let weightChart=null,metricChart=null;
 function getData(){return JSON.parse(localStorage.getItem('bodylog_entries')||'[]');}
 function saveData(d){localStorage.setItem('bodylog_entries',JSON.stringify(d));}
@@ -655,7 +784,7 @@ FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)el.addEventListener
 document.getElementById('entry-date').addEventListener('change',saveDraft);
 loadDraft();
 ['waist','hips'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>{const w=parseFloat(document.getElementById('waist').value),h=parseFloat(document.getElementById('hips').value);if(w>0&&h>0)document.getElementById('whr').value=(w/h).toFixed(2);});});
-function switchTab(name){document.querySelectorAll('.tab').forEach((t,i)=>{const names=['log','dashboard','history'];t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+name).classList.add('active');if(name==='dashboard')renderDashboard();if(name==='history')renderHistory();}
+function switchTab(name){document.querySelectorAll('.tabs > .tab').forEach((t,i)=>{const names=['log','dashboard','history','goals'];t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+name).classList.add('active');if(name==='dashboard')renderDashboard();if(name==='history')renderHistory();if(name==='goals')renderGoalsForm();}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function saveEntry(){
   const date=document.getElementById('entry-date').value;
@@ -690,9 +819,76 @@ function renderWeightChart(data){const pts=data.filter(e=>e.weight!=null);if(wei
 function renderMetricChart(){const data=getData();const metric=document.getElementById('metric-select').value;const pts=data.filter(e=>e[metric]!=null);if(metricChart)metricChart.destroy();const ctx=document.getElementById('metric-chart').getContext('2d');metricChart=new Chart(ctx,{type:'line',data:{labels:pts.map(e=>formatDate(e.date)),datasets:[{data:pts.map(e=>e[metric]),borderColor:'#7cf0c8',backgroundColor:'rgba(124,240,200,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#7cf0c8',pointRadius:4,pointHoverRadius:6}]},options:{...chartDefaults}});}
 function renderProgressBars(data){const container=document.getElementById('progress-bars');if(data.length<2){container.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Need at least 2 entries to show progress.</div>';return;}const first=data[0];const latest=data[data.length-1];const keys=['weight','waist','chest','hips','arm-l','thigh-l'];let html='<div class="progress-bars">';keys.forEach(k=>{const f=first[k],l=latest[k];if(f==null||l==null)return;const change=(l-f).toFixed(1);const pct=Math.min(100,Math.max(5,(l/f)*100));const sign=change>0?'+':'';html+=`<div class="prog-row"><div class="prog-meta"><span class="prog-name">${LABELS[k]}</span><span class="prog-vals">${f} → ${l} ${UNITS[k]} <span style="color:${change>0?'#f07c7c':'#c8f07c'}">(${sign}${change})</span></span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div></div>`;});html+='</div>';container.innerHTML=html;}
 function renderHistory(){const data=getData();const container=document.getElementById('history-list');if(data.length===0){container.innerHTML='<div class="empty-state"><span class="big">◌</span>No entries recorded yet.<br>Head to the Log tab to get started.</div>';return;}const mainFields=['weight','bodyfat','waist','chest','hips','arm-l','thigh-l','calf-l'];let html='';[...data].reverse().forEach(entry=>{const safeDate=escapeHtml(entry.date);html+=`<div class="history-entry"><div class="entry-date"><span>${formatDate(entry.date)}</span><button class="btn-danger" data-delete="${safeDate}" onclick="deleteEntry('${safeDate}',false)">Delete</button></div><div class="entry-grid">`;mainFields.forEach(f=>{if(entry[f]!=null){html+=`<div class="entry-item"><div class="entry-item-label">${LABELS[f]}</div><div class="entry-item-value">${entry[f]}<span style="font-size:10px;color:var(--muted)"> ${UNITS[f]}</span></div></div>`;}});html+='</div>';if(entry.notes)html+=`<div class="entry-notes">"${escapeHtml(entry.notes)}"</div>`;html+='</div>';});container.innerHTML=html;}
-function exportData(){const data=getData();if(data.length===0){showToast('No data to export');return;}const json=JSON.stringify({bodylog:true,version:1,entries:data},null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bodylog-backup.json';a.click();URL.revokeObjectURL(url);showToast('Exported '+data.length+' entries');}
-function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const parsed=JSON.parse(e.target.result);const incoming=parsed.entries||parsed;if(!Array.isArray(incoming)){showToast('Invalid file format');return;}const existing=getData();const merged=[...existing];let count=0;incoming.forEach(entry=>{const clean=sanitizeEntry(entry);if(!clean)return;const idx=merged.findIndex(x=>x.date===clean.date);if(idx>=0)merged[idx]=clean;else merged.push(clean);count++;});if(count===0){showToast('No valid entries found');return;}merged.sort((a,b)=>a.date.localeCompare(b.date));saveData(merged);showToast('Imported '+count+' entries');renderHistory();}catch(err){showToast('Could not read file');}};reader.readAsText(file);event.target.value='';}
+function exportData(){
+  const data=getData();if(data.length===0){showToast('No data to export');return;}
+  const json=JSON.stringify({bodylog:true,version:1,entries:data},null,2);
+  const filename='bodylog-backup-'+today()+'.json';
+  if(window.AndroidBridge&&window.AndroidBridge.exportFile){
+    const base64=btoa(unescape(encodeURIComponent(json)));
+    window.AndroidBridge.exportFile(base64,filename,'application/json');
+    showToast('Exported '+data.length+' entries');
+    return;
+  }
+  const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast('Exported '+data.length+' entries');
+}
 function deleteEntry(date,confirmed){if(!confirmed){const btn=document.querySelector('[data-delete="'+date+'"]');if(!btn)return;btn.textContent='Confirm?';btn.style.background='var(--danger)';btn.style.color='#fff';btn.setAttribute('onclick',"deleteEntry('"+date+"',true)");setTimeout(()=>{if(btn&&btn.textContent==='Confirm?'){btn.textContent='Delete';btn.style.background='';btn.style.color='';btn.setAttribute('onclick',"deleteEntry('"+date+"',false)");}},3000);return;}const data=getData().filter(e=>e.date!==date);saveData(data);renderHistory();showToast('Entry deleted');}
+
+/* GOALS / PROFILE */
+const PROFILE_KEY='bodylog_profile';
+const GOAL_FIELDS=['weight','bodyfat','waist','chest','hips','arm-l','thigh-l','calf-l'];
+const GOAL_LABELS={weight:'Weight',bodyfat:'Body Fat',waist:'Waist',chest:'Chest',hips:'Hips','arm-l':'Arms','thigh-l':'Thighs','calf-l':'Calves'};
+const KG_PER_LB=0.45359237;
+const CM_PER_IN=2.54;
+function getProfile(){try{const p=JSON.parse(localStorage.getItem(PROFILE_KEY));if(p&&typeof p==='object')return Object.assign({unit:'metric',start:{},goals:{}},p);}catch(e){}return{unit:'metric',start:{},goals:{}};}
+function saveProfileData(p){localStorage.setItem(PROFILE_KEY,JSON.stringify(p));}
+function unitSuffix(field,unit){if(field==='bodyfat')return '%';return unit==='imperial'?(field==='weight'?'lb':'in'):(field==='weight'?'kg':'cm');}
+function toDisplayUnit(value,field,unit){if(value==null||!Number.isFinite(value))return null;if(field==='bodyfat'||unit!=='imperial')return value;return field==='weight'?+(value/KG_PER_LB).toFixed(1):+(value/CM_PER_IN).toFixed(1);}
+function toMetricUnit(value,field,unit){if(value==='')return null;const n=parseFloat(value);if(!Number.isFinite(n))return null;if(field==='bodyfat'||unit!=='imperial')return n;return field==='weight'?+(n*KG_PER_LB).toFixed(2):+(n*CM_PER_IN).toFixed(2);}
+function renderGoalsForm(){
+  const profile=getProfile();
+  document.getElementById('unit-metric').classList.toggle('active',profile.unit!=='imperial');
+  document.getElementById('unit-imperial').classList.toggle('active',profile.unit==='imperial');
+  GOAL_FIELDS.forEach(f=>{
+    const suffix=unitSuffix(f,profile.unit);
+    [['start','start'],['target','goals']].forEach(([prefix,key])=>{
+      const input=document.getElementById('goal-'+prefix+'-'+f);
+      input.closest('.form-field').querySelector('.field-unit').textContent=suffix;
+      const display=toDisplayUnit(profile[key][f],f,profile.unit);
+      input.value=display!=null?display:'';
+    });
+  });
+  renderGoalProgress(profile);
+}
+function setUnit(unit){const profile=getProfile();if(profile.unit===unit)return;profile.unit=unit;saveProfileData(profile);renderGoalsForm();}
+function saveProfile(){
+  const profile=getProfile();
+  GOAL_FIELDS.forEach(f=>{
+    const startVal=toMetricUnit(document.getElementById('goal-start-'+f).value,f,profile.unit);
+    const targetVal=toMetricUnit(document.getElementById('goal-target-'+f).value,f,profile.unit);
+    if(startVal!=null)profile.start[f]=startVal;else delete profile.start[f];
+    if(targetVal!=null)profile.goals[f]=targetVal;else delete profile.goals[f];
+  });
+  saveProfileData(profile);
+  showToast('Profile saved!');
+  renderGoalProgress(profile);
+}
+function renderGoalProgress(profile){
+  const container=document.getElementById('goal-progress');
+  const data=getData();
+  if(data.length===0){container.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Log an entry to see progress.</div>';return;}
+  const latest=data[data.length-1];
+  let html='';
+  GOAL_FIELDS.forEach(f=>{
+    const goal=profile.goals[f];if(goal==null)return;
+    const cur=latest[f];if(cur==null)return;
+    const unit=unitSuffix(f,profile.unit);
+    const curDisp=toDisplayUnit(cur,f,profile.unit);
+    const goalDisp=toDisplayUnit(goal,f,profile.unit);
+    const remaining=+(goalDisp-curDisp).toFixed(1);
+    html+=`<div class="prog-row"><div class="prog-meta"><span class="prog-name">${GOAL_LABELS[f]}</span><span class="prog-vals">${curDisp} → ${goalDisp} ${unit} <span style="color:var(--muted)">(${remaining>0?'+':''}${remaining} to go)</span></span></div></div>`;
+  });
+  container.innerHTML=html?`<div class="progress-bars">${html}</div>`:'<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Set goals above to see progress.</div>';
+}
 </script>
 </body>
 </html>
