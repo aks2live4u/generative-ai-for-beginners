@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>BodyLog v2 — Measurements Tracker</title>
+<script src="chart.umd.js"></script>
+<link href="fonts.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #c8f07c;
+    --accent2: #7cf0c8;
+    --accent3: #f07cc8;
+    --text: #f0ede6;
+    --muted: #7a7a88;
+    --danger: #f07c7c;
+    --radius: 14px;
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-mono: 'DM Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .logo {
+    font-family: var(--font-display);
+    font-size: 28px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .logo span { color: var(--muted); font-style: italic; }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    padding: 16px 20px 0;
+  }
+  .tab {
+    padding: 7px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #0e0e10;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* PAGES */
+  .page { display: none; padding: 20px; }
+  .page.active { display: block; }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    margin-top: 24px;
+  }
+  .section-label:first-child { margin-top: 8px; }
+
+  /* FORM GRID */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .form-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.2s;
+  }
+  .form-field:focus-within {
+    border-color: var(--accent);
+  }
+  .form-field.full { grid-column: 1 / -1; }
+  .field-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .form-field input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 500;
+    width: 100%;
+    min-width: 0;
+  }
+  .field-unit {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* DATE ROW */
+  .date-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .date-row label { font-size: 11px; color: var(--muted); }
+  .date-row input[type="date"] {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-align: right;
+    color-scheme: dark;
+  }
+
+  /* NOTES */
+  .notes-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .notes-field textarea {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    width: 100%;
+    resize: none;
+    min-height: 60px;
+  }
+
+  /* BUTTONS */
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #0e0e10;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    margin-top: 16px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.85; }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: #0e0e10;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* DASHBOARD STATS */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .stat-card.highlight { border-color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: var(--font-display); font-size: 26px; color: var(--text); line-height: 1; }
+  .stat-value span { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+  .stat-change { font-size: 11px; margin-top: 4px; }
+  .stat-change.pos { color: var(--accent); }
+  .stat-change.neg { color: var(--danger); }
+  .stat-change.neu { color: var(--muted); }
+
+  /* CHART CARD */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .chart-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .chart-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* HISTORY */
+  .history-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .entry-date {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .entry-item { }
+  .entry-item-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .entry-item-value { font-size: 14px; color: var(--text); font-weight: 500; margin-top: 2px; }
+  .entry-notes {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .empty-state .big { font-family: var(--font-display); font-size: 40px; color: var(--border); display: block; margin-bottom: 8px; }
+
+  /* PROGRESS BAR */
+  .progress-bars { display: flex; flex-direction: column; gap: 10px; }
+  .prog-row { display: flex; flex-direction: column; gap: 4px; }
+  .prog-meta { display: flex; justify-content: space-between; align-items: center; }
+  .prog-name { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .prog-vals { font-size: 11px; color: var(--text); }
+  .prog-track {
+    height: 5px;
+    background: var(--surface2);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--accent);
+    transition: width 0.6s ease;
+  }
+
+  canvas { max-height: 200px; }
+
+  .btn-io {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-io:active { background: var(--accent); color: #0e0e10; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Body<span>Log</span></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn-io" onclick="exportData()" title="Export">↑ Export</button>
+    <button class="btn-io" onclick="document.getElementById('import-input').click()" title="Import">↓ Import</button>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('log')">Log</button>
+  <button class="tab" onclick="switchTab('dashboard')">Dashboard</button>
+  <button class="tab" onclick="switchTab('history')">History</button>
+</div>
+
+<!-- LOG PAGE -->
+<div class="page active" id="page-log">
+  <div class="section-label">Entry Date</div>
+  <div class="date-row">
+    <label>Date</label>
+    <input type="date" id="entry-date">
+  </div>
+
+  <div class="section-label">Body Weight & Vitals</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Weight</div>
+      <div class="field-row">
+        <input type="number" id="weight" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">kg</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Body Fat</div>
+      <div class="field-row">
+        <input type="number" id="bodyfat" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Upper Body</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Neck</div>
+      <div class="field-row">
+        <input type="number" id="neck" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Shoulders</div>
+      <div class="field-row">
+        <input type="number" id="shoulders" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Chest</div>
+      <div class="field-row">
+        <input type="number" id="chest" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Upper Arm (L)</div>
+      <div class="field-row">
+        <input type="number" id="arm-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Upper Arm (R)</div>
+      <div class="field-row">
+        <input type="number" id="arm-r" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Forearm (L)</div>
+      <div class="field-row">
+        <input type="number" id="forearm-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Forearm (R)</div>
+      <div class="field-row">
+        <input type="number" id="forearm-r" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Wrist</div>
+      <div class="field-row">
+        <input type="number" id="wrist" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Core</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Waist</div>
+      <div class="field-row">
+        <input type="number" id="waist" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Abdomen</div>
+      <div class="field-row">
+        <input type="number" id="abdomen" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Hips</div>
+      <div class="field-row">
+        <input type="number" id="hips" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Waist-Hip Ratio</div>
+      <div class="field-row">
+        <input type="number" id="whr" placeholder="auto" step="0.01" min="0" readonly style="color:var(--muted)">
+        <span class="field-unit">ratio</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Lower Body</div>
+  <div class="form-grid">
+    <div class="form-field">
+      <div class="field-label">Thigh (L)</div>
+      <div class="field-row">
+        <input type="number" id="thigh-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Thigh (R)</div>
+      <div class="field-row">
+        <input type="number" id="thigh-r" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Knee (L)</div>
+      <div class="field-row">
+        <input type="number" id="knee-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Knee (R)</div>
+      <div class="field-row">
+        <input type="number" id="knee-r" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Calf (L)</div>
+      <div class="field-row">
+        <input type="number" id="calf-l" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Calf (R)</div>
+      <div class="field-row">
+        <input type="number" id="calf-r" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+    <div class="form-field">
+      <div class="field-label">Ankle</div>
+      <div class="field-row">
+        <input type="number" id="ankle" placeholder="0.0" step="0.1" min="0">
+        <span class="field-unit">cm</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Notes</div>
+  <div class="notes-field">
+    <div class="field-label" style="margin-bottom:6px">Optional note</div>
+    <textarea id="notes" placeholder="e.g. post morning walk, fasted..."></textarea>
+  </div>
+
+  <button class="btn-primary" onclick="saveEntry()">Save Entry</button>
+</div>
+
+<!-- DASHBOARD PAGE -->
+<div class="page" id="page-dashboard">
+  <div class="section-label">Overview</div>
+  <div class="stats-row" id="stats-row">
+    <div class="empty-state" style="grid-column:1/-1">
+      <span class="big">◌</span>
+      No entries yet.<br>Log your first measurement to see stats.
+    </div>
+  </div>
+
+  <div id="dashboard-charts" style="display:none">
+  <div class="section-label" style="margin-top:20px">Weight Over Time</div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">Weight (kg)</span>
+    </div>
+    <canvas id="weight-chart"></canvas>
+  </div>
+
+  <div class="section-label">Track a Measurement</div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">Trend</span>
+      <select class="chart-select" id="metric-select" onchange="renderMetricChart()">
+        <option value="waist">Waist</option>
+        <option value="chest">Chest</option>
+        <option value="hips">Hips</option>
+        <option value="abdomen">Abdomen</option>
+        <option value="neck">Neck</option>
+        <option value="shoulders">Shoulders</option>
+        <option value="arm-l">Arm (L)</option>
+        <option value="arm-r">Arm (R)</option>
+        <option value="forearm-l">Forearm (L)</option>
+        <option value="forearm-r">Forearm (R)</option>
+        <option value="wrist">Wrist</option>
+        <option value="thigh-l">Thigh (L)</option>
+        <option value="thigh-r">Thigh (R)</option>
+        <option value="knee-l">Knee (L)</option>
+        <option value="knee-r">Knee (R)</option>
+        <option value="calf-l">Calf (L)</option>
+        <option value="calf-r">Calf (R)</option>
+        <option value="ankle">Ankle</option>
+        <option value="bodyfat">Body Fat %</option>
+        <option value="whr">Waist-Hip Ratio</option>
+      </select>
+    </div>
+    <canvas id="metric-chart"></canvas>
+  </div>
+
+  <div class="section-label">Latest vs First</div>
+  <div class="chart-card" id="progress-bars">
+    <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Need at least 2 entries to show progress.</div>
+  </div>
+  </div><!-- end dashboard-charts -->
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div id="history-list">
+    <div class="empty-state">
+      <span class="big">◌</span>
+      No entries recorded yet.<br>Head to the Log tab to get started.
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FIELDS=['weight','bodyfat','neck','shoulders','chest','arm-l','arm-r','forearm-l','forearm-r','wrist','waist','abdomen','hips','thigh-l','thigh-r','knee-l','knee-r','calf-l','calf-r','ankle','notes'];
+const LABELS={weight:'Weight',bodyfat:'Body Fat',neck:'Neck',shoulders:'Shoulders',chest:'Chest','arm-l':'Arm L','arm-r':'Arm R','forearm-l':'Forearm L','forearm-r':'Forearm R',wrist:'Wrist',waist:'Waist',abdomen:'Abdomen',hips:'Hips','thigh-l':'Thigh L','thigh-r':'Thigh R','knee-l':'Knee L','knee-r':'Knee R','calf-l':'Calf L','calf-r':'Calf R',ankle:'Ankle'};
+const UNITS={weight:'kg',bodyfat:'%',neck:'cm',shoulders:'cm',chest:'cm','arm-l':'cm','arm-r':'cm','forearm-l':'cm','forearm-r':'cm',wrist:'cm',waist:'cm',abdomen:'cm',hips:'cm','thigh-l':'cm','thigh-r':'cm','knee-l':'cm','knee-r':'cm','calf-l':'cm','calf-r':'cm',ankle:'cm'};
+let weightChart=null,metricChart=null;
+function getData(){return JSON.parse(localStorage.getItem('bodylog_entries')||'[]');}
+function saveData(d){localStorage.setItem('bodylog_entries',JSON.stringify(d));}
+function today(){return new Date().toISOString().split('T')[0];}
+const DRAFT_KEY='bodylog_draft';
+function saveDraft(){const dr={};FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)dr[f]=el.value;});dr['entry-date']=document.getElementById('entry-date').value;localStorage.setItem(DRAFT_KEY,JSON.stringify(dr));}
+function loadDraft(){const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return;try{const dr=JSON.parse(raw);FIELDS.forEach(f=>{const el=document.getElementById(f);if(el&&dr[f]!=null)el.value=dr[f];});if(dr['entry-date'])document.getElementById('entry-date').value=dr['entry-date'];const w=parseFloat(document.getElementById('waist').value),h=parseFloat(document.getElementById('hips').value);if(w>0&&h>0)document.getElementById('whr').value=(w/h).toFixed(2);}catch(e){}}
+function clearDraft(){localStorage.removeItem(DRAFT_KEY);}
+document.getElementById('entry-date').value=today();
+FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)el.addEventListener('input',saveDraft);});
+document.getElementById('entry-date').addEventListener('change',saveDraft);
+loadDraft();
+['waist','hips'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>{const w=parseFloat(document.getElementById('waist').value),h=parseFloat(document.getElementById('hips').value);if(w>0&&h>0)document.getElementById('whr').value=(w/h).toFixed(2);});});
+function switchTab(name){document.querySelectorAll('.tab').forEach((t,i)=>{const names=['log','dashboard','history'];t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+name).classList.add('active');if(name==='dashboard')renderDashboard();if(name==='history')renderHistory();}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function saveEntry(){
+  const date=document.getElementById('entry-date').value;
+  if(!date){showToast('Please pick a date');return;}
+  const entry={date};let hasData=false;
+  FIELDS.forEach(f=>{const el=document.getElementById(f);if(!el)return;const val=el.value.trim();if(val!==''&&f!=='notes'){entry[f]=parseFloat(val);hasData=true;}else if(f==='notes'&&val){entry.notes=val;}});
+  if(entry.waist&&entry.hips)entry.whr=parseFloat((entry.waist/entry.hips).toFixed(2));
+  if(!hasData){showToast('Enter at least one measurement');return;}
+  const data=getData();const idx=data.findIndex(e=>e.date===date);
+  if(idx>=0)data[idx]=entry;else data.push(entry);
+  data.sort((a,b)=>a.date.localeCompare(b.date));saveData(data);
+  FIELDS.forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('entry-date').value=today();document.getElementById('whr').value='';clearDraft();
+  showToast('Entry saved!');
+}
+function formatDate(d){const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});}
+function diff(a,b){if(a==null||b==null)return null;return(a-b).toFixed(1);}
+const chartDefaults={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#222228',borderColor:'#2e2e38',borderWidth:1,titleColor:'#7a7a88',bodyColor:'#f0ede6',callbacks:{label:ctx=>` ${ctx.parsed.y}`}}},scales:{x:{grid:{color:'#2e2e38'},ticks:{color:'#7a7a88',font:{family:'DM Mono',size:10}}},y:{grid:{color:'#2e2e38'},ticks:{color:'#7a7a88',font:{family:'DM Mono',size:10}}}}};
+function renderDashboard(){
+  const data=getData();const statsRow=document.getElementById('stats-row');const chartsSection=document.getElementById('dashboard-charts');
+  if(data.length===0){statsRow.innerHTML='<div class="empty-state" style="grid-column:1/-1"><span class="big">◌</span>No entries yet.<br>Log your first measurement to see stats.</div>';chartsSection.style.display='none';return;}
+  chartsSection.style.display='block';
+  const latest=data[data.length-1];const prev=data.length>1?data[data.length-2]:null;
+  function statCard(label,value,unit,change,highlight){let chHtml='';if(change!==null){const n=parseFloat(change);const cls=n<0?'pos':n>0?'neg':'neu';const sym=n>0?'▲':n<0?'▼':'—';chHtml=`<div class="stat-change ${cls}">${sym} ${Math.abs(n)} ${unit} since prev</div>`;}return `<div class="stat-card ${highlight?'highlight':''}"><div class="stat-label">${label}</div><div class="stat-value">${value!=null?value:'—'} <span>${unit}</span></div>${chHtml}</div>`;}
+  const allStatFields=[['weight','kg',true],['bodyfat','%',false],['neck','cm',false],['shoulders','cm',false],['chest','cm',false],['arm-l','cm',false],['arm-r','cm',false],['forearm-l','cm',false],['forearm-r','cm',false],['wrist','cm',false],['waist','cm',false],['abdomen','cm',false],['hips','cm',false],['whr','',false],['thigh-l','cm',false],['thigh-r','cm',false],['knee-l','cm',false],['knee-r','cm',false],['calf-l','cm',false],['calf-r','cm',false],['ankle','cm',false]];
+  let html='';
+  allStatFields.forEach(([key,unit,highlight])=>{if(latest[key]==null)return;const label=key==='whr'?'Waist-Hip Ratio':(LABELS[key]||key);const changeVal=prev&&prev[key]!=null?diff(latest[key],prev[key]):null;html+=statCard(label,latest[key],unit,changeVal,highlight);});
+  html+=statCard('Total Entries',data.length,'',null,false);statsRow.innerHTML=html;
+  renderWeightChart(data);renderMetricChart();renderProgressBars(data);
+}
+function renderWeightChart(data){const pts=data.filter(e=>e.weight!=null);if(weightChart)weightChart.destroy();const ctx=document.getElementById('weight-chart').getContext('2d');weightChart=new Chart(ctx,{type:'line',data:{labels:pts.map(e=>formatDate(e.date)),datasets:[{data:pts.map(e=>e.weight),borderColor:'#c8f07c',backgroundColor:'rgba(200,240,124,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#c8f07c',pointRadius:4,pointHoverRadius:6}]},options:{...chartDefaults}});}
+function renderMetricChart(){const data=getData();const metric=document.getElementById('metric-select').value;const pts=data.filter(e=>e[metric]!=null);if(metricChart)metricChart.destroy();const ctx=document.getElementById('metric-chart').getContext('2d');metricChart=new Chart(ctx,{type:'line',data:{labels:pts.map(e=>formatDate(e.date)),datasets:[{data:pts.map(e=>e[metric]),borderColor:'#7cf0c8',backgroundColor:'rgba(124,240,200,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#7cf0c8',pointRadius:4,pointHoverRadius:6}]},options:{...chartDefaults}});}
+function renderProgressBars(data){const container=document.getElementById('progress-bars');if(data.length<2){container.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Need at least 2 entries to show progress.</div>';return;}const first=data[0];const latest=data[data.length-1];const keys=['weight','waist','chest','hips','arm-l','thigh-l'];let html='<div class="progress-bars">';keys.forEach(k=>{const f=first[k],l=latest[k];if(f==null||l==null)return;const change=(l-f).toFixed(1);const pct=Math.min(100,Math.max(5,(l/f)*100));const sign=change>0?'+':'';html+=`<div class="prog-row"><div class="prog-meta"><span class="prog-name">${LABELS[k]}</span><span class="prog-vals">${f} → ${l} ${UNITS[k]} <span style="color:${change>0?'#f07c7c':'#c8f07c'}">(${sign}${change})</span></span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div></div>`;});html+='</div>';container.innerHTML=html;}
+function renderHistory(){const data=getData();const container=document.getElementById('history-list');if(data.length===0){container.innerHTML='<div class="empty-state"><span class="big">◌</span>No entries recorded yet.<br>Head to the Log tab to get started.</div>';return;}const mainFields=['weight','bodyfat','waist','chest','hips','arm-l','thigh-l','calf-l'];let html='';[...data].reverse().forEach(entry=>{html+=`<div class="history-entry"><div class="entry-date"><span>${formatDate(entry.date)}</span><button class="btn-danger" data-delete="${entry.date}" onclick="deleteEntry('${entry.date}',false)">Delete</button></div><div class="entry-grid">`;mainFields.forEach(f=>{if(entry[f]!=null){html+=`<div class="entry-item"><div class="entry-item-label">${LABELS[f]}</div><div class="entry-item-value">${entry[f]}<span style="font-size:10px;color:var(--muted)"> ${UNITS[f]}</span></div></div>`;}});html+='</div>';if(entry.notes)html+=`<div class="entry-notes">"${entry.notes}"</div>`;html+='</div>';});container.innerHTML=html;}
+function exportData(){const data=getData();if(data.length===0){showToast('No data to export');return;}const json=JSON.stringify({bodylog:true,version:1,entries:data},null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bodylog-backup.json';a.click();URL.revokeObjectURL(url);showToast('Exported '+data.length+' entries');}
+function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const parsed=JSON.parse(e.target.result);const incoming=parsed.entries||parsed;if(!Array.isArray(incoming)){showToast('Invalid file format');return;}const existing=getData();const merged=[...existing];incoming.forEach(entry=>{const idx=merged.findIndex(x=>x.date===entry.date);if(idx>=0)merged[idx]=entry;else merged.push(entry);});merged.sort((a,b)=>a.date.localeCompare(b.date));saveData(merged);showToast('Imported '+incoming.length+' entries');renderHistory();}catch(err){showToast('Could not read file');}};reader.readAsText(file);event.target.value='';}
+function deleteEntry(date,confirmed){if(!confirmed){const btn=document.querySelector('[data-delete="'+date+'"]');if(!btn)return;btn.textContent='Confirm?';btn.style.background='var(--danger)';btn.style.color='#fff';btn.setAttribute('onclick',"deleteEntry('"+date+"',true)");setTimeout(()=>{if(btn&&btn.textContent==='Confirm?'){btn.textContent='Delete';btn.style.background='';btn.style.color='';btn.setAttribute('onclick',"deleteEntry('"+date+"',false)");}},3000);return;}const data=getData().filter(e=>e.date!==date);saveData(data);renderHistory();showToast('Entry deleted');}
+</script>
+</body>
+</html>

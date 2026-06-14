@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Head -->
+    <path
+        android:fillColor="#c8f07c"
+        android:pathData="M45,33 A9,9 0 0 1 63,33 A9,9 0 0 1 45,33 Z" />
+
+    <!-- Torso (rounded silhouette) -->
+    <path
+        android:fillColor="#c8f07c"
+        android:pathData="M48,46 L60,46 A10,10 0 0 1 70,56 L70,74 A10,10 0 0 1 60,84 L48,84 A10,10 0 0 1 38,74 L38,56 A10,10 0 0 1 48,46 Z" />
+
+    <!-- Measurement tape band 1 -->
+    <path
+        android:fillColor="#0e0e10"
+        android:pathData="M38,58 L70,58 L70,61 L38,61 Z" />
+
+    <!-- Measurement tape band 2 -->
+    <path
+        android:fillColor="#0e0e10"
+        android:pathData="M38,70 L70,70 L70,73 L38,73 Z" />
+
+</vector>
