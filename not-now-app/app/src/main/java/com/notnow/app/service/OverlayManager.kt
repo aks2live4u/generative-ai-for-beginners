@@ -3,6 +3,7 @@ package com.notnow.app.service
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
@@ -89,12 +90,16 @@ class OverlayManager(
         }
     }
 
-    /** Shows the full-screen "lockdown starting soon" warning. No-op if already showing. */
+    /**
+     * Shows a small non-blocking banner warning that lockdown is starting soon.
+     * The underlying app stays usable (so the user can save/finish their work)
+     * and touches/calls pass through to whatever is behind it. No-op if already showing.
+     */
     fun showWorkWarning(secondsLeft: Int) {
         if (currentWorkOverlay == WorkOverlayType.WARNING) return
         dismiss()
         currentWorkOverlay = WorkOverlayType.WARNING
-        addOverlayView { WorkWarningContent(initialSecondsLeft = secondsLeft) }
+        addOverlayView(fullScreen = false) { WorkWarningContent(initialSecondsLeft = secondsLeft) }
     }
 
     /** Shows the full-screen Work Lockdown overlay. No-op if already showing. */
@@ -119,7 +124,7 @@ class OverlayManager(
         }
     }
 
-    private fun addOverlayView(content: @Composable () -> Unit) {
+    private fun addOverlayView(fullScreen: Boolean = true, content: @Composable () -> Unit) {
         if (currentView != null) return
 
         val lifecycle = ServiceLifecycleOwner()
@@ -136,14 +141,27 @@ class OverlayManager(
             }
         }
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.OPAQUE
-        )
+        val params = if (fullScreen) {
+            WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.OPAQUE
+            )
+        } else {
+            // Non-blocking banner: lets touches/calls pass through to the app underneath.
+            WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.TOP }
+        }
 
         try {
             wm.addView(view, params)

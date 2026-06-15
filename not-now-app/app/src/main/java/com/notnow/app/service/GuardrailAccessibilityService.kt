@@ -37,6 +37,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
     // same-app events like rotation, fullscreen, or internal navigation
     private var lastForegroundPkg = ""
 
+    // True while a phone/dialer window is active (ringing or in-call) — lets calls
+    // through during Work Mode regardless of overlay focus.
+    @Volatile private var phoneCallActive = false
+
     // Tracks which Work Mode overlay (if any) is currently displayed
     private var workOverlayKind = WorkOverlayKind.NONE
     private enum class WorkOverlayKind { NONE, WARNING, LOCKDOWN }
@@ -222,6 +226,18 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         when (type) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                if (pkg in phoneCallPackages) {
+                    if (!phoneCallActive) {
+                        phoneCallActive = true
+                        // Drop the Work Mode overlay immediately so a ringing call is reachable.
+                        if (workOverlayKind != WorkOverlayKind.NONE) {
+                            workOverlayKind = WorkOverlayKind.NONE
+                            overlayManager?.dismissWorkOverlay()
+                        }
+                    }
+                } else if (pkg != packageName) {
+                    phoneCallActive = false
+                }
                 // Always check browser URL on window changes too (catches page loads)
                 if (pkg in browserPackages) checkBrowserUrl(pkg)
                 handleAppSwitch(pkg)
@@ -389,11 +405,8 @@ class GuardrailAccessibilityService : AccessibilityService() {
                 try {
                     val phase = computeWorkPhase(System.currentTimeMillis())
                     withContext(Dispatchers.Main) {
-                        val fgPkg = rootInActiveWindow?.packageName?.toString()
-                        val phoneActive = fgPkg != null && fgPkg in phoneCallPackages
-
                         when {
-                            phoneActive -> {
+                            phoneCallActive -> {
                                 if (workOverlayKind != WorkOverlayKind.NONE) {
                                     workOverlayKind = WorkOverlayKind.NONE
                                     overlayManager?.dismissWorkOverlay()

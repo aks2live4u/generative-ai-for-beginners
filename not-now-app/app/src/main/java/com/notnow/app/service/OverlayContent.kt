@@ -233,27 +233,22 @@ fun WorkWarningContent(initialSecondsLeft: Int) {
         secondsLeft -= 1
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize().background(DeepNavy),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Text("⚠️", fontSize = 64.sp)
-            Text("Work Lockdown Starting", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, textAlign = TextAlign.Center)
-            Text(
-                "Wrap up and save your work.\nThe phone will lock in:",
-                style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center
-            )
-            Text(
-                "${secondsLeft.coerceAtLeast(0)}s",
-                fontSize = 56.sp,
-                color = AccentAmber,
-                fontWeight = FontWeight.Bold
-            )
+    // Non-blocking banner: the app underneath stays usable so the user can
+    // save/finish what they're doing (and answer calls) before lockdown begins.
+    Box(modifier = Modifier.fillMaxWidth().padding(top = 36.dp, start = 12.dp, end = 12.dp)) {
+        Surface(shape = RoundedCornerShape(14.dp), color = AccentAmber, shadowElevation = 8.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("⚠️ Work Lockdown Starting", style = MaterialTheme.typography.titleMedium, color = DeepNavy, fontWeight = FontWeight.Bold)
+                    Text("Finish up and save your work", style = MaterialTheme.typography.bodySmall, color = DeepNavy)
+                }
+                Spacer(Modifier.width(12.dp))
+                Text("${secondsLeft.coerceAtLeast(0)}s", fontSize = 28.sp, color = DeepNavy, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -300,7 +295,17 @@ fun WorkLockdownContent(
                 fontWeight = FontWeight.Bold
             )
             Text("until your next 15-minute break", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-            Text("📞 Phone calls are still available.", style = MaterialTheme.typography.bodySmall, color = TextSecondary, textAlign = TextAlign.Center)
+
+            Surface(shape = RoundedCornerShape(10.dp), color = AccentGreen.copy(alpha = 0.15f)) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("📞", fontSize = 20.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
 
