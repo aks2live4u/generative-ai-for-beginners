@@ -186,7 +186,7 @@ fun HomeScreen(
         }
 
         // Global Work Mode emergency unlock countdown
-        val workEmergencyActive = remember(tickMs) { GuardrailAccessibilityService.hasWorkEmergencyGrant() }
+        val workEmergencyActive = GuardrailAccessibilityService.hasWorkEmergencyGrant()
         if (workEmergencyActive) {
             item {
                 val grantedAt = GuardrailAccessibilityService.workEmergencyGrantedAt()

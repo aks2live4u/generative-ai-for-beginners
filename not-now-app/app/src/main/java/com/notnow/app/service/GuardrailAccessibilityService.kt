@@ -409,6 +409,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                 }
                             }
                         }
+                        Unit
                     }
                 } catch (_: Exception) {}
             }
