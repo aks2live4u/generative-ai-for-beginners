@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.view.WindowManager
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -32,14 +33,97 @@ class OverlayManager(
     }
     private var currentView: ComposeView? = null
     private var currentLifecycle: ServiceLifecycleOwner? = null
+    private var currentWorkOverlay: WorkOverlayType? = null
+
+    enum class WorkOverlayType { WARNING, LOCKDOWN }
 
     fun show(packageName: String, rule: AppRule, isNight: Boolean) {
         if (currentView != null) return
 
+        val emergencyAvailable = !GuardrailAccessibilityService.isEmergencyOnCooldown()
+
+        addOverlayView {
+            when {
+                isNight -> NightBlockContent(
+                    appName = rule.appName,
+                    onBack  = { recordAndDismiss(packageName, rule.appName, AccessOutcome.NIGHT_BLOCKED, 0) }
+                )
+                rule.category == AppCategory.SHOPPING -> ShoppingPauseContent(
+                    appName      = rule.appName,
+                    delayMinutes = rule.frictionLevel.delaySeconds / 60,
+                    onBuyNow     = {
+                        dismiss()
+                        scope.launch(Dispatchers.Main) {
+                            val countdownRule = rule.copy(category = AppCategory.OTHER)
+                            show(packageName, countdownRule, false)
+                        }
+                    },
+                    onSaveForLater = { title, url, price ->
+                        scope.launch {
+                            vaultRepo.save(ShoppingVaultItem(title = title, url = url, price = price))
+                        }
+                        recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0)
+                    },
+                    onGoBack = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) }
+                )
+                else -> CountdownContent(
+                    appName            = rule.appName,
+                    totalSec           = rule.frictionLevel.delaySeconds,
+                    messageRepo        = messageRepo,
+                    emergencyAvailable = emergencyAvailable,
+                    onOpen      = {
+                        // Grant 30-minute session so the app stays unblocked
+                        GuardrailAccessibilityService.grantSession(packageName)
+                        recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds)
+                        launchApp(packageName)
+                    },
+                    onGoBack    = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
+                    onEmergency = {
+                        // Grant 15-minute access for this app only; starts 8-hour cooldown
+                        GuardrailAccessibilityService.grantEmergency(packageName)
+                        recordAndDismiss(packageName, rule.appName, AccessOutcome.EMERGENCY_UNLOCKED, 0)
+                        launchApp(packageName)
+                    }
+                )
+            }
+        }
+    }
+
+    /** Shows the full-screen "lockdown starting soon" warning. No-op if already showing. */
+    fun showWorkWarning(secondsLeft: Int) {
+        if (currentWorkOverlay == WorkOverlayType.WARNING) return
+        dismiss()
+        currentWorkOverlay = WorkOverlayType.WARNING
+        addOverlayView { WorkWarningContent(initialSecondsLeft = secondsLeft) }
+    }
+
+    /** Shows the full-screen Work Lockdown overlay. No-op if already showing. */
+    fun showWorkLockdown(remainingMs: Long, emergencyAvailable: Boolean, onEmergency: () -> Unit) {
+        if (currentWorkOverlay == WorkOverlayType.LOCKDOWN) return
+        dismiss()
+        currentWorkOverlay = WorkOverlayType.LOCKDOWN
+        addOverlayView {
+            WorkLockdownContent(
+                initialRemainingMs = remainingMs,
+                emergencyAvailable = emergencyAvailable,
+                onEmergency = onEmergency
+            )
+        }
+    }
+
+    /** Dismisses a Work Mode overlay (warning or lockdown) if one is showing. */
+    fun dismissWorkOverlay() {
+        if (currentWorkOverlay != null) {
+            currentWorkOverlay = null
+            dismiss()
+        }
+    }
+
+    private fun addOverlayView(content: @Composable () -> Unit) {
+        if (currentView != null) return
+
         val lifecycle = ServiceLifecycleOwner()
         currentLifecycle = lifecycle
-
-        val emergencyAvailable = !GuardrailAccessibilityService.isEmergencyOnCooldown()
 
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
@@ -47,49 +131,7 @@ class OverlayManager(
             setViewTreeSavedStateRegistryOwner(lifecycle)
             setContent {
                 NotNowTheme {
-                    when {
-                        isNight -> NightBlockContent(
-                            appName = rule.appName,
-                            onBack  = { recordAndDismiss(packageName, rule.appName, AccessOutcome.NIGHT_BLOCKED, 0) }
-                        )
-                        rule.category == AppCategory.SHOPPING -> ShoppingPauseContent(
-                            appName      = rule.appName,
-                            delayMinutes = rule.frictionLevel.delaySeconds / 60,
-                            onBuyNow     = {
-                                dismiss()
-                                scope.launch(Dispatchers.Main) {
-                                    val countdownRule = rule.copy(category = AppCategory.OTHER)
-                                    show(packageName, countdownRule, false)
-                                }
-                            },
-                            onSaveForLater = { title, url, price ->
-                                scope.launch {
-                                    vaultRepo.save(ShoppingVaultItem(title = title, url = url, price = price))
-                                }
-                                recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0)
-                            },
-                            onGoBack = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) }
-                        )
-                        else -> CountdownContent(
-                            appName            = rule.appName,
-                            totalSec           = rule.frictionLevel.delaySeconds,
-                            messageRepo        = messageRepo,
-                            emergencyAvailable = emergencyAvailable,
-                            onOpen      = {
-                                // Grant 30-minute session so the app stays unblocked
-                                GuardrailAccessibilityService.grantSession(packageName)
-                                recordAndDismiss(packageName, rule.appName, AccessOutcome.WAITED, rule.frictionLevel.delaySeconds)
-                                launchApp(packageName)
-                            },
-                            onGoBack    = { recordAndDismiss(packageName, rule.appName, AccessOutcome.WENT_BACK, 0) },
-                            onEmergency = {
-                                // Grant 15-minute access for this app only; starts 8-hour cooldown
-                                GuardrailAccessibilityService.grantEmergency(packageName)
-                                recordAndDismiss(packageName, rule.appName, AccessOutcome.EMERGENCY_UNLOCKED, 0)
-                                launchApp(packageName)
-                            }
-                        )
-                    }
+                    content()
                 }
             }
         }
@@ -150,5 +192,6 @@ class OverlayManager(
             try { wm.removeView(it) } catch (_: Exception) {}
         }
         currentView = null
+        currentWorkOverlay = null
     }
 }

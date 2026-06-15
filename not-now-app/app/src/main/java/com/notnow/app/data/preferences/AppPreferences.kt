@@ -23,6 +23,14 @@ class AppPreferences(context: Context) {
         val KEY_IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
         val KEY_PROTECTED_TIME_SECONDS = longPreferencesKey("protected_time_seconds")
         val KEY_SPENDING_AVOIDED = longPreferencesKey("spending_avoided_paise")
+        val KEY_WORK_MODE_ENABLED = booleanPreferencesKey("work_mode_enabled")
+        val KEY_WORK_DAYS = stringPreferencesKey("work_days")
+        val KEY_WORK_START_HOUR = intPreferencesKey("work_start_hour")
+        val KEY_WORK_END_HOUR = intPreferencesKey("work_end_hour")
+        val KEY_WORK_EMERGENCY_USED_AT = longPreferencesKey("work_emergency_used_at")
+
+        /** Default work days: Monday(2) through Friday(6), using Calendar.DAY_OF_WEEK values. */
+        const val DEFAULT_WORK_DAYS = "2,3,4,5,6"
     }
 
     val operatingMode: Flow<String> = store.data.safeCatch().map {
@@ -49,6 +57,29 @@ class AppPreferences(context: Context) {
         it[KEY_IS_FIRST_LAUNCH] ?: true
     }
 
+    val workModeEnabled: Flow<Boolean> = store.data.safeCatch().map {
+        it[KEY_WORK_MODE_ENABLED] ?: false
+    }
+
+    val workDays: Flow<Set<Int>> = store.data.safeCatch().map {
+        (it[KEY_WORK_DAYS] ?: DEFAULT_WORK_DAYS)
+            .split(",")
+            .mapNotNull { day -> day.trim().toIntOrNull() }
+            .toSet()
+    }
+
+    val workStartHour: Flow<Int> = store.data.safeCatch().map {
+        it[KEY_WORK_START_HOUR] ?: 14
+    }
+
+    val workEndHour: Flow<Int> = store.data.safeCatch().map {
+        it[KEY_WORK_END_HOUR] ?: 23
+    }
+
+    val workEmergencyUsedAt: Flow<Long> = store.data.safeCatch().map {
+        it[KEY_WORK_EMERGENCY_USED_AT] ?: 0L
+    }
+
     suspend fun setOperatingMode(mode: String) = store.edit {
         it[KEY_OPERATING_MODE] = mode
     }
@@ -72,6 +103,23 @@ class AppPreferences(context: Context) {
 
     suspend fun addProtectedTimeSeconds(seconds: Long) = store.edit { prefs ->
         prefs[KEY_PROTECTED_TIME_SECONDS] = (prefs[KEY_PROTECTED_TIME_SECONDS] ?: 0L) + seconds
+    }
+
+    suspend fun setWorkModeEnabled(enabled: Boolean) = store.edit {
+        it[KEY_WORK_MODE_ENABLED] = enabled
+    }
+
+    suspend fun setWorkDays(days: Set<Int>) = store.edit {
+        it[KEY_WORK_DAYS] = days.sorted().joinToString(",")
+    }
+
+    suspend fun setWorkHours(start: Int, end: Int) = store.edit {
+        it[KEY_WORK_START_HOUR] = start
+        it[KEY_WORK_END_HOUR] = end
+    }
+
+    suspend fun setWorkEmergencyUsedAt(timestampMs: Long) = store.edit {
+        it[KEY_WORK_EMERGENCY_USED_AT] = timestampMs
     }
 
     private fun Flow<Preferences>.safeCatch() = catch { e ->

@@ -2,6 +2,7 @@ package com.notnow.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.AppCategory
@@ -25,9 +26,19 @@ class GuardrailAccessibilityService : AccessibilityService() {
     @Volatile private var nightStartHour = 23
     @Volatile private var nightEndHour = 7
 
+    // Work Mode schedule — cached from AppPreferences
+    @Volatile private var workModeEnabled = false
+    @Volatile private var workDays: Set<Int> = setOf(2, 3, 4, 5, 6) // Mon-Fri
+    @Volatile private var workStartHour = 14
+    @Volatile private var workEndHour = 23
+
     // Tracks which package was last in the foreground — used to skip blocking on
     // same-app events like rotation, fullscreen, or internal navigation
     private var lastForegroundPkg = ""
+
+    // Tracks which Work Mode overlay (if any) is currently displayed
+    private var workOverlayKind = WorkOverlayKind.NONE
+    private enum class WorkOverlayKind { NONE, WARNING, LOCKDOWN }
 
     private val app get() = application as NotNowApplication
 
@@ -76,6 +87,27 @@ class GuardrailAccessibilityService : AccessibilityService() {
             ) ?: return false
             return enabled.contains(context.packageName + "/" + GuardrailAccessibilityService::class.java.name)
         }
+
+        // Global Work Mode emergency unlock — pauses lockdown for the whole phone.
+        // 15-minute grant, usable once per 9-hour cooldown.
+        @Volatile private var workEmergencyGrantedAt = 0L
+        private const val WORK_EMERGENCY_MS = 15 * 60 * 1000L
+        @Volatile private var workEmergencyUsedAt = 0L
+        private const val WORK_EMERGENCY_COOLDOWN_MS = 9 * 60 * 60 * 1000L
+
+        fun grantWorkEmergency() {
+            val now = System.currentTimeMillis()
+            workEmergencyGrantedAt = now
+            workEmergencyUsedAt = now
+        }
+
+        fun hasWorkEmergencyGrant(): Boolean =
+            System.currentTimeMillis() - workEmergencyGrantedAt < WORK_EMERGENCY_MS
+
+        fun isWorkEmergencyOnCooldown(): Boolean =
+            System.currentTimeMillis() - workEmergencyUsedAt < WORK_EMERGENCY_COOLDOWN_MS
+
+        fun workEmergencyGrantedAt(): Long = workEmergencyGrantedAt
     }
 
     private val browserPackages = setOf(
@@ -86,6 +118,16 @@ class GuardrailAccessibilityService : AccessibilityService() {
         "com.opera.browser",
         "com.sec.android.app.sbrowser",
         "com.UCMobile.intl", "com.uc.browser.en",
+    )
+
+    // Phone/dialer apps stay usable through Work Mode lockdown for genuine emergencies
+    private val phoneCallPackages = setOf(
+        "com.android.dialer",
+        "com.google.android.dialer",
+        "com.android.incallui",
+        "com.android.server.telecom",
+        "com.samsung.android.dialer",
+        "com.samsung.android.incallui",
     )
 
     private val browserUrlBarId = mapOf(
@@ -112,6 +154,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
         } catch (_: Exception) {}
         seedAndObserve()
         startPeriodicRecheck()
+        startWorkModeLoop()
     }
 
     // Re-evaluates the foreground app on a timer so time-based conditions (night
@@ -158,6 +201,11 @@ class GuardrailAccessibilityService : AccessibilityService() {
         scope.launch { try { app.preferences.nightLockdownEnabled.collect { nightLockdownOn  = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.nightStartHour.collect       { nightStartHour   = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.nightEndHour.collect         { nightEndHour     = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.workModeEnabled.collect      { workModeEnabled  = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.workDays.collect             { workDays         = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.workStartHour.collect        { workStartHour    = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.workEndHour.collect          { workEndHour      = it } } catch (_: Exception) {} }
+        scope.launch { try { app.preferences.workEmergencyUsedAt.collect  { workEmergencyUsedAt = it } } catch (_: Exception) {} }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -256,6 +304,115 @@ class GuardrailAccessibilityService : AccessibilityService() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         return if (startHour > endHour) hour >= startHour || hour < endHour
         else hour >= startHour && hour < endHour
+    }
+
+    /** Result of evaluating where "now" falls in the Work Mode shift/lock cycle. */
+    private data class WorkPhase(
+        val showWarning: Boolean = false,
+        val warningSecondsLeft: Int = 0,
+        val showLockdown: Boolean = false,
+        val lockdownRemainingMs: Long = 0L
+    )
+
+    // Computes the current Work Mode phase: outside the shift, in the 1-minute warning
+    // before a lockdown begins, or inside a 45-min-locked/15-min-free cycle anchored
+    // to the shift start time.
+    private fun computeWorkPhase(now: Long): WorkPhase {
+        if (!workModeEnabled) return WorkPhase()
+
+        val cal = Calendar.getInstance().apply { timeInMillis = now }
+        if (cal.get(Calendar.DAY_OF_WEEK) !in workDays) return WorkPhase()
+
+        val shiftStart = (cal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, workStartHour); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val shiftEnd = (cal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, workEndHour); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        if (shiftEnd <= shiftStart) return WorkPhase()
+
+        val oneMinuteMs = 60_000L
+
+        // 1-minute warning before the shift begins ("at the beginning of the work shift")
+        if (now in (shiftStart - oneMinuteMs) until shiftStart) {
+            val secondsLeft = ((shiftStart - now) / 1000L).toInt().coerceAtLeast(0)
+            return WorkPhase(showWarning = true, warningSecondsLeft = secondsLeft)
+        }
+
+        if (now < shiftStart || now >= shiftEnd) return WorkPhase()
+
+        // 45-min locked / 15-min free cycle, anchored to shift start
+        val cycleMs = 60 * oneMinuteMs
+        val lockedMs = 45 * oneMinuteMs
+        val cyclePos = (now - shiftStart) % cycleMs
+
+        return if (cyclePos < lockedMs) {
+            WorkPhase(showLockdown = true, lockdownRemainingMs = lockedMs - cyclePos)
+        } else {
+            val freeRemaining = cycleMs - cyclePos
+            if (freeRemaining <= oneMinuteMs) {
+                WorkPhase(showWarning = true, warningSecondsLeft = (freeRemaining / 1000L).toInt().coerceAtLeast(0))
+            } else {
+                WorkPhase()
+            }
+        }
+    }
+
+    // Drives Work Mode: shows a full-screen 1-minute warning before each lockdown
+    // phase, then covers the screen and forces a lock-screen re-auth for the 45-minute
+    // locked phase. Phone/dialer apps and an active global emergency grant are exempt.
+    private fun startWorkModeLoop() {
+        scope.launch {
+            while (isActive) {
+                delay(1000L)
+                try {
+                    val phase = computeWorkPhase(System.currentTimeMillis())
+                    withContext(Dispatchers.Main) {
+                        val fgPkg = rootInActiveWindow?.packageName?.toString()
+                        val phoneActive = fgPkg != null && fgPkg in phoneCallPackages
+
+                        when {
+                            phoneActive -> {
+                                if (workOverlayKind != WorkOverlayKind.NONE) {
+                                    workOverlayKind = WorkOverlayKind.NONE
+                                    overlayManager?.dismissWorkOverlay()
+                                }
+                            }
+                            phase.showLockdown && !hasWorkEmergencyGrant() -> {
+                                if (workOverlayKind != WorkOverlayKind.LOCKDOWN) {
+                                    workOverlayKind = WorkOverlayKind.LOCKDOWN
+                                    performGlobalAction(GLOBAL_ACTION_HOME)
+                                }
+                                overlayManager?.showWorkLockdown(
+                                    remainingMs = phase.lockdownRemainingMs,
+                                    emergencyAvailable = !isWorkEmergencyOnCooldown(),
+                                    onEmergency = {
+                                        grantWorkEmergency()
+                                        scope.launch { app.preferences.setWorkEmergencyUsedAt(System.currentTimeMillis()) }
+                                    }
+                                )
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                                }
+                            }
+                            phase.showWarning && !hasWorkEmergencyGrant() -> {
+                                workOverlayKind = WorkOverlayKind.WARNING
+                                overlayManager?.showWorkWarning(phase.warningSecondsLeft)
+                            }
+                            else -> {
+                                if (workOverlayKind != WorkOverlayKind.NONE) {
+                                    workOverlayKind = WorkOverlayKind.NONE
+                                    overlayManager?.dismissWorkOverlay()
+                                }
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     override fun onInterrupt() = Unit

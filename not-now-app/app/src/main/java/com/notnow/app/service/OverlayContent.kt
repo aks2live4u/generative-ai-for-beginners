@@ -224,6 +224,156 @@ fun NightBlockContent(appName: String, onBack: () -> Unit) {
 }
 
 @Composable
+fun WorkWarningContent(initialSecondsLeft: Int) {
+    var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
+
+    LaunchedEffect(secondsLeft) {
+        if (secondsLeft <= 0) return@LaunchedEffect
+        delay(1000L)
+        secondsLeft -= 1
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(DeepNavy),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text("⚠️", fontSize = 64.sp)
+            Text("Work Lockdown Starting", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, textAlign = TextAlign.Center)
+            Text(
+                "Wrap up and save your work.\nThe phone will lock in:",
+                style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center
+            )
+            Text(
+                "${secondsLeft.coerceAtLeast(0)}s",
+                fontSize = 56.sp,
+                color = AccentAmber,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun WorkLockdownContent(
+    initialRemainingMs: Long,
+    emergencyAvailable: Boolean,
+    onEmergency: () -> Unit
+) {
+    var remainingMs by remember { mutableLongStateOf(initialRemainingMs) }
+    var showEmergencyConfirm by remember { mutableStateOf(false) }
+    var emergencyPassword by remember { mutableStateOf("") }
+    var emergencyPasswordError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(remainingMs) {
+        if (remainingMs <= 0L) return@LaunchedEffect
+        delay(1000L)
+        remainingMs = (remainingMs - 1000L).coerceAtLeast(0L)
+    }
+
+    val mins = remainingMs / 60000L
+    val secs = (remainingMs / 1000L) % 60L
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(DeepNavy),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text("🔒", fontSize = 64.sp)
+            Text("Work Lockdown", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, textAlign = TextAlign.Center)
+            Text(
+                "Stay focused. The phone is locked for this work block.",
+                style = MaterialTheme.typography.bodyLarge, color = TextSecondary, textAlign = TextAlign.Center
+            )
+            Text(
+                "%d:%02d".format(mins, secs),
+                fontSize = 56.sp,
+                color = AccentBlue,
+                fontWeight = FontWeight.Bold
+            )
+            Text("until your next 15-minute break", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+            Text("📞 Phone calls are still available.", style = MaterialTheme.typography.bodySmall, color = TextSecondary, textAlign = TextAlign.Center)
+
+            Spacer(Modifier.height(4.dp))
+
+            if (!emergencyAvailable) {
+                Text(
+                    "Emergency unlock already used — available again in up to 9 hours.",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+            } else if (!showEmergencyConfirm) {
+                TextButton(onClick = { showEmergencyConfirm = true }) {
+                    Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
+                }
+            } else {
+                Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Emergency Unlock", color = AccentRed, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Type the password to pause Work Lockdown for 15 minutes.\nThis can only be used once every 9 hours.",
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedTextField(
+                            value = emergencyPassword,
+                            onValueChange = { emergencyPassword = it; emergencyPasswordError = false },
+                            placeholder = { Text("Password", color = TextSecondary) },
+                            singleLine = true,
+                            isError = emergencyPasswordError,
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentRed,
+                                unfocusedBorderColor = BorderDark,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+                        if (emergencyPasswordError) {
+                            Text("Wrong password", color = AccentRed, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    showEmergencyConfirm = false
+                                    emergencyPassword = ""
+                                    emergencyPasswordError = false
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Cancel", color = TextSecondary) }
+                            Button(
+                                onClick = {
+                                    if (emergencyPassword == "Areyousure?") onEmergency()
+                                    else emergencyPasswordError = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Unlock", color = Color.White) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ShoppingPauseContent(
     appName: String,
     delayMinutes: Long,

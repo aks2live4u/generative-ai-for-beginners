@@ -36,6 +36,18 @@ class HomeViewModel(
     val emergencyUnlockUntil: StateFlow<Long> = prefs.emergencyUnlockUntil
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
+    val workModeEnabled: StateFlow<Boolean> = prefs.workModeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val workDays: StateFlow<Set<Int>> = prefs.workDays
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf(2, 3, 4, 5, 6))
+
+    val workStartHour: StateFlow<Int> = prefs.workStartHour
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 14)
+
+    val workEndHour: StateFlow<Int> = prefs.workEndHour
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 23)
+
     // Checked live so it reflects real-time permission state
     fun isAccessibilityEnabled(): Boolean =
         GuardrailAccessibilityService.isEnabled(context)
@@ -66,6 +78,18 @@ class HomeViewModel(
 
     fun clearEmergencyUnlock() = viewModelScope.launch {
         prefs.setEmergencyUnlockUntil(0L)
+    }
+
+    fun toggleWorkMode(enabled: Boolean) = viewModelScope.launch {
+        prefs.setWorkModeEnabled(enabled)
+    }
+
+    fun setWorkDays(days: Set<Int>) = viewModelScope.launch {
+        prefs.setWorkDays(days)
+    }
+
+    fun setWorkHours(start: Int, end: Int) = viewModelScope.launch {
+        prefs.setWorkHours(start, end)
     }
 
     class Factory(

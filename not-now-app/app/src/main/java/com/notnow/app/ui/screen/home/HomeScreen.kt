@@ -3,9 +3,11 @@ package com.notnow.app.ui.screen.home
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +51,10 @@ fun HomeScreen(
     val nightOn         by vm.nightLockdownEnabled.collectAsStateWithLifecycle()
     val nightStart      by vm.nightStartHour.collectAsStateWithLifecycle()
     val nightEnd        by vm.nightEndHour.collectAsStateWithLifecycle()
+    val workModeOn      by vm.workModeEnabled.collectAsStateWithLifecycle()
+    val workDays        by vm.workDays.collectAsStateWithLifecycle()
+    val workStart       by vm.workStartHour.collectAsStateWithLifecycle()
+    val workEnd         by vm.workEndHour.collectAsStateWithLifecycle()
     val rules by vm.rules.collectAsStateWithLifecycle()
 
     // Live emergency unlock countdowns.
@@ -68,6 +75,7 @@ fun HomeScreen(
 
     var showNightPicker by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showWorkSchedule by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(DeepNavy),
@@ -177,6 +185,39 @@ fun HomeScreen(
             }
         }
 
+        // Global Work Mode emergency unlock countdown
+        val workEmergencyActive = remember(tickMs) { GuardrailAccessibilityService.hasWorkEmergencyGrant() }
+        if (workEmergencyActive) {
+            item {
+                val grantedAt = GuardrailAccessibilityService.workEmergencyGrantedAt()
+                val remainingSec = ((15 * 60 * 1000L - (tickMs - grantedAt)) / 1000L).coerceAtLeast(0L)
+                val mins = remainingSec / 60
+                val secs = remainingSec % 60
+                Surface(shape = RoundedCornerShape(12.dp), color = AccentBlue.copy(alpha = 0.15f)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LockOpen, null, tint = AccentBlue, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Work Mode Emergency Unlock", style = MaterialTheme.typography.titleMedium, color = AccentBlue)
+                                Text(
+                                    "%d:%02d remaining of 15:00".format(mins, secs),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                        LinearProgressIndicator(
+                            progress = { remainingSec / (15f * 60f) },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = AccentBlue,
+                            trackColor = BorderDark
+                        )
+                    }
+                }
+            }
+        }
+
         // Mode selector
         item { ModeSelector(current = mode, onSelect = vm::setMode) }
 
@@ -216,6 +257,48 @@ fun HomeScreen(
                             Icon(Icons.Default.Schedule, null, tint = AccentAmber, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Change hours (${hourLabel(nightStart)} – ${hourLabel(nightEnd)})", color = AccentAmber, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Work Mode card (tappable to change schedule)
+        item {
+            Surface(shape = RoundedCornerShape(12.dp), color = CardDark) {
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Work, null, tint = AccentBlue, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Work Mode", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                            Text(
+                                "${hourLabel(workStart)} – ${hourLabel(workEnd)}, ${workDaysLabel(workDays)}: 45 min locked / 15 min free",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                        Switch(
+                            checked = workModeOn,
+                            onCheckedChange = vm::toggleWorkMode,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AccentBlue,
+                                checkedTrackColor = AccentBlue.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                    if (workModeOn) {
+                        HorizontalDivider(color = BorderDark, modifier = Modifier.padding(horizontal = 16.dp))
+                        TextButton(
+                            onClick = { showWorkSchedule = true },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Schedule, null, tint = AccentBlue, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Change schedule", color = AccentBlue, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -284,6 +367,21 @@ fun HomeScreen(
                 showNightPicker = false
             },
             onDismiss = { showNightPicker = false }
+        )
+    }
+
+    // Work Mode schedule dialog
+    if (showWorkSchedule) {
+        WorkScheduleDialog(
+            startHour = workStart,
+            endHour = workEnd,
+            days = workDays,
+            onConfirm = { s, e, d ->
+                vm.setWorkHours(s, e)
+                vm.setWorkDays(d)
+                showWorkSchedule = false
+            },
+            onDismiss = { showWorkSchedule = false }
         )
     }
 
@@ -360,6 +458,100 @@ private fun NightHoursDialog(
                 onClick = { onConfirm(start, end) },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentAmber)
             ) { Text("Save", color = DeepNavy) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+        }
+    )
+}
+
+@Composable
+private fun WorkScheduleDialog(
+    startHour: Int,
+    endHour: Int,
+    days: Set<Int>,
+    onConfirm: (Int, Int, Set<Int>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var start by remember { mutableIntStateOf(startHour) }
+    var end   by remember { mutableIntStateOf(endHour) }
+    var selectedDays by remember { mutableStateOf(days) }
+
+    // Calendar.DAY_OF_WEEK values: Sunday=1 ... Saturday=7, displayed Mon-first
+    val dayOptions = listOf(2 to "Mo", 3 to "Tu", 4 to "We", 5 to "Th", 6 to "Fr", 7 to "Sa", 1 to "Su")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardDark,
+        title = { Text("Work Mode Schedule", color = TextPrimary) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                Text(
+                    "During these hours on the selected days, the phone locks for 45 minutes, then frees up for 15 — repeating from the start time.",
+                    color = TextSecondary, style = MaterialTheme.typography.bodyMedium
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Days", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        dayOptions.forEach { (dayValue, label) ->
+                            val selected = dayValue in selectedDays
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(if (selected) AccentBlue else SurfaceDark, CircleShape)
+                                    .clickable {
+                                        selectedDays = if (selected) selectedDays - dayValue else selectedDays + dayValue
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    label,
+                                    color = if (selected) Color.White else TextSecondary,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Starts at: ${hourLabel(start)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = start.toFloat(),
+                        onValueChange = { start = it.toInt() },
+                        valueRange = 0f..23f,
+                        steps = 22,
+                        colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Ends at: ${hourLabel(end)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = end.toFloat(),
+                        onValueChange = { end = it.toInt() },
+                        valueRange = 0f..23f,
+                        steps = 22,
+                        colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+                    )
+                }
+                Surface(shape = RoundedCornerShape(8.dp), color = AccentBlue.copy(alpha = 0.1f)) {
+                    Text(
+                        "Locked: ${hourLabel(start)} → ${hourLabel(end)}, ${workDaysLabel(selectedDays)}",
+                        color = AccentBlue,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(start, end, selectedDays) },
+                enabled = selectedDays.isNotEmpty() && end > start,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+            ) { Text("Save", color = Color.White) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
@@ -575,4 +767,18 @@ private fun hourLabel(hour: Int): String {
     val suffix = if (hour < 12) "AM" else "PM"
     val h = when (hour) { 0 -> 12; in 13..23 -> hour - 12; else -> hour }
     return "$h:00 $suffix"
+}
+
+// Calendar.DAY_OF_WEEK values: Sunday=1 ... Saturday=7
+private fun workDaysLabel(days: Set<Int>): String = when (days) {
+    setOf(2, 3, 4, 5, 6) -> "Mon–Fri"
+    setOf(1, 2, 3, 4, 5, 6, 7) -> "Every day"
+    setOf(1, 7) -> "Sat–Sun"
+    else -> {
+        if (days.isEmpty()) "No days selected"
+        else {
+            val names = mapOf(1 to "Sun", 2 to "Mon", 3 to "Tue", 4 to "Wed", 5 to "Thu", 6 to "Fri", 7 to "Sat")
+            days.sorted().mapNotNull { names[it] }.joinToString(", ")
+        }
+    }
 }
