@@ -28,6 +28,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
     // Work Mode schedule — cached from AppPreferences
     @Volatile private var workModeEnabled = false
+    @Volatile private var workModeActivatedAt = 0L
     @Volatile private var workDays: Set<Int> = setOf(2, 3, 4, 5, 6) // Mon-Fri
     @Volatile private var workStartHour = 14
     @Volatile private var workEndHour = 23
@@ -201,7 +202,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
         scope.launch { try { app.preferences.nightLockdownEnabled.collect { nightLockdownOn  = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.nightStartHour.collect       { nightStartHour   = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.nightEndHour.collect         { nightEndHour     = it } } catch (_: Exception) {} }
-        scope.launch { try { app.preferences.workModeEnabled.collect      { workModeEnabled  = it } } catch (_: Exception) {} }
+        scope.launch {
+            try {
+                app.preferences.workModeEnabled.collect {
+                    if (it && !workModeEnabled) workModeActivatedAt = System.currentTimeMillis()
+                    workModeEnabled = it
+                }
+            } catch (_: Exception) {}
+        }
         scope.launch { try { app.preferences.workDays.collect             { workDays         = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.workStartHour.collect        { workStartHour    = it } } catch (_: Exception) {} }
         scope.launch { try { app.preferences.workEndHour.collect          { workEndHour      = it } } catch (_: Exception) {} }
@@ -349,7 +357,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
         val lockedMs = 45 * oneMinuteMs
         val cyclePos = (now - shiftStart) % cycleMs
 
-        return if (cyclePos < lockedMs) {
+        val phase = if (cyclePos < lockedMs) {
             WorkPhase(showLockdown = true, lockdownRemainingMs = lockedMs - cyclePos)
         } else {
             val freeRemaining = cycleMs - cyclePos
@@ -359,6 +367,16 @@ class GuardrailAccessibilityService : AccessibilityService() {
                 WorkPhase()
             }
         }
+
+        // If Work Mode was just switched on and we'd otherwise drop straight into a
+        // lockdown, give a 1-minute "wrap up" warning first instead of locking instantly.
+        val sinceActivation = now - workModeActivatedAt
+        if (phase.showLockdown && sinceActivation < oneMinuteMs) {
+            val secondsLeft = ((oneMinuteMs - sinceActivation) / 1000L).toInt().coerceAtLeast(0)
+            return WorkPhase(showWarning = true, warningSecondsLeft = secondsLeft)
+        }
+
+        return phase
     }
 
     // Drives Work Mode: shows a full-screen 1-minute warning before each lockdown
@@ -385,6 +403,11 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                 if (workOverlayKind != WorkOverlayKind.LOCKDOWN) {
                                     workOverlayKind = WorkOverlayKind.LOCKDOWN
                                     performGlobalAction(GLOBAL_ACTION_HOME)
+                                    // Lock once on entry — repeating this every loop tick
+                                    // fights the user's fingerprint unlock in an endless cycle.
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                        performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                                    }
                                 }
                                 overlayManager?.showWorkLockdown(
                                     remainingMs = phase.lockdownRemainingMs,
@@ -394,9 +417,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                         scope.launch { app.preferences.setWorkEmergencyUsedAt(System.currentTimeMillis()) }
                                     }
                                 )
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                                }
                             }
                             phase.showWarning && !hasWorkEmergencyGrant() -> {
                                 workOverlayKind = WorkOverlayKind.WARNING
