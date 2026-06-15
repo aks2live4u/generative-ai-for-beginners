@@ -1,6 +1,7 @@
 package com.notnow.app.service
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Notification
 import android.content.Context
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
@@ -36,10 +37,6 @@ class GuardrailAccessibilityService : AccessibilityService() {
     // Tracks which package was last in the foreground — used to skip blocking on
     // same-app events like rotation, fullscreen, or internal navigation
     private var lastForegroundPkg = ""
-
-    // True while a phone/dialer window is active (ringing or in-call) — lets calls
-    // through during Work Mode regardless of overlay focus.
-    @Volatile private var phoneCallActive = false
 
     // Tracks which Work Mode overlay (if any) is currently displayed
     private var workOverlayKind = WorkOverlayKind.NONE
@@ -113,6 +110,23 @@ class GuardrailAccessibilityService : AccessibilityService() {
             System.currentTimeMillis() - workEmergencyUsedAt < WORK_EMERGENCY_COOLDOWN_MS
 
         fun workEmergencyGrantedAt(): Long = workEmergencyGrantedAt
+
+        /** Milliseconds remaining until the Work Mode emergency unlock is available again. */
+        fun workEmergencyCooldownRemainingMs(): Long =
+            (WORK_EMERGENCY_COOLDOWN_MS - (System.currentTimeMillis() - workEmergencyUsedAt)).coerceAtLeast(0L)
+
+        // While a call is ringing/in-progress (or the user just opened the Phone app
+        // from the lockdown screen), Work Mode overlays stay hidden for a couple of
+        // minutes so the call — and any follow-up like checking recents — stays usable.
+        @Volatile private var phoneCallGraceUntil = 0L
+        private const val PHONE_CALL_GRACE_MS = 2 * 60 * 1000L
+
+        fun markPhoneCallActive() {
+            phoneCallGraceUntil = System.currentTimeMillis() + PHONE_CALL_GRACE_MS
+        }
+
+        fun isPhoneCallGraceActive(): Boolean =
+            System.currentTimeMillis() < phoneCallGraceUntil
     }
 
     private val browserPackages = setOf(
@@ -226,18 +240,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         when (type) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                if (pkg in phoneCallPackages) {
-                    if (!phoneCallActive) {
-                        phoneCallActive = true
-                        // Drop the Work Mode overlay immediately so a ringing call is reachable.
-                        if (workOverlayKind != WorkOverlayKind.NONE) {
-                            workOverlayKind = WorkOverlayKind.NONE
-                            overlayManager?.dismissWorkOverlay()
-                        }
-                    }
-                } else if (pkg != packageName) {
-                    phoneCallActive = false
-                }
+                if (pkg in phoneCallPackages) onIncomingCallSignal()
                 // Always check browser URL on window changes too (catches page loads)
                 if (pkg in browserPackages) checkBrowserUrl(pkg)
                 handleAppSwitch(pkg)
@@ -245,6 +248,21 @@ class GuardrailAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 if (pkg in browserPackages) checkBrowserUrl(pkg)
             }
+            AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
+                // A "Calling" style notification (category=call) is the most reliable,
+                // OEM-independent signal that a call is ringing or in progress.
+                val notification = event.parcelableData as? Notification
+                if (notification?.category == Notification.CATEGORY_CALL) onIncomingCallSignal()
+            }
+        }
+    }
+
+    /** Drops any Work Mode overlay and starts the phone-call grace period so calls stay reachable. */
+    private fun onIncomingCallSignal() {
+        markPhoneCallActive()
+        if (workOverlayKind != WorkOverlayKind.NONE) {
+            workOverlayKind = WorkOverlayKind.NONE
+            overlayManager?.dismissWorkOverlay()
         }
     }
 
@@ -395,9 +413,9 @@ class GuardrailAccessibilityService : AccessibilityService() {
         return phase
     }
 
-    // Drives Work Mode: shows a full-screen 1-minute warning before each lockdown
+    // Drives Work Mode: shows a non-blocking 1-minute warning before each lockdown
     // phase, then covers the screen and forces a lock-screen re-auth for the 45-minute
-    // locked phase. Phone/dialer apps and an active global emergency grant are exempt.
+    // locked phase. An active phone call (or an active global emergency grant) is exempt.
     private fun startWorkModeLoop() {
         scope.launch {
             while (isActive) {
@@ -406,7 +424,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
                     val phase = computeWorkPhase(System.currentTimeMillis())
                     withContext(Dispatchers.Main) {
                         when {
-                            phoneCallActive -> {
+                            isPhoneCallGraceActive() -> {
                                 if (workOverlayKind != WorkOverlayKind.NONE) {
                                     workOverlayKind = WorkOverlayKind.NONE
                                     overlayManager?.dismissWorkOverlay()
@@ -425,6 +443,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                 overlayManager?.showWorkLockdown(
                                     remainingMs = phase.lockdownRemainingMs,
                                     emergencyAvailable = !isWorkEmergencyOnCooldown(),
+                                    emergencyCooldownRemainingMs = workEmergencyCooldownRemainingMs(),
                                     onEmergency = {
                                         grantWorkEmergency()
                                         scope.launch { app.preferences.setWorkEmergencyUsedAt(System.currentTimeMillis()) }

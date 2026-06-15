@@ -257,9 +257,12 @@ fun WorkWarningContent(initialSecondsLeft: Int) {
 fun WorkLockdownContent(
     initialRemainingMs: Long,
     emergencyAvailable: Boolean,
-    onEmergency: () -> Unit
+    emergencyCooldownRemainingMs: Long,
+    onEmergency: () -> Unit,
+    onOpenPhone: () -> Unit
 ) {
     var remainingMs by remember { mutableLongStateOf(initialRemainingMs) }
+    var cooldownMs by remember { mutableLongStateOf(emergencyCooldownRemainingMs) }
     var showEmergencyConfirm by remember { mutableStateOf(false) }
     var emergencyPassword by remember { mutableStateOf("") }
     var emergencyPasswordError by remember { mutableStateOf(false) }
@@ -268,6 +271,13 @@ fun WorkLockdownContent(
         if (remainingMs <= 0L) return@LaunchedEffect
         delay(1000L)
         remainingMs = (remainingMs - 1000L).coerceAtLeast(0L)
+    }
+
+    LaunchedEffect(Unit) {
+        while (cooldownMs > 0L) {
+            delay(1000L)
+            cooldownMs = (cooldownMs - 1000L).coerceAtLeast(0L)
+        }
     }
 
     val mins = remainingMs / 60000L
@@ -296,22 +306,40 @@ fun WorkLockdownContent(
             )
             Text("until your next 15-minute break", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
 
-            Surface(shape = RoundedCornerShape(10.dp), color = AccentGreen.copy(alpha = 0.15f)) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Surface(shape = RoundedCornerShape(10.dp), color = AccentGreen.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("📞", fontSize = 20.sp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📞", fontSize = 20.sp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onOpenPhone,
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Open Phone App", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
             Spacer(Modifier.height(4.dp))
 
             if (!emergencyAvailable) {
+                val cooldownMin = cooldownMs / 60000L
+                val cooldownH = cooldownMin / 60L
+                val cooldownM = cooldownMin % 60L
+                val cooldownStr = when {
+                    cooldownH > 0L && cooldownM > 0L -> "${cooldownH}h ${cooldownM}m"
+                    cooldownH > 0L -> "${cooldownH}h"
+                    else -> "${cooldownM}m"
+                }
                 Text(
-                    "Emergency unlock already used — available again in up to 9 hours.",
+                    "Emergency unlock already used — available again in $cooldownStr.",
                     color = TextSecondary,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center

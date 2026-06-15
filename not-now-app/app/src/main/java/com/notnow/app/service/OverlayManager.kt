@@ -3,6 +3,7 @@ package com.notnow.app.service
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.telecom.TelecomManager
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
@@ -103,7 +104,12 @@ class OverlayManager(
     }
 
     /** Shows the full-screen Work Lockdown overlay. No-op if already showing. */
-    fun showWorkLockdown(remainingMs: Long, emergencyAvailable: Boolean, onEmergency: () -> Unit) {
+    fun showWorkLockdown(
+        remainingMs: Long,
+        emergencyAvailable: Boolean,
+        emergencyCooldownRemainingMs: Long,
+        onEmergency: () -> Unit
+    ) {
         if (currentWorkOverlay == WorkOverlayType.LOCKDOWN) return
         dismiss()
         currentWorkOverlay = WorkOverlayType.LOCKDOWN
@@ -111,9 +117,27 @@ class OverlayManager(
             WorkLockdownContent(
                 initialRemainingMs = remainingMs,
                 emergencyAvailable = emergencyAvailable,
-                onEmergency = onEmergency
+                emergencyCooldownRemainingMs = emergencyCooldownRemainingMs,
+                onEmergency = onEmergency,
+                onOpenPhone = { openPhoneApp() }
             )
         }
+    }
+
+    /**
+     * Dismisses the current overlay, starts the phone-call grace period (so Work Mode
+     * won't immediately re-lock), and opens the device's Phone app so the user can
+     * see recents/contacts and call back.
+     */
+    private fun openPhoneApp() {
+        GuardrailAccessibilityService.markPhoneCallActive()
+        dismissWorkOverlay()
+        val intent = try {
+            val dialerPkg = (context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)?.defaultDialerPackage
+            dialerPkg?.let { context.packageManager.getLaunchIntentForPackage(it) }
+        } catch (_: Exception) { null } ?: Intent(Intent.ACTION_DIAL)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        try { context.startActivity(intent) } catch (_: Exception) {}
     }
 
     /** Dismisses a Work Mode overlay (warning or lockdown) if one is showing. */
