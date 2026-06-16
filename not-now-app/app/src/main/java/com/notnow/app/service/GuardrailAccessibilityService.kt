@@ -38,6 +38,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
     // same-app events like rotation, fullscreen, or internal navigation
     private var lastForegroundPkg = ""
 
+    // True while the in-call UI (incallui) is the active window — i.e. a call is
+    // actively ringing or connected. Distinct from the 2-min post-call grace period.
+    @Volatile private var inCallUiActive = false
+
     // Tracks which Work Mode overlay (if any) is currently displayed
     private var workOverlayKind = WorkOverlayKind.NONE
     private enum class WorkOverlayKind { NONE, WARNING, LOCKDOWN, PHONE_GRACE }
@@ -130,6 +134,11 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         fun phoneCallGraceRemainingMs(): Long =
             (phoneCallGraceUntil - System.currentTimeMillis()).coerceAtLeast(0L)
+
+        /** Ends the post-call grace period immediately (e.g. user opened a non-phone app). */
+        fun clearPhoneCallGrace() {
+            phoneCallGraceUntil = 0L
+        }
     }
 
     private val browserPackages = setOf(
@@ -143,13 +152,21 @@ class GuardrailAccessibilityService : AccessibilityService() {
     )
 
     // In-call UI packages — ONLY active while a call is actually ringing or connected.
-    // Deliberately excludes the main dialer packages (com.*.dialer) which also appear
-    // when the user merely opens the Phone app to check contacts, which would let them
-    // escape Work Mode lockdown just by tapping the phone icon.
+    // Excludes main dialer packages (com.*.dialer) which also appear just from opening
+    // the Phone app, which would let the user escape lockdown by pressing the phone icon.
     private val phoneCallPackages = setOf(
         "com.android.incallui",
         "com.samsung.android.incallui",
         "com.samsung.android.app.telephonyui",
+    )
+
+    // Broader set used for grace-period policy: dialer + incallui together.
+    // Opening any of these during post-call grace does NOT end the grace early.
+    private val phoneRelatedPackages = setOf(
+        "com.android.dialer", "com.google.android.dialer",
+        "com.android.incallui", "com.android.server.telecom",
+        "com.samsung.android.dialer",
+        "com.samsung.android.incallui", "com.samsung.android.app.telephonyui",
     )
 
     private val browserUrlBarId = mapOf(
@@ -272,12 +289,30 @@ class GuardrailAccessibilityService : AccessibilityService() {
     private fun handleAppSwitch(pkg: String) {
         if (pkg == packageName) return
         if (pkg == "android" || pkg == "com.android.systemui") return
+
+        // Track whether the in-call UI is the active window. Checked before the
+        // com.android.* early-return so com.android.incallui is caught correctly.
+        if (pkg in phoneCallPackages) {
+            inCallUiActive = true
+            return  // no friction rules apply during an active call
+        }
+        inCallUiActive = false
+
         if (pkg.startsWith("com.android.") && !pkg.contains("youtube")) {
             // Launcher/home is in foreground — clear last pkg so the next open of any
             // previously-blocked app triggers the timer instead of being skipped
             lastForegroundPkg = ""
             return
         }
+
+        // Opening a managed app or browser during the post-call grace period ends the
+        // grace immediately so Work Mode lockdown resumes rather than giving free time.
+        if (isPhoneCallGraceActive() && pkg !in phoneRelatedPackages) {
+            if (pkg in browserPackages || ruleCache.containsKey(pkg)) {
+                clearPhoneCallGrace()
+            }
+        }
+
         if (pkg in browserPackages) return  // websites handled separately in checkBrowserUrl
 
         // Same app fired again (rotation, fullscreen, internal navigation) — skip blocking
@@ -427,13 +462,27 @@ class GuardrailAccessibilityService : AccessibilityService() {
                     val phase = computeWorkPhase(System.currentTimeMillis())
                     withContext(Dispatchers.Main) {
                         when {
-                            isPhoneCallGraceActive() -> {
+                            isPhoneCallGraceActive() || inCallUiActive -> {
+                                if (inCallUiActive) {
+                                    // Extend grace every tick so the overlay stays hidden
+                                    // for the full call, regardless of how long it lasts.
+                                    markPhoneCallActive()
+                                }
                                 if (phase.showLockdown && !hasWorkEmergencyGrant()) {
-                                    // During lockdown phase, show a visible grace banner so
-                                    // the user knows when the lockdown will resume.
-                                    val secs = (phoneCallGraceRemainingMs() / 1000L).toInt().coerceAtLeast(0)
-                                    workOverlayKind = WorkOverlayKind.PHONE_GRACE
-                                    overlayManager?.showPhoneGraceBanner(secs)
+                                    if (inCallUiActive) {
+                                        // Call in progress — remove all overlays so call UI
+                                        // is fully usable (answer, mute, hang up, etc.)
+                                        if (workOverlayKind != WorkOverlayKind.NONE) {
+                                            workOverlayKind = WorkOverlayKind.NONE
+                                            overlayManager?.dismissWorkOverlay()
+                                        }
+                                    } else {
+                                        // Post-call grace — show countdown banner so user
+                                        // knows when lockdown is returning.
+                                        val secs = (phoneCallGraceRemainingMs() / 1000L).toInt().coerceAtLeast(0)
+                                        workOverlayKind = WorkOverlayKind.PHONE_GRACE
+                                        overlayManager?.showPhoneGraceBanner(secs)
+                                    }
                                 } else {
                                     if (workOverlayKind != WorkOverlayKind.NONE) {
                                         workOverlayKind = WorkOverlayKind.NONE
