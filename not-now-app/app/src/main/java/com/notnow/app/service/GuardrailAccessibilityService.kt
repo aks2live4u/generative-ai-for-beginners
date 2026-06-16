@@ -138,7 +138,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
         /** Ends the post-call grace period immediately (e.g. user opened a non-phone app). */
         fun clearPhoneCallGrace() {
             phoneCallGraceUntil = 0L
+            dialerOpenedPreCall = false
         }
+
+        // True between the user tapping the phone FAB (dialer opened) and incallui
+        // activating (call actually connected). Suppresses the grace banner during dialing.
+        @Volatile private var dialerOpenedPreCall = false
+        fun markDialerOpened() { dialerOpenedPreCall = true }
+        fun clearDialerOpened() { dialerOpenedPreCall = false }
     }
 
     private val browserPackages = setOf(
@@ -294,6 +301,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
         // com.android.* early-return so com.android.incallui is caught correctly.
         if (pkg in phoneCallPackages) {
             inCallUiActive = true
+            clearDialerOpened()  // call connected — pre-call dialing phase is over
             return  // no friction rules apply during an active call
         }
         inCallUiActive = false
@@ -472,6 +480,13 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                     if (inCallUiActive) {
                                         // Call in progress — remove all overlays so call UI
                                         // is fully usable (answer, mute, hang up, etc.)
+                                        if (workOverlayKind != WorkOverlayKind.NONE) {
+                                            workOverlayKind = WorkOverlayKind.NONE
+                                            overlayManager?.dismissWorkOverlay()
+                                        }
+                                    } else if (dialerOpenedPreCall) {
+                                        // Dialer open but call not yet connected — stay clear,
+                                        // no banner needed while the user is still dialing.
                                         if (workOverlayKind != WorkOverlayKind.NONE) {
                                             workOverlayKind = WorkOverlayKind.NONE
                                             overlayManager?.dismissWorkOverlay()

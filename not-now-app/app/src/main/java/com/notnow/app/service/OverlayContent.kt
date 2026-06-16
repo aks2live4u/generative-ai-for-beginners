@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import com.notnow.app.data.repository.FutureMessageRepository
 import com.notnow.app.ui.theme.*
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun CountdownContent(
@@ -225,7 +227,7 @@ fun NightBlockContent(appName: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun WorkWarningContent(initialSecondsLeft: Int) {
+fun WorkWarningContent(initialSecondsLeft: Int, onVerticalDrag: (Float) -> Unit = {}) {
     var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
 
     LaunchedEffect(secondsLeft) {
@@ -237,7 +239,14 @@ fun WorkWarningContent(initialSecondsLeft: Int) {
     // Non-blocking banner: the app underneath stays usable so the user can
     // save/finish what they're doing (and answer calls) before lockdown begins.
     Box(modifier = Modifier.fillMaxWidth().padding(top = 36.dp, start = 12.dp, end = 12.dp)) {
-        Surface(shape = RoundedCornerShape(14.dp), color = AccentAmber, shadowElevation = 8.dp) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = AccentAmber,
+            shadowElevation = 8.dp,
+            modifier = Modifier.pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount -> onVerticalDrag(dragAmount) }
+            }
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -255,7 +264,7 @@ fun WorkWarningContent(initialSecondsLeft: Int) {
 }
 
 @Composable
-fun PhoneGraceBannerContent(initialSecondsLeft: Int) {
+fun PhoneGraceBannerContent(initialSecondsLeft: Int, onVerticalDrag: (Float) -> Unit = {}) {
     var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
     LaunchedEffect(secondsLeft) {
         if (secondsLeft <= 0) return@LaunchedEffect
@@ -266,7 +275,14 @@ fun PhoneGraceBannerContent(initialSecondsLeft: Int) {
     val secs = secondsLeft % 60
     val timeStr = if (mins > 0) "%d:%02d".format(mins, secs) else "${secs}s"
     Box(modifier = Modifier.fillMaxWidth().padding(top = 36.dp, start = 12.dp, end = 12.dp)) {
-        Surface(shape = RoundedCornerShape(14.dp), color = AccentBlue, shadowElevation = 8.dp) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = AccentBlue,
+            shadowElevation = 8.dp,
+            modifier = Modifier.pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount -> onVerticalDrag(dragAmount) }
+            }
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -336,20 +352,6 @@ fun WorkLockdownContent(
                 fontWeight = FontWeight.Bold
             )
             Text("until your next 15-minute break", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-
-            // Info card — phone access available via the green FAB at the bottom
-            Surface(shape = RoundedCornerShape(10.dp), color = AccentGreen.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("📞", fontSize = 20.sp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
 
             if (!emergencyAvailable) {
                 val cooldownMin = cooldownMs / 60000L

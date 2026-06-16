@@ -36,8 +36,18 @@ class OverlayManager(
     private var currentView: ComposeView? = null
     private var currentLifecycle: ServiceLifecycleOwner? = null
     private var currentWorkOverlay: WorkOverlayType? = null
+    private var currentParams: WindowManager.LayoutParams? = null
+    private var bannerYOffset = 0
 
     enum class WorkOverlayType { WARNING, LOCKDOWN, PHONE_GRACE }
+
+    fun adjustBannerY(deltaY: Float) {
+        val params = currentParams ?: return
+        val view = currentView ?: return
+        bannerYOffset += deltaY.toInt()
+        params.y = bannerYOffset
+        try { wm.updateViewLayout(view, params) } catch (_: Exception) {}
+    }
 
     fun show(packageName: String, rule: AppRule, isNight: Boolean) {
         if (currentView != null) return
@@ -100,7 +110,12 @@ class OverlayManager(
         if (currentWorkOverlay == WorkOverlayType.WARNING) return
         dismiss()
         currentWorkOverlay = WorkOverlayType.WARNING
-        addOverlayView(fullScreen = false) { WorkWarningContent(initialSecondsLeft = secondsLeft) }
+        addOverlayView(fullScreen = false) {
+            WorkWarningContent(
+                initialSecondsLeft = secondsLeft,
+                onVerticalDrag = { delta -> adjustBannerY(delta) }
+            )
+        }
     }
 
     /** Shows the full-screen Work Lockdown overlay. No-op if already showing. */
@@ -131,9 +146,8 @@ class OverlayManager(
      */
     private fun openPhoneApp() {
         GuardrailAccessibilityService.markPhoneCallActive()
-        // Replace lockdown overlay with a visible grace countdown banner immediately
-        val secondsLeft = (GuardrailAccessibilityService.phoneCallGraceRemainingMs() / 1000L).toInt()
-        showPhoneGraceBanner(secondsLeft)
+        GuardrailAccessibilityService.markDialerOpened()
+        dismiss()
         val intent = try {
             val dialerPkg = (context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)?.defaultDialerPackage
             dialerPkg?.let { context.packageManager.getLaunchIntentForPackage(it) }
@@ -147,7 +161,12 @@ class OverlayManager(
         if (currentWorkOverlay == WorkOverlayType.PHONE_GRACE) return
         dismiss()
         currentWorkOverlay = WorkOverlayType.PHONE_GRACE
-        addOverlayView(fullScreen = false) { PhoneGraceBannerContent(initialSecondsLeft = secondsLeft) }
+        addOverlayView(fullScreen = false) {
+            PhoneGraceBannerContent(
+                initialSecondsLeft = secondsLeft,
+                onVerticalDrag = { delta -> adjustBannerY(delta) }
+            )
+        }
     }
 
     /** Dismisses a Work Mode overlay (warning or lockdown) if one is showing. */
@@ -194,8 +213,10 @@ class OverlayManager(
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
-            ).apply { gravity = Gravity.TOP }
+            ).apply { gravity = Gravity.TOP; y = bannerYOffset }
         }
+
+        if (!fullScreen) currentParams = params
 
         try {
             wm.addView(view, params)
@@ -245,5 +266,7 @@ class OverlayManager(
         }
         currentView = null
         currentWorkOverlay = null
+        currentParams = null
+        bannerYOffset = 0
     }
 }
