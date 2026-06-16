@@ -31,6 +31,7 @@ import com.notnow.app.data.entity.AppRule
 import com.notnow.app.data.entity.FrictionLevel
 import com.notnow.app.service.GuardrailAccessibilityService
 import com.notnow.app.ui.theme.*
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 @Composable
@@ -427,7 +428,7 @@ private fun NightHoursDialog(
                     Text("Starts at: ${hourLabel(start)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
                     Slider(
                         value = start.toFloat(),
-                        onValueChange = { start = it.toInt() },
+                        onValueChange = { start = it.roundToInt() },
                         valueRange = 0f..23f,
                         steps = 22,
                         colors = SliderDefaults.colors(thumbColor = AccentAmber, activeTrackColor = AccentAmber)
@@ -437,7 +438,7 @@ private fun NightHoursDialog(
                     Text("Ends at: ${hourLabel(end)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
                     Slider(
                         value = end.toFloat(),
-                        onValueChange = { end = it.toInt() },
+                        onValueChange = { end = it.roundToInt() },
                         valueRange = 0f..23f,
                         steps = 22,
                         colors = SliderDefaults.colors(thumbColor = AccentAmber, activeTrackColor = AccentAmber)
@@ -520,7 +521,7 @@ private fun WorkScheduleDialog(
                     Text("Starts at: ${hourLabel(start)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
                     Slider(
                         value = start.toFloat(),
-                        onValueChange = { start = it.toInt() },
+                        onValueChange = { start = it.roundToInt() },
                         valueRange = 0f..23f,
                         steps = 22,
                         colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
@@ -530,7 +531,7 @@ private fun WorkScheduleDialog(
                     Text("Ends at: ${hourLabel(end)}", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
                     Slider(
                         value = end.toFloat(),
-                        onValueChange = { end = it.toInt() },
+                        onValueChange = { end = it.roundToInt() },
                         valueRange = 0f..23f,
                         steps = 22,
                         colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)

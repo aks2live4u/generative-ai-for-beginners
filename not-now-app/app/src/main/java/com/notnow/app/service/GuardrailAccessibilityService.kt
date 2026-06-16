@@ -123,7 +123,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
         // from the lockdown screen), Work Mode overlays stay hidden for a couple of
         // minutes so the call — and any follow-up like checking recents — stays usable.
         @Volatile private var phoneCallGraceUntil = 0L
-        private const val PHONE_CALL_GRACE_MS = 2 * 60 * 1000L
+        private const val PHONE_CALL_GRACE_MS = 30 * 1000L
 
         fun markPhoneCallActive() {
             phoneCallGraceUntil = System.currentTimeMillis() + PHONE_CALL_GRACE_MS

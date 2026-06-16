@@ -2,6 +2,7 @@ package com.notnow.app.service
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -319,7 +320,8 @@ fun WorkLockdownContent(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.padding(32.dp)
+            // bottom padding keeps content clear of the floating phone button
+            modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 32.dp, bottom = 100.dp)
         ) {
             Text("🔒", fontSize = 64.sp)
             Text("Work Lockdown", style = MaterialTheme.typography.headlineMedium, color = TextPrimary, textAlign = TextAlign.Center)
@@ -335,24 +337,15 @@ fun WorkLockdownContent(
             )
             Text("until your next 15-minute break", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
 
+            // Info card — phone access available via the green FAB at the bottom
             Surface(shape = RoundedCornerShape(10.dp), color = AccentGreen.copy(alpha = 0.15f), modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📞", fontSize = 20.sp)
-                        Spacer(Modifier.width(10.dp))
-                        Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Button(
-                        onClick = onOpenPhone,
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Open Phone App", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                    Text("📞", fontSize = 20.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Phone calls are still available", color = AccentGreen, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -431,6 +424,16 @@ fun WorkLockdownContent(
                     }
                 }
             }
+        }
+        FloatingActionButton(
+            onClick = onOpenPhone,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp),
+            containerColor = AccentGreen,
+            shape = CircleShape,
+        ) {
+            Text("📞", fontSize = 24.sp)
         }
     }
 }
