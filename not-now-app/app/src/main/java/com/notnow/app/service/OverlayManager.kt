@@ -37,7 +37,7 @@ class OverlayManager(
     private var currentLifecycle: ServiceLifecycleOwner? = null
     private var currentWorkOverlay: WorkOverlayType? = null
 
-    enum class WorkOverlayType { WARNING, LOCKDOWN }
+    enum class WorkOverlayType { WARNING, LOCKDOWN, PHONE_GRACE }
 
     fun show(packageName: String, rule: AppRule, isNight: Boolean) {
         if (currentView != null) return
@@ -131,13 +131,23 @@ class OverlayManager(
      */
     private fun openPhoneApp() {
         GuardrailAccessibilityService.markPhoneCallActive()
-        dismissWorkOverlay()
+        // Replace lockdown overlay with a visible grace countdown banner immediately
+        val secondsLeft = (GuardrailAccessibilityService.phoneCallGraceRemainingMs() / 1000L).toInt()
+        showPhoneGraceBanner(secondsLeft)
         val intent = try {
             val dialerPkg = (context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)?.defaultDialerPackage
             dialerPkg?.let { context.packageManager.getLaunchIntentForPackage(it) }
         } catch (_: Exception) { null } ?: Intent(Intent.ACTION_DIAL)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         try { context.startActivity(intent) } catch (_: Exception) {}
+    }
+
+    /** Shows a non-blocking banner counting down to when Work Lockdown resumes. No-op if already showing. */
+    fun showPhoneGraceBanner(secondsLeft: Int) {
+        if (currentWorkOverlay == WorkOverlayType.PHONE_GRACE) return
+        dismiss()
+        currentWorkOverlay = WorkOverlayType.PHONE_GRACE
+        addOverlayView(fullScreen = false) { PhoneGraceBannerContent(initialSecondsLeft = secondsLeft) }
     }
 
     /** Dismisses a Work Mode overlay (warning or lockdown) if one is showing. */

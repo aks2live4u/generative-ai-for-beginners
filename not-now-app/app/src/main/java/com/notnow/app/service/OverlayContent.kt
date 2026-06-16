@@ -254,6 +254,35 @@ fun WorkWarningContent(initialSecondsLeft: Int) {
 }
 
 @Composable
+fun PhoneGraceBannerContent(initialSecondsLeft: Int) {
+    var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
+    LaunchedEffect(secondsLeft) {
+        if (secondsLeft <= 0) return@LaunchedEffect
+        delay(1000L)
+        secondsLeft -= 1
+    }
+    val mins = secondsLeft / 60
+    val secs = secondsLeft % 60
+    val timeStr = if (mins > 0) "%d:%02d".format(mins, secs) else "${secs}s"
+    Box(modifier = Modifier.fillMaxWidth().padding(top = 36.dp, start = 12.dp, end = 12.dp)) {
+        Surface(shape = RoundedCornerShape(14.dp), color = AccentBlue, shadowElevation = 8.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("📱 Phone access active", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Lockdown resumes automatically", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(timeStr, fontSize = 28.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
 fun WorkLockdownContent(
     initialRemainingMs: Long,
     emergencyAvailable: Boolean,

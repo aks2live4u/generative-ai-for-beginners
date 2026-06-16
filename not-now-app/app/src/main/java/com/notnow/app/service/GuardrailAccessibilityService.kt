@@ -40,7 +40,7 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
     // Tracks which Work Mode overlay (if any) is currently displayed
     private var workOverlayKind = WorkOverlayKind.NONE
-    private enum class WorkOverlayKind { NONE, WARNING, LOCKDOWN }
+    private enum class WorkOverlayKind { NONE, WARNING, LOCKDOWN, PHONE_GRACE }
 
     private val app get() = application as NotNowApplication
 
@@ -127,6 +127,9 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         fun isPhoneCallGraceActive(): Boolean =
             System.currentTimeMillis() < phoneCallGraceUntil
+
+        fun phoneCallGraceRemainingMs(): Long =
+            (phoneCallGraceUntil - System.currentTimeMillis()).coerceAtLeast(0L)
     }
 
     private val browserPackages = setOf(
@@ -425,9 +428,17 @@ class GuardrailAccessibilityService : AccessibilityService() {
                     withContext(Dispatchers.Main) {
                         when {
                             isPhoneCallGraceActive() -> {
-                                if (workOverlayKind != WorkOverlayKind.NONE) {
-                                    workOverlayKind = WorkOverlayKind.NONE
-                                    overlayManager?.dismissWorkOverlay()
+                                if (phase.showLockdown && !hasWorkEmergencyGrant()) {
+                                    // During lockdown phase, show a visible grace banner so
+                                    // the user knows when the lockdown will resume.
+                                    val secs = (phoneCallGraceRemainingMs() / 1000L).toInt().coerceAtLeast(0)
+                                    workOverlayKind = WorkOverlayKind.PHONE_GRACE
+                                    overlayManager?.showPhoneGraceBanner(secs)
+                                } else {
+                                    if (workOverlayKind != WorkOverlayKind.NONE) {
+                                        workOverlayKind = WorkOverlayKind.NONE
+                                        overlayManager?.dismissWorkOverlay()
+                                    }
                                 }
                             }
                             phase.showLockdown && !hasWorkEmergencyGrant() -> {
