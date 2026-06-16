@@ -139,14 +139,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
         "com.UCMobile.intl", "com.uc.browser.en",
     )
 
-    // Phone/dialer apps stay usable through Work Mode lockdown for genuine emergencies
+    // In-call UI packages — ONLY active while a call is actually ringing or connected.
+    // Deliberately excludes the main dialer packages (com.*.dialer) which also appear
+    // when the user merely opens the Phone app to check contacts, which would let them
+    // escape Work Mode lockdown just by tapping the phone icon.
     private val phoneCallPackages = setOf(
-        "com.android.dialer",
-        "com.google.android.dialer",
         "com.android.incallui",
-        "com.android.server.telecom",
-        "com.samsung.android.dialer",
         "com.samsung.android.incallui",
+        "com.samsung.android.app.telephonyui",
     )
 
     private val browserUrlBarId = mapOf(
