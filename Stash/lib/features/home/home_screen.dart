@@ -20,9 +20,14 @@ Widget _brandTitle(BuildContext context) {
   return Image.asset(asset, height: 28, fit: BoxFit.contain);
 }
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   // Notes and personal articles share one editor and one filter chip; they
   // were previously split into separate "Notes"/"Writing" sections with
   // identical UI, which was confusing.
@@ -35,15 +40,69 @@ class HomeScreen extends ConsumerWidget {
     ('Notes', [ContentType.personalNote, ContentType.personalArticle]),
   ];
 
+  // Long-pressing a card enters selection mode; tapping other cards then
+  // toggles them in/out instead of opening the quick-info sheet, so several
+  // items can be deleted in one action instead of one-by-one.
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(count == 1 ? 'Delete item?' : 'Delete $count items?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final repo = ref.read(contentRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
+    ref.invalidate(contentListProvider);
+    ref.invalidate(searchResultsProvider);
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final contentAsync = ref.watch(contentListProvider);
     final filter = ref.watch(contentFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: _brandTitle(context),
-      ),
+      appBar: _selectionMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => setState(() => _selectedIds.clear()),
+              ),
+              title: Text('${_selectedIds.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: _deleteSelected,
+                ),
+              ],
+            )
+          : AppBar(
+              title: _brandTitle(context),
+            ),
       body: Column(
         children: [
           SizedBox(
@@ -96,9 +155,14 @@ class HomeScreen extends ConsumerWidget {
                       final item = items[index];
                       return StashCard(
                         item: item,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ContentDetailScreen(item: item)),
-                        ),
+                        selectionMode: _selectionMode,
+                        selected: _selectedIds.contains(item.id),
+                        onLongPress: () => _toggleSelected(item.id),
+                        onTap: _selectionMode
+                            ? () => _toggleSelected(item.id)
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => ContentDetailScreen(item: item)),
+                                ),
                         onFavoriteToggle: () async {
                           await ref
                               .read(contentRepositoryProvider)
@@ -135,11 +199,17 @@ class _FilterPill extends StatelessWidget {
 
   const _FilterPill({required this.label, required this.selected, required this.onTap});
 
+  // The whole filter row used to be black-on-black with only the selected
+  // pill picking up the purple primary color. Giving every unselected pill
+  // an orange tint makes the row read as colorful chips rather than plain
+  // text, while selecting one still switches it to purple.
+  static const _orange = Color(0xFFF97316);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: selected ? theme.colorScheme.primary : theme.colorScheme.surface,
+      color: selected ? theme.colorScheme.primary : _orange.withValues(alpha: 0.16),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -149,7 +219,7 @@ class _FilterPill extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+              color: selected ? theme.colorScheme.onPrimary : _orange,
               fontWeight: FontWeight.w600,
             ),
           ),

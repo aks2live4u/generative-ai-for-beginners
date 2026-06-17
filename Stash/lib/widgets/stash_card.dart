@@ -11,12 +11,20 @@ class StashCard extends StatelessWidget {
   final ContentItem item;
   final VoidCallback onTap;
   final VoidCallback? onFavoriteToggle;
+  final VoidCallback? onLongPress;
+  final bool selected;
+  // True while the grid is in multi-select mode, so a normal tap toggles
+  // selection instead of opening the quick-info sheet.
+  final bool selectionMode;
 
   const StashCard({
     super.key,
     required this.item,
     required this.onTap,
     this.onFavoriteToggle,
+    this.onLongPress,
+    this.selected = false,
+    this.selectionMode = false,
   });
 
   // Each saved item's createdAt is recorded precisely (to the millisecond)
@@ -71,7 +79,9 @@ class StashCard extends StatelessWidget {
       builder: (ctx) {
         final theme = Theme.of(ctx);
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          // Bottom inset accounts for the system gesture/navigation bar so
+          // the "Open" button doesn't get hidden behind it.
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 28 + MediaQuery.of(ctx).padding.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,7 +137,10 @@ class StashCard extends StatelessWidget {
         // The whole card is pure photo, Pinterest-style: no permanent text
         // strip underneath. Tapping anywhere reveals the title/summary/date
         // info sheet, which is the only way to reach the full detail screen.
-        onTap: () => _showQuickInfo(context),
+        // In selection mode (entered via long-press), a normal tap toggles
+        // the card in/out of the selection instead.
+        onTap: selectionMode ? onTap : () => _showQuickInfo(context),
+        onLongPress: onLongPress,
         child: Stack(
           children: [
             if (_hasThumb)
@@ -174,11 +187,36 @@ class StashCard extends StatelessWidget {
                   style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-            if (onFavoriteToggle != null)
+            if (selectionMode)
+              Positioned.fill(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  color: selected ? theme.colorScheme.primary.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.15),
+                ),
+              )
+            else if (onFavoriteToggle != null)
               Positioned(
                 right: 6,
                 top: 6,
                 child: _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!),
+              ),
+            if (selectionMode)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? theme.colorScheme.primary : Colors.black.withValues(alpha: 0.45),
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Icon(
+                    selected ? Icons.check_rounded : Icons.circle_outlined,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
               ),
           ],
         ),

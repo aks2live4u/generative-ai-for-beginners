@@ -15,13 +15,56 @@ final _collectionItemsProvider =
   return repo.all(collectionId: collectionId);
 });
 
-class CollectionDetailScreen extends ConsumerWidget {
+class CollectionDetailScreen extends ConsumerStatefulWidget {
   final Collection collection;
 
   const CollectionDetailScreen({super.key, required this.collection});
 
+  @override
+  ConsumerState<CollectionDetailScreen> createState() => _CollectionDetailScreenState();
+}
+
+class _CollectionDetailScreenState extends ConsumerState<CollectionDetailScreen> {
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelected(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(count == 1 ? 'Delete item?' : 'Delete $count items?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final repo = ref.read(contentRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
+    ref.invalidate(_collectionItemsProvider(widget.collection.id));
+    ref.invalidate(contentListProvider);
+    ref.invalidate(searchResultsProvider);
+  }
+
   Future<void> _rename(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController(text: collection.name);
+    final controller = TextEditingController(text: widget.collection.name);
     final newName = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -34,7 +77,7 @@ class CollectionDetailScreen extends ConsumerWidget {
       ),
     );
     if (newName == null || newName.isEmpty) return;
-    await ref.read(collectionRepositoryProvider).rename(collection.id, newName);
+    await ref.read(collectionRepositoryProvider).rename(widget.collection.id, newName);
     ref.invalidate(collectionsListProvider);
     if (context.mounted) Navigator.of(context).pop();
   }
@@ -52,44 +95,59 @@ class CollectionDetailScreen extends ConsumerWidget {
       ),
     );
     if (confirmed != true) return;
-    await ref.read(collectionRepositoryProvider).delete(collection.id);
+    await ref.read(collectionRepositoryProvider).delete(widget.collection.id);
     ref.invalidate(collectionsListProvider);
     if (context.mounted) Navigator.of(context).pop();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final collection = widget.collection;
     final itemsAsync = ref.watch(_collectionItemsProvider(collection.id));
     return Scaffold(
-      appBar: AppBar(
-        title: Text(collection.name),
-        actions: [
-          IconButton(
-            icon: Icon(collection.pinned ? Icons.push_pin : Icons.push_pin_outlined),
-            onPressed: () async {
-              await ref.read(collectionRepositoryProvider).setPinned(collection.id, !collection.pinned);
-              ref.invalidate(collectionsListProvider);
-            },
-          ),
-          IconButton(
-            icon: Icon(collection.favorite ? Icons.star_rounded : Icons.star_border_rounded),
-            onPressed: () async {
-              await ref.read(collectionRepositoryProvider).setFavorite(collection.id, !collection.favorite);
-              ref.invalidate(collectionsListProvider);
-            },
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'rename') _rename(context, ref);
-              if (value == 'delete') _delete(context, ref);
-            },
-            itemBuilder: (ctx) => const [
-              PopupMenuItem(value: 'rename', child: Text('Rename')),
-              PopupMenuItem(value: 'delete', child: Text('Delete')),
-            ],
-          ),
-        ],
-      ),
+      appBar: _selectionMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => setState(() => _selectedIds.clear()),
+              ),
+              title: Text('${_selectedIds.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: _deleteSelected,
+                ),
+              ],
+            )
+          : AppBar(
+              title: Text(collection.name),
+              actions: [
+                IconButton(
+                  icon: Icon(collection.pinned ? Icons.push_pin : Icons.push_pin_outlined),
+                  onPressed: () async {
+                    await ref.read(collectionRepositoryProvider).setPinned(collection.id, !collection.pinned);
+                    ref.invalidate(collectionsListProvider);
+                  },
+                ),
+                IconButton(
+                  icon: Icon(collection.favorite ? Icons.star_rounded : Icons.star_border_rounded),
+                  onPressed: () async {
+                    await ref.read(collectionRepositoryProvider).setFavorite(collection.id, !collection.favorite);
+                    ref.invalidate(collectionsListProvider);
+                  },
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'rename') _rename(context, ref);
+                    if (value == 'delete') _delete(context, ref);
+                  },
+                  itemBuilder: (ctx) => const [
+                    PopupMenuItem(value: 'rename', child: Text('Rename')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
+              ],
+            ),
       body: itemsAsync.when(
         data: (items) {
           if (items.isEmpty) {
@@ -109,9 +167,14 @@ class CollectionDetailScreen extends ConsumerWidget {
               final item = items[index];
               return StashCard(
                 item: item,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => ContentDetailScreen(item: item)),
-                ),
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(item.id),
+                onLongPress: () => _toggleSelected(item.id),
+                onTap: _selectionMode
+                    ? () => _toggleSelected(item.id)
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => ContentDetailScreen(item: item)),
+                        ),
               );
             },
           );

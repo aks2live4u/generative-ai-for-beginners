@@ -39,7 +39,7 @@ class _AddCollectionSheetState extends ConsumerState<AddCollectionSheet> {
         left: 20,
         right: 20,
         top: 20,
-        bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+        bottom: 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

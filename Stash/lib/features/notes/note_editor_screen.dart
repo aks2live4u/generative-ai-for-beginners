@@ -42,6 +42,11 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   bool _preview = false;
   bool _dirty = false;
   String _id = '';
+  String _prevBodyText = '';
+  // Set while we're programmatically rewriting the body (auto-continuing a
+  // list, toggling a checkbox) so that change doesn't get mistaken for the
+  // user typing Enter and re-trigger list continuation recursively.
+  bool _autoListGuard = false;
 
   @override
   void initState() {
@@ -52,9 +57,142 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _bodyController = TextEditingController(text: existing?.body ?? '');
     _tagsController = TextEditingController(text: existing?.tags.join(', ') ?? '');
     _isDraft = existing?.isDraft ?? true;
-    for (final c in [_titleController, _bodyController, _tagsController]) {
+    // Existing notes open straight into formatted preview (so embedded
+    // images and formatting are visible immediately) rather than raw
+    // Markdown source; the eye/pencil icon switches into raw editing.
+    _preview = existing != null && (existing.body?.trim().isNotEmpty ?? false);
+    _prevBodyText = _bodyController.text;
+    for (final c in [_titleController, _tagsController]) {
       c.addListener(() => _dirty = true);
     }
+    _bodyController.addListener(_onBodyChanged);
+  }
+
+  void _onBodyChanged() {
+    _dirty = true;
+    final text = _bodyController.text;
+    if (_autoListGuard) {
+      _autoListGuard = false;
+      _prevBodyText = text;
+      return;
+    }
+    final selection = _bodyController.selection;
+    if (text.length == _prevBodyText.length + 1 &&
+        selection.baseOffset > 0 &&
+        selection.baseOffset <= text.length &&
+        text[selection.baseOffset - 1] == '\n') {
+      _continueListPrefix();
+    }
+    _prevBodyText = _bodyController.text;
+  }
+
+  /// When the user presses Enter inside a bullet/numbered/checkbox/quote
+  /// line, continue that same prefix on the new line (like most note apps),
+  /// instead of leaving them to retype "- " or "1. " every time. Pressing
+  /// Enter on an already-empty list item ends the list instead of
+  /// continuing it forever.
+  void _continueListPrefix() {
+    final text = _bodyController.text;
+    final cursor = _bodyController.selection.baseOffset;
+    if (cursor <= 0) return;
+    final newlineIndex = cursor - 1;
+    final lineStart = text.lastIndexOf('\n', newlineIndex - 1) + 1;
+    final prevLine = text.substring(lineStart, newlineIndex);
+
+    final checkboxMatch = RegExp(r'^(\s*)- \[[ xX]\] (.*)$').firstMatch(prevLine);
+    final numberedMatch = RegExp(r'^(\s*)(\d+)\. (.*)$').firstMatch(prevLine);
+    final bulletMatch = RegExp(r'^(\s*)- (.*)$').firstMatch(prevLine);
+    final quoteMatch = RegExp(r'^(\s*)> (.*)$').firstMatch(prevLine);
+
+    String? prefix;
+    if (checkboxMatch != null) {
+      if (checkboxMatch.group(2)!.trim().isEmpty) {
+        _stripPrefix(lineStart, newlineIndex);
+        return;
+      }
+      prefix = '${checkboxMatch.group(1)}- [ ] ';
+    } else if (numberedMatch != null) {
+      if (numberedMatch.group(3)!.trim().isEmpty) {
+        _stripPrefix(lineStart, newlineIndex);
+        return;
+      }
+      prefix = '${numberedMatch.group(1)}${int.parse(numberedMatch.group(2)!) + 1}. ';
+    } else if (bulletMatch != null) {
+      if (bulletMatch.group(2)!.trim().isEmpty) {
+        _stripPrefix(lineStart, newlineIndex);
+        return;
+      }
+      prefix = '${bulletMatch.group(1)}- ';
+    } else if (quoteMatch != null) {
+      if (quoteMatch.group(2)!.trim().isEmpty) {
+        _stripPrefix(lineStart, newlineIndex);
+        return;
+      }
+      prefix = '${quoteMatch.group(1)}> ';
+    }
+    if (prefix == null) return;
+
+    _autoListGuard = true;
+    final newText = text.replaceRange(cursor, cursor, prefix);
+    _bodyController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: cursor + prefix.length),
+    );
+  }
+
+  void _stripPrefix(int lineStart, int lineEnd) {
+    _autoListGuard = true;
+    final text = _bodyController.text;
+    final cursor = _bodyController.selection.baseOffset;
+    final removedLen = lineEnd - lineStart;
+    final newText = text.replaceRange(lineStart, lineEnd, '');
+    _bodyController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: cursor - removedLen),
+    );
+  }
+
+  /// Checkboxes rendered in the Preview pane are tappable: this finds the
+  /// nth "- [ ]"/"- [x]" line in source order (matching the nth checkbox
+  /// flutter_markdown is currently rendering) and flips its checked state.
+  int _checkboxBuildIndex = 0;
+
+  List<RegExpMatch> get _checkboxMatches =>
+      RegExp(r'^(\s*)- \[([ xX])\]', multiLine: true).allMatches(_bodyController.text).toList();
+
+  Widget _buildCheckbox(bool checked) {
+    final matches = _checkboxMatches;
+    final index = _checkboxBuildIndex++;
+    final theme = Theme.of(context);
+    VoidCallback? onTap;
+    if (index < matches.length) {
+      final match = matches[index];
+      onTap = () => _toggleCheckbox(match);
+    }
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Icon(
+          checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+          size: 20,
+          color: checked ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+      ),
+    );
+  }
+
+  void _toggleCheckbox(RegExpMatch match) {
+    final text = _bodyController.text;
+    final bracketStart = text.indexOf('[', match.start) + 1;
+    final currentChar = text[bracketStart];
+    final newChar = currentChar.trim().isEmpty ? 'x' : ' ';
+    final newText = text.replaceRange(bracketStart, bracketStart + 1, newChar);
+    setState(() {
+      _bodyController.text = newText;
+      _prevBodyText = newText;
+      _dirty = true;
+    });
   }
 
   @override
@@ -265,10 +403,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _preview
-                    ? Markdown(
-                        data: _bodyController.text.isEmpty ? '_Nothing yet…_' : _bodyController.text,
-                        imageBuilder: buildNoteMarkdownImage,
-                      )
+                    ? Builder(builder: (context) {
+                        _checkboxBuildIndex = 0;
+                        return Markdown(
+                          data: _bodyController.text.isEmpty ? '_Nothing yet…_' : _bodyController.text,
+                          imageBuilder: buildNoteMarkdownImage,
+                          checkboxBuilder: _buildCheckbox,
+                        );
+                      })
                     : TextField(
                         controller: _bodyController,
                         maxLines: null,
