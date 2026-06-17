@@ -12,43 +12,26 @@ import 'content_detail_screen.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  static const _typeLabels = {
-    null: 'All',
-    ContentType.instagramReel: 'Reels',
-    ContentType.youtubeVideo: 'YouTube',
-    ContentType.facebookVideo: 'Facebook',
-    ContentType.webArticle: 'Articles',
-    ContentType.personalNote: 'Notes',
-    ContentType.personalArticle: 'Writing',
-  };
+  // Notes and personal articles share one editor and one filter chip; they
+  // were previously split into separate "Notes"/"Writing" sections with
+  // identical UI, which was confusing.
+  static const _filters = <(String, List<ContentType>?)>[
+    ('All', null),
+    ('Reels', [ContentType.instagramReel]),
+    ('YouTube', [ContentType.youtubeVideo]),
+    ('Facebook', [ContentType.facebookVideo]),
+    ('Articles', [ContentType.webArticle]),
+    ('Notes', [ContentType.personalNote, ContentType.personalArticle]),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final contentAsync = ref.watch(contentListProvider);
     final filter = ref.watch(contentFilterProvider);
-    final inboxAsync = ref.watch(inboxListProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Stash'),
-        actions: [
-          inboxAsync.maybeWhen(
-            data: (items) => items.isEmpty
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Badge(
-                      label: Text('${items.length}'),
-                      child: IconButton(
-                        icon: const Icon(Icons.inbox_rounded),
-                        tooltip: 'Inbox',
-                        onPressed: () => _showInbox(context, items),
-                      ),
-                    ),
-                  ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -57,18 +40,21 @@ class HomeScreen extends ConsumerWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              children: _typeLabels.entries.map((entry) {
-                final selected = entry.key == null
+              children: _filters.map((entry) {
+                final types = entry.$2;
+                final selected = types == null
                     ? (filter.types == null || filter.types!.isEmpty)
-                    : (filter.types?.contains(entry.key) ?? false);
+                    : (filter.types != null &&
+                        filter.types!.length == types.length &&
+                        types.every(filter.types!.contains));
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
-                    label: Text(entry.value),
+                    label: Text(entry.$1),
                     selected: selected,
                     onSelected: (_) {
                       ref.read(contentFilterProvider.notifier).state = ContentFilter(
-                        types: entry.key == null ? null : [entry.key!],
+                        types: types,
                         onlyFavorites: filter.onlyFavorites,
                       );
                     },
@@ -122,44 +108,6 @@ class HomeScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () => QuickCaptureSheet.show(context),
         child: const Icon(Icons.add_rounded),
-      ),
-    );
-  }
-
-  void _showInbox(BuildContext context, List<ContentItem> items) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        expand: false,
-        builder: (ctx, scrollController) => Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Inbox', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ),
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: items.length,
-                itemBuilder: (ctx, i) {
-                  final item = items[i];
-                  return ListTile(
-                    title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(item.tags.join(', ')),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ContentDetailScreen(item: item)),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

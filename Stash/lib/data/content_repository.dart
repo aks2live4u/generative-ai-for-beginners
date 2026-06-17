@@ -18,6 +18,31 @@ class ContentRepository {
     return rows.map((e) => e['name'] as String).toList();
   }
 
+  /// Ids of items already tagged with [tagName] (case-insensitive), used to
+  /// decide whether enough related items exist to justify auto-creating a
+  /// collection for it.
+  Future<List<String>> contentIdsWithTag(String tagName) async {
+    final db = await DatabaseHelper.instance.database;
+    final rows = await db.rawQuery('''
+      SELECT ct.contentId FROM content_tags ct
+      INNER JOIN tags t ON t.id = ct.tagId
+      WHERE t.name = ?
+    ''', [tagName.trim().toLowerCase()]);
+    return rows.map((e) => e['contentId'] as String).toList();
+  }
+
+  Future<void> addToCollection(String contentId, String collectionId) async {
+    final db = await DatabaseHelper.instance.database;
+    final existing = await db.query(
+      'content_collections',
+      where: 'contentId = ? AND collectionId = ?',
+      whereArgs: [contentId, collectionId],
+    );
+    if (existing.isEmpty) {
+      await db.insert('content_collections', {'contentId': contentId, 'collectionId': collectionId});
+    }
+  }
+
   Future<List<String>> _collectionsFor(String contentId) async {
     final db = await DatabaseHelper.instance.database;
     final rows = await db.rawQuery('''

@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/content_item.dart';
 import '../../state/providers.dart';
 import '../../widgets/platform_icon.dart';
-import '../notes/note_editor_screen.dart';
+import '../notes/note_editor_screen.dart' show NoteEditorScreen, buildNoteMarkdownImage;
 
 class ContentDetailScreen extends ConsumerWidget {
   final ContentItem item;
@@ -39,7 +39,6 @@ class ContentDetailScreen extends ConsumerWidget {
     if (confirmed != true) return;
     await ref.read(contentRepositoryProvider).delete(item.id);
     ref.invalidate(contentListProvider);
-    ref.invalidate(inboxListProvider);
     ref.invalidate(searchResultsProvider);
     if (context.mounted) Navigator.of(context).pop();
   }
@@ -101,6 +100,7 @@ class ContentDetailScreen extends ConsumerWidget {
                 data: item.body!,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
+                imageBuilder: buildNoteMarkdownImage,
               ),
             ],
             if (item.tags.isNotEmpty) ...[

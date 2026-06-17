@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/articles/articles_screen.dart';
 import 'features/capture/add_link_sheet.dart';
 import 'features/collections/collections_screen.dart';
 import 'features/home/home_screen.dart';
@@ -67,7 +66,6 @@ class _RootScaffoldState extends State<RootScaffold> {
   static const _screens = [
     HomeScreen(),
     CollectionsScreen(),
-    ArticlesScreen(),
     SearchScreen(),
     SettingsScreen(),
   ];
@@ -118,7 +116,6 @@ class _RootScaffoldState extends State<RootScaffold> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.collections_bookmark_rounded), label: 'Collections'),
-          NavigationDestination(icon: Icon(Icons.article_rounded), label: 'Articles'),
           NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Search'),
           NavigationDestination(icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],

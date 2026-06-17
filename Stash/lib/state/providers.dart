@@ -98,12 +98,6 @@ final contentListProvider = FutureProvider.autoDispose((ref) async {
   );
 });
 
-final inboxListProvider = FutureProvider.autoDispose((ref) async {
-  final repo = ref.watch(contentRepositoryProvider);
-  final items = await repo.all(includeInbox: true);
-  return items.where((i) => i.inInbox).toList();
-});
-
 final collectionsListProvider = FutureProvider.autoDispose((ref) async {
   final repo = ref.watch(collectionRepositoryProvider);
   return repo.all();

@@ -101,10 +101,20 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             title: const Text('Gemini API Key'),
             subtitle: Text(apiKey == null || apiKey.isEmpty
-                ? 'Not set — using on-device tagging'
-                : '•••• configured'),
+                ? 'Not set — using on-device tagging (works offline, fewer/simpler tags)'
+                : '•••• configured — using Gemini for richer tags & summaries'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => _editApiKey(context, ref),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Saving and organizing works fully without a key. Adding a free Gemini '
+              'API key from Google AI Studio improves the tags, collection suggestions, '
+              'and summaries generated for new saves — instead of the built-in offline '
+              'heuristic, which just pulls a few keywords out of the title and description.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
           const Divider(),
           const _SectionHeader('Backup'),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/content_item.dart';
 import '../notes/note_editor_screen.dart';
 import 'add_collection_sheet.dart';
 import 'add_link_sheet.dart';
@@ -36,10 +35,10 @@ class QuickCaptureSheet extends StatelessWidget {
     );
   }
 
-  void _addNote(BuildContext context, ContentType type) {
+  void _addNote(BuildContext context) {
     Navigator.of(context).pop();
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => NoteEditorScreen(type: type)),
+      MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
     );
   }
 
@@ -58,8 +57,7 @@ class QuickCaptureSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <(IconData, String, VoidCallback)>[
       (Icons.link_rounded, 'Add Link', () => _addLink(context)),
-      (Icons.edit_note_rounded, 'Add Note', () => _addNote(context, ContentType.personalNote)),
-      (Icons.article_rounded, 'Add Article', () => _addNote(context, ContentType.personalArticle)),
+      (Icons.edit_note_rounded, 'Add Note', () => _addNote(context)),
       (Icons.collections_bookmark_rounded, 'Add Collection', () => _addCollection(context)),
     ];
 
