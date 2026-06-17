@@ -201,15 +201,15 @@ class _FilterPill extends StatelessWidget {
 
   // The whole filter row used to be black-on-black with only the selected
   // pill picking up the purple primary color. Giving every unselected pill
-  // an orange tint makes the row read as colorful chips rather than plain
-  // text, while selecting one still switches it to purple.
+  // a solid orange fill (white text, same as the selected purple pill)
+  // makes the row read as colorful chips rather than plain text.
   static const _orange = Color(0xFFF97316);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: selected ? theme.colorScheme.primary : _orange.withValues(alpha: 0.16),
+      color: selected ? theme.colorScheme.primary : _orange,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -219,7 +219,7 @@ class _FilterPill extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? theme.colorScheme.onPrimary : _orange,
+              color: selected ? theme.colorScheme.onPrimary : Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),

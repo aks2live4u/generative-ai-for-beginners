@@ -61,16 +61,13 @@ class StashCard extends StatelessWidget {
     return CachedNetworkImage(imageUrl: path, fit: BoxFit.cover, width: double.infinity);
   }
 
-  String get _oneLineSummary {
-    if (item.summary != null && item.summary!.isNotEmpty) return item.summary!;
-    if (item.description != null && item.description!.isNotEmpty) return item.description!;
-    return item.title;
-  }
-
-  // Tapping the card shows a quick-glance info sheet (saved time, summary)
-  // without leaving the feed; its "Open" button is the only way to reach
-  // the full detail screen / original link, matching how Pinterest
-  // separates "peek" from "open" gestures.
+  // Tapping the card shows a quick-glance info sheet without leaving the
+  // feed; its "Open" button is the only way to reach the full detail screen
+  // (caption, summary, tags, original link), matching how Pinterest
+  // separates "peek" from "open" gestures. The peek deliberately only shows
+  // the platform and save time — captions can be many paragraphs long (some
+  // creators pad them with blank lines before the hashtags), and showing
+  // any of that text here, even truncated, was overflowing the sheet.
   void _showQuickInfo(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -92,17 +89,11 @@ class StashCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     PlatformIcon(platform: item.platform).label,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              Text(_oneLineSummary, maxLines: 3, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 12),
               Text(
                 _relativeDate,
                 style: theme.textTheme.bodySmall?.copyWith(
