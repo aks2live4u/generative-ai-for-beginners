@@ -5,6 +5,7 @@ import '../../state/providers.dart';
 import '../../widgets/collection_card.dart';
 import '../../widgets/empty_state.dart';
 import '../capture/add_collection_sheet.dart';
+import '../favorites/favorites_screen.dart';
 import 'collection_detail_screen.dart';
 
 class CollectionsScreen extends ConsumerWidget {
@@ -14,7 +15,18 @@ class CollectionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final collectionsAsync = ref.watch(collectionsListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Collections')),
+      appBar: AppBar(
+        title: const Text('Collections'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.star_rounded),
+            tooltip: 'Favorites',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            ),
+          ),
+        ],
+      ),
       body: collectionsAsync.when(
         data: (collections) {
           if (collections.isEmpty) {

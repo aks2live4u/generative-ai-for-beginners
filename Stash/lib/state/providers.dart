@@ -103,6 +103,11 @@ final collectionsListProvider = FutureProvider.autoDispose((ref) async {
   return repo.all();
 });
 
+final favoritesListProvider = FutureProvider.autoDispose((ref) async {
+  final repo = ref.watch(contentRepositoryProvider);
+  return repo.all(onlyFavorites: true);
+});
+
 final searchQueryProvider = StateProvider((ref) => '');
 
 final searchResultsProvider = FutureProvider.autoDispose<List<ContentItem>>((ref) async {

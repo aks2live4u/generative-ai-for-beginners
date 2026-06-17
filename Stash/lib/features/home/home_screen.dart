@@ -9,14 +9,15 @@ import '../../widgets/stash_card.dart';
 import '../capture/quick_capture_sheet.dart';
 import 'content_detail_screen.dart';
 
-// The "Stash" wordmark image has white lettering, so it only reads cleanly
-// against the dark/AMOLED app bar background; light theme falls back to
-// plain text instead of rendering invisible white-on-white letters.
+// The "tash" lettering in the wordmark is white, which disappears against
+// a light app bar, so light theme uses a recolored variant (dark lettering,
+// same colorful gradient "S") at the same size/weight instead of falling
+// back to plain text.
 Widget _brandTitle(BuildContext context) {
-  if (Theme.of(context).brightness == Brightness.dark) {
-    return Image.asset('assets/icon/wordmark.png', height: 28, fit: BoxFit.contain);
-  }
-  return const Text('Stash');
+  final asset = Theme.of(context).brightness == Brightness.dark
+      ? 'assets/icon/wordmark.png'
+      : 'assets/icon/wordmark_light.png';
+  return Image.asset(asset, height: 28, fit: BoxFit.contain);
 }
 
 class HomeScreen extends ConsumerWidget {

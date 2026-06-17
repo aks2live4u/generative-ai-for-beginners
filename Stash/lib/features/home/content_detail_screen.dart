@@ -69,28 +69,41 @@ class ContentDetailScreen extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        // Extra bottom inset so the "Open original" button (and anything
+        // else at the end of the scroll content) clears the system
+        // gesture/navigation bar instead of being hidden behind it.
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                PlatformIcon(platform: item.platform, size: 18),
-                const SizedBox(width: 6),
-                Text(PlatformIcon(platform: item.platform).label, style: theme.textTheme.labelMedium),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(item.title, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
+            // Video/thumbnail leads the screen, with the rest of the
+            // metadata (platform, title, summary, tags) styled at
+            // consistent sizes underneath it instead of a much larger
+            // title floating above.
+            if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: CachedNetworkImage(imageUrl: item.thumbnailUrl!, fit: BoxFit.cover),
               ),
-            if (item.summary != null && item.summary!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('Summary', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+            Row(
+              children: [
+                PlatformIcon(platform: item.platform, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  PlatformIcon(platform: item.platform).label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            if (item.summary != null && item.summary!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('Summary', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(item.summary!, style: theme.textTheme.bodyMedium),
             ],

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -33,16 +35,34 @@ class StashCard extends StatelessWidget {
 
   bool get _hasThumb => item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty;
 
+  // Notes/personal articles never get a fetched thumbnailUrl, but the user
+  // can insert an image into the body via the editor's image button. Pull
+  // that first image out so the card shows the actual picture instead of a
+  // bare text box when one exists.
+  String? get _bodyImagePath {
+    final body = item.body;
+    if (body == null) return null;
+    final match = RegExp(r'!\[[^\]]*\]\(([^)]+)\)').firstMatch(body);
+    return match?.group(1);
+  }
+
+  Widget _bodyImage(String path) {
+    if (path.startsWith('file://')) {
+      return Image.file(File(Uri.parse(path).toFilePath()), fit: BoxFit.cover, width: double.infinity);
+    }
+    return CachedNetworkImage(imageUrl: path, fit: BoxFit.cover, width: double.infinity);
+  }
+
   String get _oneLineSummary {
     if (item.summary != null && item.summary!.isNotEmpty) return item.summary!;
     if (item.description != null && item.description!.isNotEmpty) return item.description!;
     return item.title;
   }
 
-  // Tapping the photo shows a quick-glance info card (saved time, summary)
-  // without leaving the feed; tapping the text strip below opens the full
-  // detail screen / original link, matching how Pinterest separates "peek"
-  // from "open" gestures.
+  // Tapping the card shows a quick-glance info sheet (saved time, summary)
+  // without leaving the feed; its "Open" button is the only way to reach
+  // the full detail screen / original link, matching how Pinterest
+  // separates "peek" from "open" gestures.
   void _showQuickInfo(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -103,91 +123,65 @@ class StashCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => _showQuickInfo(context),
-            child: Stack(
-              children: [
-                if (_hasThumb)
-                  CachedNetworkImage(
-                    imageUrl: item.thumbnailUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    // No fixed height/aspect ratio: the image keeps its own
-                    // proportions so the grid produces Pinterest-style
-                    // varied-height cards instead of uniformly cropped tiles.
-                    placeholder: (context, url) =>
-                        Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
-                    errorWidget: (context, url, error) =>
-                        Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
-                  )
-                else
-                  Container(
-                    height: item.type == ContentType.personalNote ? 70 : 120,
-                    width: double.infinity,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                  ),
-                if (onFavoriteToggle != null)
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!),
-                  ),
-              ],
-            ),
-          ),
-          InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
+      child: InkWell(
+        // The whole card is pure photo, Pinterest-style: no permanent text
+        // strip underneath. Tapping anywhere reveals the title/summary/date
+        // info sheet, which is the only way to reach the full detail screen.
+        onTap: () => _showQuickInfo(context),
+        child: Stack(
+          children: [
+            if (_hasThumb)
+              CachedNetworkImage(
+                imageUrl: item.thumbnailUrl!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                // No fixed height/aspect ratio: the image keeps its own
+                // proportions so the grid produces Pinterest-style
+                // varied-height cards instead of uniformly cropped tiles.
+                placeholder: (context, url) =>
+                    Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
+                errorWidget: (context, url, error) =>
+                    Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
+              )
+            else if (_bodyImagePath != null)
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      PlatformIcon(platform: item.platform, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        PlatformIcon(platform: item.platform).label,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  if (item.tags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      item.tags.take(3).join(' • '),
-                      maxLines: 1,
+                  _bodyImage(_bodyImagePath!),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      item.title,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(
-                    _relativeDate,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
+              )
+            else
+              Container(
+                height: item.type == ContentType.personalNote ? 140 : 120,
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                alignment: Alignment.topLeft,
+                child: Text(
+                  item.title,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
-          ),
-        ],
+            if (onFavoriteToggle != null)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!),
+              ),
+          ],
+        ),
       ),
     );
   }
