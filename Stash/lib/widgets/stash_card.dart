@@ -33,50 +33,115 @@ class StashCard extends StatelessWidget {
 
   bool get _hasThumb => item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty;
 
+  String get _oneLineSummary {
+    if (item.summary != null && item.summary!.isNotEmpty) return item.summary!;
+    if (item.description != null && item.description!.isNotEmpty) return item.description!;
+    return item.title;
+  }
+
+  // Tapping the photo shows a quick-glance info card (saved time, summary)
+  // without leaving the feed; tapping the text strip below opens the full
+  // detail screen / original link, matching how Pinterest separates "peek"
+  // from "open" gestures.
+  void _showQuickInfo(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  PlatformIcon(platform: item.platform, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    PlatformIcon(platform: item.platform).label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(_oneLineSummary, maxLines: 3, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 12),
+              Text(
+                _relativeDate,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    onTap();
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
       margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_hasThumb)
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: item.thumbnailUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Container(color: theme.colorScheme.surface),
-                    ),
-                    if (onFavoriteToggle != null)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!),
-                      ),
-                  ],
-                ),
-              )
-            else
-              Container(
-                height: item.type == ContentType.personalNote ? 70 : 120,
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: onFavoriteToggle != null
-                      ? _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!)
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            Padding(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => _showQuickInfo(context),
+            child: Stack(
+              children: [
+                if (_hasThumb)
+                  CachedNetworkImage(
+                    imageUrl: item.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    // No fixed height/aspect ratio: the image keeps its own
+                    // proportions so the grid produces Pinterest-style
+                    // varied-height cards instead of uniformly cropped tiles.
+                    placeholder: (context, url) =>
+                        Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
+                    errorWidget: (context, url, error) =>
+                        Container(height: 160, color: theme.colorScheme.primary.withValues(alpha: 0.08)),
+                  )
+                else
+                  Container(
+                    height: item.type == ContentType.personalNote ? 70 : 120,
+                    width: double.infinity,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                  ),
+                if (onFavoriteToggle != null)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: _FavoriteButton(active: item.favorite, onTap: onFavoriteToggle!),
+                  ),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: onTap,
+            child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,8 +186,8 @@ class StashCard extends StatelessWidget {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

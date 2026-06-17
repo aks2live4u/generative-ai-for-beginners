@@ -161,6 +161,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
 
     if (!mounted) return;
     _insert('![](file://$destPath)', '');
+    // The editor only shows raw Markdown source while typing, so a freshly
+    // inserted image looks like it "didn't work" (just a text path).
+    // Flip to preview so the picked photo is visibly there immediately.
+    setState(() => _preview = true);
   }
 
   Future<void> _save({bool publish = false}) async {

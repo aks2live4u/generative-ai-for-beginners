@@ -9,6 +9,16 @@ import '../../widgets/stash_card.dart';
 import '../capture/quick_capture_sheet.dart';
 import 'content_detail_screen.dart';
 
+// The "Stash" wordmark image has white lettering, so it only reads cleanly
+// against the dark/AMOLED app bar background; light theme falls back to
+// plain text instead of rendering invisible white-on-white letters.
+Widget _brandTitle(BuildContext context) {
+  if (Theme.of(context).brightness == Brightness.dark) {
+    return Image.asset('assets/icon/wordmark.png', height: 28, fit: BoxFit.contain);
+  }
+  return const Text('Stash');
+}
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -31,7 +41,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Stash'),
+        title: _brandTitle(context),
       ),
       body: Column(
         children: [
@@ -49,10 +59,10 @@ class HomeScreen extends ConsumerWidget {
                         types.every(filter.types!.contains));
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(entry.$1),
+                  child: _FilterPill(
+                    label: entry.$1,
                     selected: selected,
-                    onSelected: (_) {
+                    onTap: () {
                       ref.read(contentFilterProvider.notifier).state = ContentFilter(
                         types: types,
                         onlyFavorites: filter.onlyFavorites,
@@ -108,6 +118,41 @@ class HomeScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () => QuickCaptureSheet.show(context),
         child: const Icon(Icons.add_rounded),
+      ),
+    );
+  }
+}
+
+// Plain Material pill instead of ChoiceChip: ChoiceChip clips its label to
+// an internally computed width that doesn't always grow with larger system
+// font sizes, which was cutting off "Reels"/"YouTube"/"Facebook". A Text
+// with no maxLines/overflow constraint always sizes to fit its content.
+class _FilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterPill({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected ? theme.colorScheme.primary : theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: selected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }
