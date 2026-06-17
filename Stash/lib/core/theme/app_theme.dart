@@ -56,7 +56,13 @@ class AppTheme {
       textTheme: textTheme,
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 0,
+        // A flat elevation: 0 card is indistinguishable from the page
+        // background when the two colors are this close, which is what
+        // made every section look flat. A real (if subtle) drop shadow
+        // gives cards the "lifted" look instead.
+        elevation: isDark ? 6 : 3,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.6 : 0.18),
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
       ),
@@ -70,7 +76,9 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         indicatorColor: AppColors.purpleAccent.withValues(alpha: 0.18),
-        elevation: 0,
+        elevation: isDark ? 6 : 3,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.6 : 0.18),
+        surfaceTintColor: Colors.transparent,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.purpleAccent,

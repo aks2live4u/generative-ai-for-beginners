@@ -208,19 +208,29 @@ class _FilterPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: selected ? theme.colorScheme.primary : _orange,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
+    // The selected pill pops slightly larger with a real shadow under it
+    // (a "pressed up" look); the rest sit flat and a touch smaller so the
+    // active filter is unmistakable at a glance.
+    return AnimatedScale(
+      scale: selected ? 1.08 : 0.92,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      child: Material(
+        color: selected ? theme.colorScheme.primary : _orange,
+        elevation: selected ? 5 : 0,
+        shadowColor: theme.colorScheme.primary.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? theme.colorScheme.onPrimary : Colors.white,
-              fontWeight: FontWeight.w600,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text(
+              label,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: selected ? theme.colorScheme.onPrimary : Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
