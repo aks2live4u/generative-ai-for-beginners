@@ -1,0 +1,64 @@
+name: stash
+description: "Stash — Personal AI-powered content vault."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Local database + search
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # UI
+  google_fonts: ^6.2.1
+  flutter_staggered_grid_view: ^0.7.0
+  cached_network_image: ^3.4.1
+  flutter_markdown: ^0.7.4+3
+
+  # Networking / link metadata
+  http: ^1.2.2
+  html: ^0.15.4
+
+  # Share sheet capture
+  receive_sharing_intent: ^1.8.1
+
+  # Utilities
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  url_launcher: ^6.3.1
+  file_picker: ^8.1.6
+  share_plus: ^10.1.4
+  shared_preferences: ^2.3.3
+  archive: ^3.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "assets/icon/icon_background.png"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  min_sdk_android: 24
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icon/
