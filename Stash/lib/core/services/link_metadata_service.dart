@@ -67,7 +67,17 @@ class LinkMetadataService {
 
       final title = og('og:title') ?? document.querySelector('title')?.text.trim() ?? url;
       final description = og('og:description') ?? og('description');
-      final image = og('og:image');
+      // Instagram's anti-scraping defenses inconsistently strip OpenGraph
+      // tags from the served HTML (sometimes a login wall, sometimes a
+      // stripped page), which is why some posts show a thumbnail and others
+      // don't. Falling back to Twitter Card tags, and finally to the image
+      // URL embedded directly in the page's inline JSON, recovers a
+      // thumbnail in more of those cases (though not all — Instagram can
+      // still serve a page with no image reference at all).
+      final image = og('og:image') ??
+          og('twitter:image') ??
+          og('twitter:image:src') ??
+          _extractEmbeddedImage(response.body);
       final author = og('og:site_name') ?? og('author');
 
       return LinkMetadata(
@@ -87,5 +97,24 @@ class LinkMetadataService {
         type: type,
       );
     }
+  }
+
+  /// Last-resort fallback: pulls an image URL out of the raw HTML body's
+  /// inline JSON (the fields Instagram/Facebook embed for their own client
+  /// rendering), for pages that strip all OpenGraph/Twitter Card meta tags.
+  static String? _extractEmbeddedImage(String body) {
+    final patterns = [
+      RegExp(r'"display_url"\s*:\s*"([^"]+)"'),
+      RegExp(r'"thumbnail_url"\s*:\s*"([^"]+)"'),
+      RegExp(r'"image_url"\s*:\s*"([^"]+)"'),
+    ];
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(body);
+      if (match != null) {
+        // JSON-escaped slashes/ampersands need unescaping to form a valid URL.
+        return match.group(1)?.replaceAll(r'\/', '/').replaceAll('\\u0026', '&');
+      }
+    }
+    return null;
   }
 }

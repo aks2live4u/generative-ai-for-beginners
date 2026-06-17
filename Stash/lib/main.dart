@@ -4,7 +4,6 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/capture/add_link_sheet.dart';
-import 'features/collections/collections_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -65,7 +64,6 @@ class _RootScaffoldState extends State<RootScaffold> {
 
   static const _screens = [
     HomeScreen(),
-    CollectionsScreen(),
     SearchScreen(),
     SettingsScreen(),
   ];
@@ -115,7 +113,6 @@ class _RootScaffoldState extends State<RootScaffold> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.collections_bookmark_rounded), label: 'Collections'),
           NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Search'),
           NavigationDestination(icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],

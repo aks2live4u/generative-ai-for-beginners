@@ -7,6 +7,7 @@ import '../../state/providers.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/stash_card.dart';
 import '../capture/quick_capture_sheet.dart';
+import '../favorites/favorites_screen.dart';
 import 'content_detail_screen.dart';
 
 // The "tash" lettering in the wordmark is white, which disappears against
@@ -102,6 +103,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             )
           : AppBar(
               title: _brandTitle(context),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.star_rounded),
+                  tooltip: 'Favorites',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                  ),
+                ),
+              ],
             ),
       body: Column(
         children: [
@@ -223,13 +233,20 @@ class _FilterPill extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: selected ? theme.colorScheme.onPrimary : Colors.white,
-                fontWeight: FontWeight.w600,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: Text(
+                label,
+                textHeightBehavior: const TextHeightBehavior(
+                  applyHeightToFirstAscent: false,
+                  applyHeightToLastDescent: false,
+                ),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: selected ? theme.colorScheme.onPrimary : Colors.white,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
+                ),
               ),
             ),
           ),

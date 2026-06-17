@@ -56,14 +56,21 @@ class AppTheme {
       textTheme: textTheme,
       cardTheme: CardThemeData(
         color: surface,
-        // A flat elevation: 0 card is indistinguishable from the page
-        // background when the two colors are this close, which is what
-        // made every section look flat. A real (if subtle) drop shadow
-        // gives cards the "lifted" look instead.
-        elevation: isDark ? 6 : 3,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.6 : 0.18),
+        // Elevation shadows alone turned out to be too subtle to notice,
+        // especially in light mode where the shadow barely shows up against
+        // a near-white background. A visible hairline border around every
+        // card guarantees a "lifted"/separated look in both themes
+        // regardless of how the shadow renders, and doubles as the
+        // separator line cards were missing.
+        elevation: isDark ? 8 : 4,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.7 : 0.25),
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: isDark ? 0.10 : 0.08),
+          ),
+        ),
         clipBehavior: Clip.antiAlias,
       ),
       appBarTheme: AppBarTheme(
@@ -76,8 +83,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         indicatorColor: AppColors.purpleAccent.withValues(alpha: 0.18),
-        elevation: isDark ? 6 : 3,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.6 : 0.18),
+        elevation: isDark ? 8 : 4,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.7 : 0.25),
         surfaceTintColor: Colors.transparent,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(

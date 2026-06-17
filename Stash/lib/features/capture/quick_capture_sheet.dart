@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../notes/note_editor_screen.dart';
-import 'add_collection_sheet.dart';
 import 'add_link_sheet.dart';
 
 class QuickCaptureSheet extends StatelessWidget {
@@ -42,23 +41,11 @@ class QuickCaptureSheet extends StatelessWidget {
     );
   }
 
-  void _addCollection(BuildContext context) {
-    Navigator.of(context).pop();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => const AddCollectionSheet(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final items = <(IconData, String, VoidCallback)>[
       (Icons.link_rounded, 'Add Link', () => _addLink(context)),
       (Icons.edit_note_rounded, 'Add Note', () => _addNote(context)),
-      (Icons.collections_bookmark_rounded, 'Add Collection', () => _addCollection(context)),
     ];
 
     return SafeArea(
