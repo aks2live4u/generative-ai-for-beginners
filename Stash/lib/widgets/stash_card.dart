@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/content_item.dart';
 import 'platform_icon.dart';
@@ -16,10 +17,17 @@ class StashCard extends StatelessWidget {
     this.onFavoriteToggle,
   });
 
+  // Each saved item's createdAt is recorded precisely (to the millisecond)
+  // at save time and is what the list is actually sorted by — this label
+  // just needs enough granularity (minutes, not only hours/days) to make
+  // that ordering visible instead of collapsing every recent save into the
+  // same "just now" bucket.
   String get _relativeDate {
     final diff = DateTime.now().difference(item.createdAt);
+    if (diff.inDays >= 7) return 'Saved ${DateFormat.yMMMd().format(item.createdAt)}';
     if (diff.inDays >= 1) return 'Saved ${diff.inDays}d ago';
     if (diff.inHours >= 1) return 'Saved ${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return 'Saved ${diff.inMinutes}m ago';
     return 'Saved just now';
   }
 
