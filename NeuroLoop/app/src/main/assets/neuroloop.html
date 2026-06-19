@@ -2,144 +2,265 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>NeuroLoop</title>
 <style>
   :root {
-    --bg-1: #0c0f1d;
-    --bg-2: #0f172a;
-    --bg-3: #064e3b;
-    --red: #f43f5e;
-    --blue: #3b82f6;
-    --green: #10b981;
-    --text-dim: #94a3b8;
+    --bg-1: #0a0d18;
+    --bg-2: #0b1020;
+    --bg-3: #052e26;
+    --red: #fb4d63;
+    --red-soft: #ff8a9b;
+    --blue: #4f8cff;
+    --blue-soft: #8db4ff;
+    --green: #1fd99b;
+    --green-soft: #8ff0cf;
+    --text-dim: #8b96ab;
+    --panel: rgba(255,255,255,0.05);
+    --panel-border: rgba(255,255,255,0.10);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   html, body {
     margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
     background: var(--bg-1);
-    font-family: -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: #fff;
+    -webkit-font-smoothing: antialiased;
   }
+
+  /* ---------- layered ambient background per phase ---------- */
   .screen {
     position: absolute; inset: 0;
     display: none;
     flex-direction: column;
-    align-items: center;
+    opacity: 0;
+    transition: opacity .35s ease;
   }
-  .screen.active { display: flex; }
-  .centered { justify-content: center; align-items: center; height: 100%; padding: 24px; text-align: center; }
+  .screen.active { display: flex; opacity: 1; }
 
-  .title { font-size: 32px; font-weight: 800; letter-spacing: 4px; margin-bottom: 8px; }
-  .subtitle { font-size: 15px; color: var(--text-dim); margin-bottom: 36px; }
+  #start::before, #phase1::before, #phase2::before, #phase3::before, #summary::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  }
+  #start, #summary { background: radial-gradient(120% 90% at 50% -10%, #182246 0%, var(--bg-1) 55%); }
+  #phase1 { background: radial-gradient(130% 80% at 50% 0%, #2a1320 0%, var(--bg-1) 60%); }
+  #phase2 { background: radial-gradient(130% 80% at 50% 0%, #102449 0%, var(--bg-2) 60%); }
+  #phase3 { background: radial-gradient(130% 90% at 50% 100%, #0c4f3e 0%, var(--bg-3) 65%); }
+
+  .centered { justify-content: center; align-items: center; height: 100%; padding: 7vh 28px; text-align: center; }
+
+  /* ---------- shared typography ---------- */
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; }
+  .title { font-size: 38px; font-weight: 800; letter-spacing: 6px; margin: 0 0 10px; background: linear-gradient(135deg,#ffffff,#9fb4ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .subtitle { font-size: 15px; color: var(--text-dim); margin-bottom: 44px; max-width: 280px; line-height: 1.5; }
+
   .btn {
-    background: var(--blue); color: #fff; border: none; padding: 16px 40px;
-    border-radius: 30px; font-size: 16px; font-weight: 700; letter-spacing: 2px;
-    margin-top: 16px;
+    background: linear-gradient(135deg, var(--blue), #6c5ce7);
+    color: #fff; border: none; padding: 18px 48px;
+    border-radius: 32px; font-size: 15px; font-weight: 700; letter-spacing: 2.5px;
+    box-shadow: 0 12px 30px -8px rgba(79,140,255,0.55);
+    transition: transform .15s ease, box-shadow .15s ease;
   }
-  .btn:active { opacity: 0.7; }
+  .btn:active { transform: scale(0.96); box-shadow: 0 6px 16px -6px rgba(79,140,255,0.5); }
 
-  .header { width: 100%; padding: env(safe-area-inset-top, 24px) 16px 12px; text-align: center; flex-shrink: 0; }
-  .phase-label { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
-  .instructions { color: #e2e8f0; margin: 6px 0; font-size: 14px; }
-  .timer { font-size: 26px; font-weight: 800; margin-top: 4px; }
+  /* ---------- top status bar (shared) ---------- */
+  .topbar {
+    width: 100%; flex-shrink: 0; z-index: 1;
+    padding: max(env(safe-area-inset-top), 22px) 20px 0;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .chip-row { display: flex; align-items: center; gap: 10px; }
+  .chip {
+    padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    background: var(--panel); border: 1px solid var(--panel-border);
+    backdrop-filter: blur(6px);
+  }
+  #phase1 .chip.phase { color: var(--red-soft); }
+  #phase2 .chip.phase { color: var(--red-soft); }
+  #phase3 .chip.phase { color: var(--green-soft); }
+  .chip.timer { font-variant-numeric: tabular-nums; color: #fff; min-width: 54px; text-align: center; }
+  .chip.score { color: #ffd76b; }
 
-  /* PHASE 1 */
-  #phase1 { background: var(--bg-1); }
-  #phase1 .phase-label { color: var(--red); }
-  .play-area { position: relative; flex: 1; width: 100%; }
+  .dots { display: flex; gap: 7px; margin-top: 14px; }
+  .dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18); transition: all .25s ease; }
+  .dots span.active { background: #fff; width: 20px; border-radius: 4px; }
+
+  .instructions { color: #e7ecf6; margin-top: 16px; font-size: 14px; font-weight: 500; }
+  .instructions b { color: #fff; font-weight: 800; font-size: 16px; }
+
+  /* ---------- main stage (always fills + centers remaining space) ---------- */
+  .stage {
+    flex: 1; width: 100%; position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ===================== PHASE 1 ===================== */
   .reflex-target {
-    position: absolute; width: 64px; height: 64px; border-radius: 50%;
-    background: var(--red); border: 3px solid #fff;
-    box-shadow: 0 0 18px rgba(244,63,94,0.7);
+    position: absolute; width: 68px; height: 68px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff8a9b, var(--red) 70%);
+    box-shadow: 0 0 0 0 rgba(251,77,99,0.5), 0 8px 24px -6px rgba(251,77,99,0.7);
+    animation: pulseRing 1.4s ease-out infinite;
+  }
+  @keyframes pulseRing {
+    0%   { box-shadow: 0 0 0 0 rgba(251,77,99,0.45), 0 8px 24px -6px rgba(251,77,99,0.7); }
+    70%  { box-shadow: 0 0 0 16px rgba(251,77,99,0), 0 8px 24px -6px rgba(251,77,99,0.7); }
+    100% { box-shadow: 0 0 0 0 rgba(251,77,99,0), 0 8px 24px -6px rgba(251,77,99,0.7); }
+  }
+  .float-pop {
+    position: absolute; font-weight: 800; font-size: 16px; pointer-events: none;
+    animation: floatUp .6s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -38px); }
   }
 
-  /* PHASE 2 */
-  #phase2 { background: var(--bg-2); }
-  #phase2 .phase-label { color: var(--red); }
+  /* ===================== PHASE 2 ===================== */
+  .grid-panel {
+    background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 28px; padding: 18px; backdrop-filter: blur(8px);
+    box-shadow: 0 20px 50px -20px rgba(0,0,0,0.6);
+  }
   .grid-container {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%;
-    width: min(85vw, 360px); height: min(85vw, 360px); margin-top: 24px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    width: min(78vw, 320px); height: min(78vw, 320px);
   }
   .grid-cell {
-    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    background: linear-gradient(160deg, #1b2640, #131c30);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 800; color: var(--blue);
+    font-size: 26px; font-weight: 800; color: var(--blue-soft);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: transform .12s ease, background .2s ease, color .2s ease, border-color .2s ease;
   }
-  .grid-cell.done { color: var(--green); border-color: var(--green); opacity: 0.5; }
-  .grid-cell.wrong { background: rgba(244,63,94,0.25); }
+  .grid-cell:active { transform: scale(0.92); }
+  .grid-cell.done {
+    color: var(--green); border-color: rgba(31,217,155,0.5);
+    background: linear-gradient(160deg, rgba(31,217,155,0.16), rgba(31,217,155,0.04));
+    opacity: 0.55;
+  }
+  .grid-cell.wrong {
+    background: rgba(251,77,99,0.28); border-color: rgba(251,77,99,0.6); color: #fff;
+  }
 
-  /* PHASE 3 */
-  #phase3 { background: var(--bg-3); }
-  #phase3 .phase-label { color: #a7f3d0; }
+  /* ===================== PHASE 3 ===================== */
+  .breath-wrap { display: flex; flex-direction: column; align-items: center; gap: 30px; }
+  .breath-rings { position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
+  .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(31,217,155,0.25); }
+  .ring.r1 { width: 100%; height: 100%; animation: breathe 8s ease-in-out infinite; }
+  .ring.r2 { width: 76%; height: 76%; animation: breathe 8s ease-in-out infinite; animation-delay: -0.4s; }
   .breathing-circle {
-    width: 110px; height: 110px; border-radius: 50%;
-    background: var(--green); opacity: 0.6;
+    width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--green-soft), var(--green) 75%);
+    box-shadow: 0 0 50px rgba(31,217,155,0.45);
     animation: breathe 8s ease-in-out infinite;
   }
   @keyframes breathe {
-    0%   { transform: scale(1.0); }
-    50%  { transform: scale(1.8); }
-    100% { transform: scale(1.0); }
+    0%, 100% { transform: scale(1.0); opacity: 0.75; }
+    50%      { transform: scale(1.45); opacity: 1; }
   }
-  .breath-text { color: #a7f3d0; margin-top: 32px; font-size: 17px; letter-spacing: 1px; }
+  .breath-text { color: var(--green-soft); font-size: 16px; letter-spacing: 1px; font-weight: 600; }
+  .note-wrap { width: min(82vw, 340px); margin-top: 6px; }
+  .note-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(143,240,207,0.7); margin-bottom: 8px; text-align: left; font-weight: 700; }
   .note-box {
-    width: min(85vw, 360px); margin-top: 28px; padding: 12px;
-    border-radius: 12px; border: 1px solid rgba(167,243,208,0.4);
-    background: rgba(0,0,0,0.2); color: #fff; font-size: 14px;
-    resize: none; font-family: inherit;
+    width: 100%; padding: 14px 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    border-radius: 16px; border: 1px solid rgba(143,240,207,0.25);
+    background: rgba(255,255,255,0.04); color: #fff; font-size: 14px;
+    resize: none; font-family: inherit; line-height: 1.4;
   }
-  .note-box::placeholder { color: rgba(167,243,208,0.6); }
+  .note-box:focus { outline: none; border-color: rgba(143,240,207,0.55); }
+  .note-box::placeholder { color: rgba(143,240,207,0.45); }
 
-  /* SUMMARY */
-  .score-report { font-size: 24px; color: var(--green); margin: 18px 0; font-weight: 700; }
-  .neuro-log { color: var(--text-dim); line-height: 24px; margin-bottom: 12px; font-size: 14px; }
-  .reflection-echo { color: #cbd5e1; font-style: italic; margin-bottom: 28px; font-size: 14px; max-width: 320px; }
+  /* ===================== SUMMARY ===================== */
+  .summary-card {
+    width: min(86vw, 360px); background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 24px; padding: 26px 22px; backdrop-filter: blur(8px);
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+  }
+  .score-report { font-size: 15px; color: var(--text-dim); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .score-number { font-size: 44px; font-weight: 800; color: #fff; margin: 6px 0 22px; background: linear-gradient(135deg,#ffd76b,#ff8a45); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat-row { display: flex; justify-content: space-between; padding: 11px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13.5px; }
+  .stat-row:first-of-type { border-top: none; }
+  .stat-label { color: var(--text-dim); }
+  .stat-value { font-weight: 700; }
+  .reflection-echo { color: #cbd5e1; font-style: italic; margin: 18px 0 4px; font-size: 13.5px; line-height: 1.5; }
 </style>
 </head>
 <body>
 
   <div id="start" class="screen active centered">
+    <div class="eyebrow">Neuro-Targeted Game Loop</div>
     <div class="title">NEUROLOOP</div>
-    <div class="subtitle">A Tri-Phase Behavioral Catalyst</div>
+    <div class="subtitle">A tri-phase behavioral catalyst — alertness, focus, then calm in two minutes.</div>
     <button class="btn" id="startBtn">INITIATE LOOP</button>
   </div>
 
   <div id="phase1" class="screen">
-    <div class="header">
-      <div class="phase-label">PHASE 1 · VIGILANCE SHOCK</div>
-      <div class="timer" id="p1Timer">30s</div>
+    <div class="topbar">
+      <div class="chip-row">
+        <div class="chip phase">Vigilance Shock</div>
+        <div class="chip timer" id="p1Timer">30s</div>
+      </div>
+      <div class="dots"><span class="active"></span><span></span><span></span></div>
     </div>
-    <div class="play-area" id="p1Area">
+    <div class="stage" id="p1Area">
       <div class="reflex-target" id="reflexTarget"></div>
     </div>
   </div>
 
   <div id="phase2" class="screen">
-    <div class="header">
-      <div class="phase-label">PHASE 2 · EARNED MASTERY</div>
-      <div class="instructions">Tap in order — next is <span id="targetNum">1</span></div>
-      <div class="timer" id="p2Timer">60s</div>
+    <div class="topbar">
+      <div class="chip-row">
+        <div class="chip phase">Earned Mastery</div>
+        <div class="chip timer" id="p2Timer">60s</div>
+      </div>
+      <div class="dots"><span></span><span class="active"></span><span></span></div>
+      <div class="instructions">Tap in order — next is <b id="targetNum">1</b></div>
     </div>
-    <div class="grid-container" id="grid"></div>
+    <div class="stage">
+      <div class="grid-panel">
+        <div class="grid-container" id="grid"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="phase3" class="screen centered">
-    <div class="header" style="position:absolute; top:0;">
-      <div class="phase-label">PHASE 3 · SATIETY HARVEST</div>
-      <div class="timer" id="p3Timer">30s</div>
+  <div id="phase3" class="screen">
+    <div class="topbar">
+      <div class="chip-row">
+        <div class="chip phase">Satiety Harvest</div>
+        <div class="chip timer" id="p3Timer">30s</div>
+      </div>
+      <div class="dots"><span></span><span></span><span class="active"></span></div>
     </div>
-    <div class="breathing-circle" id="breathCircle"></div>
-    <div class="breath-text">Breathe with the pulse...</div>
-    <textarea class="note-box" id="noteBox" rows="3" maxlength="140" placeholder="One quiet note before you go..."></textarea>
+    <div class="stage">
+      <div class="breath-wrap">
+        <div class="breath-rings">
+          <div class="ring r1"></div>
+          <div class="ring r2"></div>
+          <div class="breathing-circle" id="breathCircle"></div>
+        </div>
+        <div class="breath-text">Breathe with the pulse...</div>
+        <div class="note-wrap">
+          <div class="note-label">One quiet note</div>
+          <textarea class="note-box" id="noteBox" rows="3" maxlength="140" placeholder="What's settling for you right now?"></textarea>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="summary" class="screen centered">
-    <div class="title">LOOP COMPLETE</div>
-    <div class="score-report" id="finalScore">Total Focus Points: 0</div>
-    <div class="neuro-log" id="neuroLog"></div>
-    <div class="reflection-echo" id="reflectionEcho"></div>
-    <button class="btn" id="restartBtn">RETURN</button>
+    <div class="eyebrow">Loop Complete</div>
+    <div class="title" style="font-size:28px; letter-spacing:3px;">WELL DONE</div>
+    <div class="summary-card">
+      <div class="score-report">Total Focus Points</div>
+      <div class="score-number" id="finalScore">0</div>
+      <div class="stat-row"><span class="stat-label">Norepinephrine — reflex hits</span><span class="stat-value" id="statP1">0</span></div>
+      <div class="stat-row"><span class="stat-label">Dopamine — correct taps</span><span class="stat-value" id="statP2Correct">0</span></div>
+      <div class="stat-row"><span class="stat-label">Dopamine — missed taps</span><span class="stat-value" id="statP2Wrong">0</span></div>
+      <div class="stat-row"><span class="stat-label">Serotonin state</span><span class="stat-value" style="color:var(--green-soft)">Grounded</span></div>
+      <div class="reflection-echo" id="reflectionEcho"></div>
+    </div>
+    <button class="btn" id="restartBtn" style="margin-top:30px;">RETURN</button>
   </div>
 
 <script>
@@ -210,13 +331,24 @@
     state.p2Wrong = 0;
   }
 
+  function floatPop(container, text, x, y, color) {
+    var el = document.createElement('div');
+    el.className = 'float-pop';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.color = color;
+    container.appendChild(el);
+    setTimeout(function () { el.remove(); }, 600);
+  }
+
   // ================= PHASE 1: NOREPINEPHRINE =================
   var p1Area = document.getElementById('p1Area');
   var reflexTarget = document.getElementById('reflexTarget');
 
   function moveTarget() {
     var areaRect = p1Area.getBoundingClientRect();
-    var size = 64;
+    var size = 68;
     var maxLeft = Math.max(0, areaRect.width - size);
     var maxTop = Math.max(0, areaRect.height - size);
     var left = Math.random() * maxLeft;
@@ -237,6 +369,9 @@
     state.score += 10;
     state.p1Taps += 1;
     haptic('tap');
+    var rect = reflexTarget.getBoundingClientRect();
+    var areaRect = p1Area.getBoundingClientRect();
+    floatPop(p1Area, '+10', rect.left - areaRect.left + rect.width / 2, rect.top - areaRect.top, '#ff8a9b');
     moveTarget();
   });
 
@@ -310,7 +445,6 @@
   function startPhase3() {
     showScreen('phase3');
     noteBox.value = '';
-    breathCircle.style.animationPlayState = 'running';
     startCountdown(30, function (t) {
       document.getElementById('p3Timer').textContent = t + 's';
     }, finishLoop);
@@ -318,13 +452,11 @@
 
   // ================= SUMMARY =================
   function finishLoop() {
-    breathCircle.style.animationPlayState = 'paused';
     showScreen('summary');
-    document.getElementById('finalScore').textContent = 'Total Focus Points: ' + state.score;
-    document.getElementById('neuroLog').innerHTML =
-      'Norepinephrine shock: ' + state.p1Taps + ' reflex hits<br>' +
-      'Dopamine bridge: ' + state.p2Correct + ' correct / ' + state.p2Wrong + ' missed<br>' +
-      'Serotonin state: grounded';
+    document.getElementById('finalScore').textContent = state.score;
+    document.getElementById('statP1').textContent = state.p1Taps;
+    document.getElementById('statP2Correct').textContent = state.p2Correct;
+    document.getElementById('statP2Wrong').textContent = state.p2Wrong;
     var note = noteBox.value.trim();
     document.getElementById('reflectionEcho').textContent = note ? '"' + note + '"' : '';
   }
@@ -338,7 +470,6 @@
   document.getElementById('startBtn').addEventListener('click', startLoop);
   document.getElementById('restartBtn').addEventListener('click', function () {
     clearActiveTimer();
-    breathCircle.style.animationPlayState = 'paused';
     showScreen('start');
   });
 
