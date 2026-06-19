@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NeuroLoop</title>
+<style>
+  :root {
+    --bg-1: #0c0f1d;
+    --bg-2: #0f172a;
+    --bg-3: #064e3b;
+    --red: #f43f5e;
+    --blue: #3b82f6;
+    --green: #10b981;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+    background: var(--bg-1);
+    font-family: -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    color: #fff;
+  }
+  .screen {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+  }
+  .screen.active { display: flex; }
+  .centered { justify-content: center; align-items: center; height: 100%; padding: 24px; text-align: center; }
+
+  .title { font-size: 32px; font-weight: 800; letter-spacing: 4px; margin-bottom: 8px; }
+  .subtitle { font-size: 15px; color: var(--text-dim); margin-bottom: 36px; }
+  .btn {
+    background: var(--blue); color: #fff; border: none; padding: 16px 40px;
+    border-radius: 30px; font-size: 16px; font-weight: 700; letter-spacing: 2px;
+    margin-top: 16px;
+  }
+  .btn:active { opacity: 0.7; }
+
+  .header { width: 100%; padding: env(safe-area-inset-top, 24px) 16px 12px; text-align: center; flex-shrink: 0; }
+  .phase-label { font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+  .instructions { color: #e2e8f0; margin: 6px 0; font-size: 14px; }
+  .timer { font-size: 26px; font-weight: 800; margin-top: 4px; }
+
+  /* PHASE 1 */
+  #phase1 { background: var(--bg-1); }
+  #phase1 .phase-label { color: var(--red); }
+  .play-area { position: relative; flex: 1; width: 100%; }
+  .reflex-target {
+    position: absolute; width: 64px; height: 64px; border-radius: 50%;
+    background: var(--red); border: 3px solid #fff;
+    box-shadow: 0 0 18px rgba(244,63,94,0.7);
+  }
+
+  /* PHASE 2 */
+  #phase2 { background: var(--bg-2); }
+  #phase2 .phase-label { color: var(--red); }
+  .grid-container {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%;
+    width: min(85vw, 360px); height: min(85vw, 360px); margin-top: 24px;
+  }
+  .grid-cell {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; color: var(--blue);
+  }
+  .grid-cell.done { color: var(--green); border-color: var(--green); opacity: 0.5; }
+  .grid-cell.wrong { background: rgba(244,63,94,0.25); }
+
+  /* PHASE 3 */
+  #phase3 { background: var(--bg-3); }
+  #phase3 .phase-label { color: #a7f3d0; }
+  .breathing-circle {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: var(--green); opacity: 0.6;
+    animation: breathe 8s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%   { transform: scale(1.0); }
+    50%  { transform: scale(1.8); }
+    100% { transform: scale(1.0); }
+  }
+  .breath-text { color: #a7f3d0; margin-top: 32px; font-size: 17px; letter-spacing: 1px; }
+  .note-box {
+    width: min(85vw, 360px); margin-top: 28px; padding: 12px;
+    border-radius: 12px; border: 1px solid rgba(167,243,208,0.4);
+    background: rgba(0,0,0,0.2); color: #fff; font-size: 14px;
+    resize: none; font-family: inherit;
+  }
+  .note-box::placeholder { color: rgba(167,243,208,0.6); }
+
+  /* SUMMARY */
+  .score-report { font-size: 24px; color: var(--green); margin: 18px 0; font-weight: 700; }
+  .neuro-log { color: var(--text-dim); line-height: 24px; margin-bottom: 12px; font-size: 14px; }
+  .reflection-echo { color: #cbd5e1; font-style: italic; margin-bottom: 28px; font-size: 14px; max-width: 320px; }
+</style>
+</head>
+<body>
+
+  <div id="start" class="screen active centered">
+    <div class="title">NEUROLOOP</div>
+    <div class="subtitle">A Tri-Phase Behavioral Catalyst</div>
+    <button class="btn" id="startBtn">INITIATE LOOP</button>
+  </div>
+
+  <div id="phase1" class="screen">
+    <div class="header">
+      <div class="phase-label">PHASE 1 · VIGILANCE SHOCK</div>
+      <div class="timer" id="p1Timer">30s</div>
+    </div>
+    <div class="play-area" id="p1Area">
+      <div class="reflex-target" id="reflexTarget"></div>
+    </div>
+  </div>
+
+  <div id="phase2" class="screen">
+    <div class="header">
+      <div class="phase-label">PHASE 2 · EARNED MASTERY</div>
+      <div class="instructions">Tap in order — next is <span id="targetNum">1</span></div>
+      <div class="timer" id="p2Timer">60s</div>
+    </div>
+    <div class="grid-container" id="grid"></div>
+  </div>
+
+  <div id="phase3" class="screen centered">
+    <div class="header" style="position:absolute; top:0;">
+      <div class="phase-label">PHASE 3 · SATIETY HARVEST</div>
+      <div class="timer" id="p3Timer">30s</div>
+    </div>
+    <div class="breathing-circle" id="breathCircle"></div>
+    <div class="breath-text">Breathe with the pulse...</div>
+    <textarea class="note-box" id="noteBox" rows="3" maxlength="140" placeholder="One quiet note before you go..."></textarea>
+  </div>
+
+  <div id="summary" class="screen centered">
+    <div class="title">LOOP COMPLETE</div>
+    <div class="score-report" id="finalScore">Total Focus Points: 0</div>
+    <div class="neuro-log" id="neuroLog"></div>
+    <div class="reflection-echo" id="reflectionEcho"></div>
+    <button class="btn" id="restartBtn">RETURN</button>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Native haptics bridge with graceful web fallback ----
+  function haptic(kind) {
+    if (window.AndroidBridge) {
+      try {
+        if (kind === 'tap') AndroidBridge.hapticTap();
+        else if (kind === 'success') AndroidBridge.hapticSuccess();
+        else if (kind === 'error') AndroidBridge.hapticError();
+        return;
+      } catch (e) { /* fall through to web vibrate */ }
+    }
+    if (navigator.vibrate) {
+      navigator.vibrate(kind === 'success' ? 40 : kind === 'error' ? 80 : 20);
+    }
+  }
+
+  var screens = {
+    start: document.getElementById('start'),
+    phase1: document.getElementById('phase1'),
+    phase2: document.getElementById('phase2'),
+    phase3: document.getElementById('phase3'),
+    summary: document.getElementById('summary')
+  };
+
+  function showScreen(name) {
+    Object.keys(screens).forEach(function (k) {
+      screens[k].classList.toggle('active', k === name);
+    });
+  }
+
+  // ---- Single timer controller: guarantees only one interval ever runs ----
+  var activeInterval = null;
+  function clearActiveTimer() {
+    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
+  }
+  function startCountdown(seconds, onTick, onComplete) {
+    clearActiveTimer();
+    var remaining = seconds;
+    onTick(remaining);
+    activeInterval = setInterval(function () {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearActiveTimer();
+        onTick(0);
+        onComplete();
+      } else {
+        onTick(remaining);
+      }
+    }, 1000);
+  }
+
+  var state = {
+    score: 0,
+    p1Taps: 0,
+    p2Correct: 0,
+    p2Wrong: 0
+  };
+
+  function resetState() {
+    state.score = 0;
+    state.p1Taps = 0;
+    state.p2Correct = 0;
+    state.p2Wrong = 0;
+  }
+
+  // ================= PHASE 1: NOREPINEPHRINE =================
+  var p1Area = document.getElementById('p1Area');
+  var reflexTarget = document.getElementById('reflexTarget');
+
+  function moveTarget() {
+    var areaRect = p1Area.getBoundingClientRect();
+    var size = 64;
+    var maxLeft = Math.max(0, areaRect.width - size);
+    var maxTop = Math.max(0, areaRect.height - size);
+    var left = Math.random() * maxLeft;
+    var top = Math.random() * maxTop;
+    reflexTarget.style.left = left + 'px';
+    reflexTarget.style.top = top + 'px';
+  }
+
+  function startPhase1() {
+    showScreen('phase1');
+    moveTarget();
+    startCountdown(30, function (t) {
+      document.getElementById('p1Timer').textContent = t + 's';
+    }, startPhase2);
+  }
+
+  reflexTarget.addEventListener('click', function () {
+    state.score += 10;
+    state.p1Taps += 1;
+    haptic('tap');
+    moveTarget();
+  });
+
+  // ================= PHASE 2: DOPAMINE BRIDGE =================
+  var gridEl = document.getElementById('grid');
+  var targetNumber = 1;
+
+  function shuffledNumbers() {
+    var nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (var i = nums.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
+    }
+    return nums;
+  }
+
+  function renderGrid() {
+    var nums = shuffledNumbers();
+    gridEl.innerHTML = '';
+    nums.forEach(function (n) {
+      var cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      cell.textContent = n;
+      cell.dataset.num = n;
+      cell.addEventListener('click', function () { handleGridTap(this); });
+      gridEl.appendChild(cell);
+    });
+  }
+
+  function setupDopamine() {
+    targetNumber = 1;
+    document.getElementById('targetNum').textContent = targetNumber;
+    renderGrid();
+  }
+
+  function handleGridTap(cell) {
+    var num = parseInt(cell.dataset.num, 10);
+    if (cell.classList.contains('done')) return;
+    if (num === targetNumber) {
+      state.score += 25;
+      state.p2Correct += 1;
+      cell.classList.add('done');
+      haptic('success');
+      if (targetNumber === 9) {
+        setupDopamine();
+      } else {
+        targetNumber += 1;
+        document.getElementById('targetNum').textContent = targetNumber;
+      }
+    } else {
+      state.score = Math.max(0, state.score - 10);
+      state.p2Wrong += 1;
+      haptic('error');
+      cell.classList.add('wrong');
+      setTimeout(function () { cell.classList.remove('wrong'); }, 200);
+    }
+  }
+
+  function startPhase2() {
+    showScreen('phase2');
+    setupDopamine();
+    startCountdown(60, function (t) {
+      document.getElementById('p2Timer').textContent = t + 's';
+    }, startPhase3);
+  }
+
+  // ================= PHASE 3: SEROTONIN HARVEST =================
+  var breathCircle = document.getElementById('breathCircle');
+  var noteBox = document.getElementById('noteBox');
+
+  function startPhase3() {
+    showScreen('phase3');
+    noteBox.value = '';
+    breathCircle.style.animationPlayState = 'running';
+    startCountdown(30, function (t) {
+      document.getElementById('p3Timer').textContent = t + 's';
+    }, finishLoop);
+  }
+
+  // ================= SUMMARY =================
+  function finishLoop() {
+    breathCircle.style.animationPlayState = 'paused';
+    showScreen('summary');
+    document.getElementById('finalScore').textContent = 'Total Focus Points: ' + state.score;
+    document.getElementById('neuroLog').innerHTML =
+      'Norepinephrine shock: ' + state.p1Taps + ' reflex hits<br>' +
+      'Dopamine bridge: ' + state.p2Correct + ' correct / ' + state.p2Wrong + ' missed<br>' +
+      'Serotonin state: grounded';
+    var note = noteBox.value.trim();
+    document.getElementById('reflectionEcho').textContent = note ? '"' + note + '"' : '';
+  }
+
+  function startLoop() {
+    clearActiveTimer();
+    resetState();
+    startPhase1();
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startLoop);
+  document.getElementById('restartBtn').addEventListener('click', function () {
+    clearActiveTimer();
+    breathCircle.style.animationPlayState = 'paused';
+    showScreen('start');
+  });
+
+  // Recompute target bounds if the WebView is resized/rotated mid-phase 1
+  window.addEventListener('resize', function () {
+    if (screens.phase1.classList.contains('active')) moveTarget();
+  });
+})();
+</script>
+</body>
+</html>

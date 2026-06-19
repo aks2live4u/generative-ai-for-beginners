@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Heartbeat / pulse line representing the three-phase neural loop -->
+    <path
+        android:strokeColor="#f43f5e"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M20,60 L36,60 L44,40 L54,76 L62,52 L68,60 L88,60" />
+
+    <circle android:fillColor="#3b82f6" android:cx="36" android:cy="60" android:r="4" />
+    <circle android:fillColor="#10b981" android:cx="68" android:cy="60" android:r="4" />
+
+</vector>
