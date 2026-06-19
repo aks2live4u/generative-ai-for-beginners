@@ -1,483 +1,572 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>NeuroLoop</title>
-<style>
-  :root {
-    --bg-1: #0a0d18;
-    --bg-2: #0b1020;
-    --bg-3: #052e26;
-    --red: #fb4d63;
-    --red-soft: #ff8a9b;
-    --blue: #4f8cff;
-    --blue-soft: #8db4ff;
-    --green: #1fd99b;
-    --green-soft: #8ff0cf;
-    --text-dim: #8b96ab;
-    --panel: rgba(255,255,255,0.05);
-    --panel-border: rgba(255,255,255,0.10);
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-  html, body {
-    margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
-    background: var(--bg-1);
-    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #fff;
-    -webkit-font-smoothing: antialiased;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NeuroLoop</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-  /* ---------- layered ambient background per phase ---------- */
-  .screen {
-    position: absolute; inset: 0;
-    display: none;
-    flex-direction: column;
-    opacity: 0;
-    transition: opacity .35s ease;
-  }
-  .screen.active { display: flex; opacity: 1; }
+        body {
+            background-color: #020208;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-  #start::before, #phase1::before, #phase2::before, #phase3::before, #summary::before {
-    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  }
-  #start, #summary { background: radial-gradient(120% 90% at 50% -10%, #182246 0%, var(--bg-1) 55%); }
-  #phase1 { background: radial-gradient(130% 80% at 50% 0%, #2a1320 0%, var(--bg-1) 60%); }
-  #phase2 { background: radial-gradient(130% 80% at 50% 0%, #102449 0%, var(--bg-2) 60%); }
-  #phase3 { background: radial-gradient(130% 90% at 50% 100%, #0c4f3e 0%, var(--bg-3) 65%); }
+        .shake { animation: violentShake 0.15s linear infinite; }
+        @keyframes violentShake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
 
-  .centered { justify-content: center; align-items: center; height: 100%; padding: 7vh 28px; text-align: center; }
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .screen.active { display: flex; }
 
-  /* ---------- shared typography ---------- */
-  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 14px; }
-  .title { font-size: 38px; font-weight: 800; letter-spacing: 6px; margin: 0 0 10px; background: linear-gradient(135deg,#ffffff,#9fb4ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .subtitle { font-size: 15px; color: var(--text-dim); margin-bottom: 44px; max-width: 280px; line-height: 1.5; }
+        h1 {
+            font-size: 2.6rem;
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 12px;
+            text-align: center;
+            text-transform: uppercase;
+            color: #00ffcc;
+            text-shadow: 0 0 10px #00ffcc, 0 0 30px #00ffcc;
+        }
 
-  .btn {
-    background: linear-gradient(135deg, var(--blue), #6c5ce7);
-    color: #fff; border: none; padding: 18px 48px;
-    border-radius: 32px; font-size: 15px; font-weight: 700; letter-spacing: 2.5px;
-    box-shadow: 0 12px 30px -8px rgba(79,140,255,0.55);
-    transition: transform .15s ease, box-shadow .15s ease;
-  }
-  .btn:active { transform: scale(0.96); box-shadow: 0 6px 16px -6px rgba(79,140,255,0.5); }
+        .subtitle {
+            font-size: 0.85rem;
+            color: #8b5cf6;
+            margin-bottom: 40px;
+            text-align: center;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px #8b5cf6;
+        }
 
-  /* ---------- top status bar (shared) ---------- */
-  .topbar {
-    width: 100%; flex-shrink: 0; z-index: 1;
-    padding: max(env(safe-area-inset-top), 22px) 20px 0;
-    display: flex; flex-direction: column; align-items: center;
-  }
-  .chip-row { display: flex; align-items: center; gap: 10px; }
-  .chip {
-    padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 800;
-    letter-spacing: 1.5px; text-transform: uppercase;
-    background: var(--panel); border: 1px solid var(--panel-border);
-    backdrop-filter: blur(6px);
-  }
-  #phase1 .chip.phase { color: var(--red-soft); }
-  #phase2 .chip.phase { color: var(--red-soft); }
-  #phase3 .chip.phase { color: var(--green-soft); }
-  .chip.timer { font-variant-numeric: tabular-nums; color: #fff; min-width: 54px; text-align: center; }
-  .chip.score { color: #ffd76b; }
+        .btn {
+            background-color: transparent;
+            color: #00ffcc;
+            font-size: 0.95rem;
+            font-weight: bold;
+            letter-spacing: 3px;
+            padding: 18px 48px;
+            border: 2px solid #00ffcc;
+            border-radius: 0px;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+            text-transform: uppercase;
+            transition: all 0.1s ease;
+            outline: none;
+            font-family: inherit;
+        }
+        .btn:active { background-color: #00ffcc; color: #020208; box-shadow: 0 0 30px #00ffcc; }
 
-  .dots { display: flex; gap: 7px; margin-top: 14px; }
-  .dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18); transition: all .25s ease; }
-  .dots span.active { background: #fff; width: 20px; border-radius: 4px; }
+        .header-panel {
+            position: absolute;
+            top: max(env(safe-area-inset-top), 32px);
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
 
-  .instructions { color: #e7ecf6; margin-top: 16px; font-size: 14px; font-weight: 500; }
-  .instructions b { color: #fff; font-weight: 800; font-size: 16px; }
+        .phase-label { font-size: 1.1rem; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
+        .metric-label { font-size: 0.8rem; color: #a78bfa; margin-top: 6px; letter-spacing: 1px; text-align: center; padding: 0 16px; }
+        .timer { font-size: 1.4rem; font-weight: 900; color: #ffffff; margin-top: 8px; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
 
-  /* ---------- main stage (always fills + centers remaining space) ---------- */
-  .stage {
-    flex: 1; width: 100%; position: relative; z-index: 1;
-    display: flex; align-items: center; justify-content: center;
-  }
+        .dots { display: flex; gap: 7px; margin-top: 14px; }
+        .dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18); transition: all .25s ease; }
+        .dots span.on { background: #00ffcc; box-shadow: 0 0 8px #00ffcc; width: 18px; border-radius: 3px; }
 
-  /* ===================== PHASE 1 ===================== */
-  .reflex-target {
-    position: absolute; width: 68px; height: 68px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #ff8a9b, var(--red) 70%);
-    box-shadow: 0 0 0 0 rgba(251,77,99,0.5), 0 8px 24px -6px rgba(251,77,99,0.7);
-    animation: pulseRing 1.4s ease-out infinite;
-  }
-  @keyframes pulseRing {
-    0%   { box-shadow: 0 0 0 0 rgba(251,77,99,0.45), 0 8px 24px -6px rgba(251,77,99,0.7); }
-    70%  { box-shadow: 0 0 0 16px rgba(251,77,99,0), 0 8px 24px -6px rgba(251,77,99,0.7); }
-    100% { box-shadow: 0 0 0 0 rgba(251,77,99,0), 0 8px 24px -6px rgba(251,77,99,0.7); }
-  }
-  .float-pop {
-    position: absolute; font-weight: 800; font-size: 16px; pointer-events: none;
-    animation: floatUp .6s ease-out forwards;
-  }
-  @keyframes floatUp {
-    0%   { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -38px); }
-  }
+        /* Phase 1 */
+        #screen-phase1 { background-color: #020208; }
+        .phase1-label { color: #ff0055; text-shadow: 0 0 10px #ff0055; }
+        #canvas-p1 { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-  /* ===================== PHASE 2 ===================== */
-  .grid-panel {
-    background: var(--panel); border: 1px solid var(--panel-border);
-    border-radius: 28px; padding: 18px; backdrop-filter: blur(8px);
-    box-shadow: 0 20px 50px -20px rgba(0,0,0,0.6);
-  }
-  .grid-container {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-    width: min(78vw, 320px); height: min(78vw, 320px);
-  }
-  .grid-cell {
-    background: linear-gradient(160deg, #1b2640, #131c30);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px; font-weight: 800; color: var(--blue-soft);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    transition: transform .12s ease, background .2s ease, color .2s ease, border-color .2s ease;
-  }
-  .grid-cell:active { transform: scale(0.92); }
-  .grid-cell.done {
-    color: var(--green); border-color: rgba(31,217,155,0.5);
-    background: linear-gradient(160deg, rgba(31,217,155,0.16), rgba(31,217,155,0.04));
-    opacity: 0.55;
-  }
-  .grid-cell.wrong {
-    background: rgba(251,77,99,0.28); border-color: rgba(251,77,99,0.6); color: #fff;
-  }
+        /* Phase 2 */
+        #screen-phase2 {
+            background-color: #02020c;
+            background-image: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+        }
+        .phase2-label { color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
 
-  /* ===================== PHASE 3 ===================== */
-  .breath-wrap { display: flex; flex-direction: column; align-items: center; gap: 30px; }
-  .breath-rings { position: relative; width: 180px; height: 180px; display: flex; align-items: center; justify-content: center; }
-  .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(31,217,155,0.25); }
-  .ring.r1 { width: 100%; height: 100%; animation: breathe 8s ease-in-out infinite; }
-  .ring.r2 { width: 76%; height: 76%; animation: breathe 8s ease-in-out infinite; animation-delay: -0.4s; }
-  .breathing-circle {
-    width: 96px; height: 96px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, var(--green-soft), var(--green) 75%);
-    box-shadow: 0 0 50px rgba(31,217,155,0.45);
-    animation: breathe 8s ease-in-out infinite;
-  }
-  @keyframes breathe {
-    0%, 100% { transform: scale(1.0); opacity: 0.75; }
-    50%      { transform: scale(1.45); opacity: 1; }
-  }
-  .breath-text { color: var(--green-soft); font-size: 16px; letter-spacing: 1px; font-weight: 600; }
-  .note-wrap { width: min(82vw, 340px); margin-top: 6px; }
-  .note-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(143,240,207,0.7); margin-bottom: 8px; text-align: left; font-weight: 700; }
-  .note-box {
-    width: 100%; padding: 14px 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-    border-radius: 16px; border: 1px solid rgba(143,240,207,0.25);
-    background: rgba(255,255,255,0.04); color: #fff; font-size: 14px;
-    resize: none; font-family: inherit; line-height: 1.4;
-  }
-  .note-box:focus { outline: none; border-color: rgba(143,240,207,0.55); }
-  .note-box::placeholder { color: rgba(143,240,207,0.45); }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 320px;
+            aspect-ratio: 1/1;
+            z-index: 5;
+        }
 
-  /* ===================== SUMMARY ===================== */
-  .summary-card {
-    width: min(86vw, 360px); background: var(--panel); border: 1px solid var(--panel-border);
-    border-radius: 24px; padding: 26px 22px; backdrop-filter: blur(8px);
-    box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
-  }
-  .score-report { font-size: 15px; color: var(--text-dim); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-  .score-number { font-size: 44px; font-weight: 800; color: #fff; margin: 6px 0 22px; background: linear-gradient(135deg,#ffd76b,#ff8a45); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .stat-row { display: flex; justify-content: space-between; padding: 11px 0; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13.5px; }
-  .stat-row:first-of-type { border-top: none; }
-  .stat-label { color: var(--text-dim); }
-  .stat-value { font-weight: 700; }
-  .reflection-echo { color: #cbd5e1; font-style: italic; margin: 18px 0 4px; font-size: 13.5px; line-height: 1.5; }
-</style>
+        .grid-cell {
+            background-color: rgba(15, 23, 42, 0.6);
+            border: 2px solid #8b5cf6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: 900;
+            color: #8b5cf6;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+            transition: all 0.05s ease;
+        }
+        .grid-cell.active-target {
+            color: #00ffcc; border-color: #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+        }
+        .grid-cell.wrong-flash { background-color: rgba(255,0,85,0.35); border-color: #ff0055; }
+        .grid-cell:active { background-color: #00ffcc; color: #020208; box-shadow: 0 0 25px #00ffcc; border-color: #00ffcc; }
+
+        /* Phase 3 */
+        #screen-phase3 { background-color: #010a05; }
+        .phase3-label { color: #39ff14; text-shadow: 0 0 10px #39ff14; }
+
+        .breathing-wrapper {
+            position: relative;
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 28px; margin-top: 50px;
+        }
+        .breathing-circle {
+            width: 130px; height: 130px;
+            background-color: rgba(57, 255, 20, 0.15);
+            border: 2px solid #39ff14;
+            border-radius: 50%;
+            box-shadow: 0 0 40px rgba(57, 255, 20, 0.4);
+            animation: breathe 8s infinite ease-in-out;
+        }
+        .breathing-pulse-layer {
+            position: absolute; width: 130px; height: 130px;
+            border: 1px dashed #39ff14; border-radius: 50%;
+            animation: ripple 4s infinite linear; opacity: 0.5;
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(0.9); opacity: 0.4; }
+            50% { transform: scale(1.7); opacity: 0.9; box-shadow: 0 0 60px #39ff14; }
+        }
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        .breath-caption {
+            color: #39ff14; letter-spacing: 2px; text-shadow: 0 0 5px #39ff14;
+            font-size: 0.8rem; text-align: center; margin-bottom: 26px;
+        }
+        .note-wrap { width: 100%; max-width: 320px; }
+        .note-label { font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(57,255,20,0.7); margin-bottom: 8px; }
+        .note-box {
+            width: 100%; padding: 12px 14px; font-family: inherit; font-size: 0.85rem;
+            background: rgba(57,255,20,0.05); border: 1px solid rgba(57,255,20,0.35);
+            color: #fff; resize: none; line-height: 1.4;
+        }
+        .note-box:focus { outline: none; border-color: #39ff14; }
+        .note-box::placeholder { color: rgba(57,255,20,0.4); }
+
+        /* Summary */
+        .stats-card {
+            background-color: rgba(17, 24, 39, 0.8);
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+            padding: 22px 24px;
+            width: 100%;
+            max-width: 340px;
+            margin-bottom: 32px;
+        }
+        .stat-line {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.85rem; color: #d1d5db; line-height: 2.3; font-weight: bold; letter-spacing: 0.5px;
+        }
+        .stat-line span.val { color: #fff; }
+        .dot { margin-right: 10px; }
+        .dot-red { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
+        .dot-blue { color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
+        .dot-green { color: #39ff14; text-shadow: 0 0 5px #39ff14; }
+    </style>
 </head>
 <body>
 
-  <div id="start" class="screen active centered">
-    <div class="eyebrow">Neuro-Targeted Game Loop</div>
-    <div class="title">NEUROLOOP</div>
-    <div class="subtitle">A tri-phase behavioral catalyst — alertness, focus, then calm in two minutes.</div>
-    <button class="btn" id="startBtn">INITIATE LOOP</button>
-  </div>
+    <div id="screen-start" class="screen active">
+        <h1>NeuroLoop</h1>
+        <div class="subtitle">// Kinetic Cognitive Ignition //</div>
+        <button class="btn" id="startBtn">Sync Core</button>
+    </div>
 
-  <div id="phase1" class="screen">
-    <div class="topbar">
-      <div class="chip-row">
-        <div class="chip phase">Vigilance Shock</div>
-        <div class="chip timer" id="p1Timer">30s</div>
-      </div>
-      <div class="dots"><span class="active"></span><span></span><span></span></div>
-    </div>
-    <div class="stage" id="p1Area">
-      <div class="reflex-target" id="reflexTarget"></div>
-    </div>
-  </div>
-
-  <div id="phase2" class="screen">
-    <div class="topbar">
-      <div class="chip-row">
-        <div class="chip phase">Earned Mastery</div>
-        <div class="chip timer" id="p2Timer">60s</div>
-      </div>
-      <div class="dots"><span></span><span class="active"></span><span></span></div>
-      <div class="instructions">Tap in order — next is <b id="targetNum">1</b></div>
-    </div>
-    <div class="stage">
-      <div class="grid-panel">
-        <div class="grid-container" id="grid"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="phase3" class="screen">
-    <div class="topbar">
-      <div class="chip-row">
-        <div class="chip phase">Satiety Harvest</div>
-        <div class="chip timer" id="p3Timer">30s</div>
-      </div>
-      <div class="dots"><span></span><span></span><span class="active"></span></div>
-    </div>
-    <div class="stage">
-      <div class="breath-wrap">
-        <div class="breath-rings">
-          <div class="ring r1"></div>
-          <div class="ring r2"></div>
-          <div class="breathing-circle" id="breathCircle"></div>
+    <div id="screen-phase1" class="screen">
+        <div class="header-panel">
+            <div class="phase-label phase1-label">System Shock: Mode 01</div>
+            <div id="p1-metric" class="metric-label">Vect.Velocity // 1.00x</div>
+            <div id="p1-timer" class="timer">00:30</div>
+            <div class="dots"><span class="on"></span><span></span><span></span></div>
         </div>
-        <div class="breath-text">Breathe with the pulse...</div>
+        <canvas id="canvas-p1"></canvas>
+    </div>
+
+    <div id="screen-phase2" class="screen">
+        <div class="header-panel">
+            <div class="phase-label phase2-label">Sequence Matrix: Mode 02</div>
+            <div id="p2-instructions" class="metric-label">INPUT REQUIREMENT: ACCESS NODE [1]</div>
+            <div id="p2-timer" class="timer">00:60</div>
+            <div class="dots"><span></span><span class="on"></span><span></span></div>
+        </div>
+        <div id="grid" class="grid-container"></div>
+    </div>
+
+    <div id="screen-phase3" class="screen">
+        <div class="header-panel">
+            <div class="phase-label phase3-label">Parasympathetic Flood: Mode 03</div>
+            <div id="p3-timer" class="timer">00:30</div>
+            <div class="dots"><span></span><span></span><span class="on"></span></div>
+        </div>
+        <div class="breathing-wrapper">
+            <div class="breathing-pulse-layer"></div>
+            <div class="breathing-circle"></div>
+        </div>
+        <div class="breath-caption">REGULATE RESPIRATION VIA PULSE GENERATOR</div>
         <div class="note-wrap">
-          <div class="note-label">One quiet note</div>
-          <textarea class="note-box" id="noteBox" rows="3" maxlength="140" placeholder="What's settling for you right now?"></textarea>
+            <div class="note-label">// log a fragment //</div>
+            <textarea class="note-box" id="noteBox" rows="3" maxlength="140" placeholder="What's settling for you right now?"></textarea>
         </div>
-      </div>
     </div>
-  </div>
 
-  <div id="summary" class="screen centered">
-    <div class="eyebrow">Loop Complete</div>
-    <div class="title" style="font-size:28px; letter-spacing:3px;">WELL DONE</div>
-    <div class="summary-card">
-      <div class="score-report">Total Focus Points</div>
-      <div class="score-number" id="finalScore">0</div>
-      <div class="stat-row"><span class="stat-label">Norepinephrine — reflex hits</span><span class="stat-value" id="statP1">0</span></div>
-      <div class="stat-row"><span class="stat-label">Dopamine — correct taps</span><span class="stat-value" id="statP2Correct">0</span></div>
-      <div class="stat-row"><span class="stat-label">Dopamine — missed taps</span><span class="stat-value" id="statP2Wrong">0</span></div>
-      <div class="stat-row"><span class="stat-label">Serotonin state</span><span class="stat-value" style="color:var(--green-soft)">Grounded</span></div>
-      <div class="reflection-echo" id="reflectionEcho"></div>
+    <div id="screen-summary" class="screen">
+        <h1 style="font-size:1.9rem; color: #ffffff; text-shadow: 0 0 10px #ffffff;">Protocol Complete</h1>
+        <div id="summary-score" style="font-size: 1.3rem; color: #00ffcc; font-weight: 900; margin: 14px 0 22px; letter-spacing: 2px; text-shadow: 0 0 10px #00ffcc;"></div>
+        <div class="stats-card">
+            <div class="stat-line"><span><span class="dot dot-red">■</span>NOREPINEPHRINE — REFLEX HITS</span><span class="val" id="statP1">0</span></div>
+            <div class="stat-line"><span><span class="dot dot-blue">■</span>DOPAMINE — NODES CLEARED</span><span class="val" id="statP2Correct">0</span></div>
+            <div class="stat-line"><span><span class="dot dot-blue">■</span>DOPAMINE — MISFIRES</span><span class="val" id="statP2Wrong">0</span></div>
+            <div class="stat-line"><span><span class="dot dot-green">■</span>SEROTONIN — EQUILIBRIUM</span><span class="val" style="color:#39ff14">STABLE</span></div>
+        </div>
+        <div id="summary-note" style="color:#d1d5db; font-size:0.8rem; font-style:italic; max-width:320px; text-align:center; margin-bottom:28px; line-height:1.5;"></div>
+        <button class="btn" id="restartBtn">Re-cycle Core</button>
     </div>
-    <button class="btn" id="restartBtn" style="margin-top:30px;">RETURN</button>
-  </div>
 
-<script>
-(function () {
-  'use strict';
+    <script>
+    (function () {
+        'use strict';
 
-  // ---- Native haptics bridge with graceful web fallback ----
-  function haptic(kind) {
-    if (window.AndroidBridge) {
-      try {
-        if (kind === 'tap') AndroidBridge.hapticTap();
-        else if (kind === 'success') AndroidBridge.hapticSuccess();
-        else if (kind === 'error') AndroidBridge.hapticError();
-        return;
-      } catch (e) { /* fall through to web vibrate */ }
-    }
-    if (navigator.vibrate) {
-      navigator.vibrate(kind === 'success' ? 40 : kind === 'error' ? 80 : 20);
-    }
-  }
+        // ---- Native haptics bridge with graceful web fallback ----
+        function haptic(kind) {
+            if (window.AndroidBridge) {
+                try {
+                    if (kind === 'tap') AndroidBridge.hapticTap();
+                    else if (kind === 'success') AndroidBridge.hapticSuccess();
+                    else if (kind === 'error') AndroidBridge.hapticError();
+                    return;
+                } catch (e) { /* fall through to web vibrate */ }
+            }
+            if (navigator.vibrate) {
+                navigator.vibrate(kind === 'success' ? 40 : kind === 'error' ? 80 : 20);
+            }
+        }
 
-  var screens = {
-    start: document.getElementById('start'),
-    phase1: document.getElementById('phase1'),
-    phase2: document.getElementById('phase2'),
-    phase3: document.getElementById('phase3'),
-    summary: document.getElementById('summary')
-  };
+        let phase = 'START';
+        let score = 0;
+        let timeLeft = 0;
+        let timerInterval = null;
+        let animationFrameId = null;
 
-  function showScreen(name) {
-    Object.keys(screens).forEach(function (k) {
-      screens[k].classList.toggle('active', k === name);
-    });
-  }
+        // Stats for the end-of-loop dashboard
+        let p1Hits = 0, p2Correct = 0, p2Wrong = 0;
 
-  // ---- Single timer controller: guarantees only one interval ever runs ----
-  var activeInterval = null;
-  function clearActiveTimer() {
-    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
-  }
-  function startCountdown(seconds, onTick, onComplete) {
-    clearActiveTimer();
-    var remaining = seconds;
-    onTick(remaining);
-    activeInterval = setInterval(function () {
-      remaining -= 1;
-      if (remaining <= 0) {
-        clearActiveTimer();
-        onTick(0);
-        onComplete();
-      } else {
-        onTick(remaining);
-      }
-    }, 1000);
-  }
+        // Canvas & physics state
+        let canvas, ctx;
+        let ballX = 0, ballY = 0;
+        let ballVX = 4, ballVY = 4;
+        let speedMultiplier = 1.0;
+        const radius = 25;
+        let particles = [];
+        let hitEffects = [];
+        let pulseTimer = 0;
 
-  var state = {
-    score: 0,
-    p1Taps: 0,
-    p2Correct: 0,
-    p2Wrong: 0
-  };
+        // Phase 2 state
+        let targetNumber = 1;
 
-  function resetState() {
-    state.score = 0;
-    state.p1Taps = 0;
-    state.p2Correct = 0;
-    state.p2Wrong = 0;
-  }
+        function changeScreen(newPhase) {
+            phase = newPhase.toUpperCase();
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById(`screen-${newPhase}`).classList.add('active');
+        }
 
-  function floatPop(container, text, x, y, color) {
-    var el = document.createElement('div');
-    el.className = 'float-pop';
-    el.textContent = text;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.color = color;
-    container.appendChild(el);
-    setTimeout(function () { el.remove(); }, 600);
-  }
+        function startTimer(duration, timerDisplayId, onComplete) {
+            clearInterval(timerInterval);
+            timeLeft = duration;
+            updateTimerDisplay(timerDisplayId, timeLeft);
 
-  // ================= PHASE 1: NOREPINEPHRINE =================
-  var p1Area = document.getElementById('p1Area');
-  var reflexTarget = document.getElementById('reflexTarget');
+            timerInterval = setInterval(() => {
+                timeLeft -= 1;
+                if (timeLeft > 0) {
+                    updateTimerDisplay(timerDisplayId, timeLeft);
+                } else {
+                    clearInterval(timerInterval);
+                    updateTimerDisplay(timerDisplayId, 0);
+                    onComplete();
+                }
+            }, 1000);
+        }
 
-  function moveTarget() {
-    var areaRect = p1Area.getBoundingClientRect();
-    var size = 68;
-    var maxLeft = Math.max(0, areaRect.width - size);
-    var maxTop = Math.max(0, areaRect.height - size);
-    var left = Math.random() * maxLeft;
-    var top = Math.random() * maxTop;
-    reflexTarget.style.left = left + 'px';
-    reflexTarget.style.top = top + 'px';
-  }
+        function updateTimerDisplay(id, seconds) {
+            const displayStr = seconds < 10 ? `00:0${seconds}` : `00:${seconds}`;
+            document.getElementById(id).innerText = displayStr;
+        }
 
-  function startPhase1() {
-    showScreen('phase1');
-    moveTarget();
-    startCountdown(30, function (t) {
-      document.getElementById('p1Timer').textContent = t + 's';
-    }, startPhase2);
-  }
+        function triggerScreenShake() {
+            document.body.classList.add('shake');
+            setTimeout(() => document.body.classList.remove('shake'), 150);
+        }
 
-  reflexTarget.addEventListener('click', function () {
-    state.score += 10;
-    state.p1Taps += 1;
-    haptic('tap');
-    var rect = reflexTarget.getBoundingClientRect();
-    var areaRect = p1Area.getBoundingClientRect();
-    floatPop(p1Area, '+10', rect.left - areaRect.left + rect.width / 2, rect.top - areaRect.top, '#ff8a9b');
-    moveTarget();
-  });
+        function startGame() {
+            score = 0;
+            p1Hits = 0; p2Correct = 0; p2Wrong = 0;
+            initPhase1();
+        }
 
-  // ================= PHASE 2: DOPAMINE BRIDGE =================
-  var gridEl = document.getElementById('grid');
-  var targetNumber = 1;
+        // --- PHASE 1: kinetic canvas ball ---
+        function initPhase1() {
+            changeScreen('phase1');
+            speedMultiplier = 1.0;
+            particles = [];
+            hitEffects = [];
 
-  function shuffledNumbers() {
-    var nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    for (var i = nums.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
-    }
-    return nums;
-  }
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
 
-  function renderGrid() {
-    var nums = shuffledNumbers();
-    gridEl.innerHTML = '';
-    nums.forEach(function (n) {
-      var cell = document.createElement('div');
-      cell.className = 'grid-cell';
-      cell.textContent = n;
-      cell.dataset.num = n;
-      cell.addEventListener('click', function () { handleGridTap(this); });
-      gridEl.appendChild(cell);
-    });
-  }
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballVX = (Math.random() > 0.5 ? 5 : -5);
+            ballVY = (Math.random() > 0.5 ? 5 : -5);
 
-  function setupDopamine() {
-    targetNumber = 1;
-    document.getElementById('targetNum').textContent = targetNumber;
-    renderGrid();
-  }
+            document.getElementById('p1-metric').innerText = `Vect.Velocity // ${speedMultiplier.toFixed(2)}x`;
 
-  function handleGridTap(cell) {
-    var num = parseInt(cell.dataset.num, 10);
-    if (cell.classList.contains('done')) return;
-    if (num === targetNumber) {
-      state.score += 25;
-      state.p2Correct += 1;
-      cell.classList.add('done');
-      haptic('success');
-      if (targetNumber === 9) {
-        setupDopamine();
-      } else {
-        targetNumber += 1;
-        document.getElementById('targetNum').textContent = targetNumber;
-      }
-    } else {
-      state.score = Math.max(0, state.score - 10);
-      state.p2Wrong += 1;
-      haptic('error');
-      cell.classList.add('wrong');
-      setTimeout(function () { cell.classList.remove('wrong'); }, 200);
-    }
-  }
+            startTimer(30, 'p1-timer', () => {
+                cancelAnimationFrame(animationFrameId);
+                initPhase2();
+            });
 
-  function startPhase2() {
-    showScreen('phase2');
-    setupDopamine();
-    startCountdown(60, function (t) {
-      document.getElementById('p2Timer').textContent = t + 's';
-    }, startPhase3);
-  }
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(runCanvasEngine);
+        }
 
-  // ================= PHASE 3: SEROTONIN HARVEST =================
-  var breathCircle = document.getElementById('breathCircle');
-  var noteBox = document.getElementById('noteBox');
+        // Listeners attached once at load — re-attaching per replay was stacking
+        // duplicate handlers and scoring every tap multiple times after a restart.
+        function checkCanvasHit(e) {
+            if (phase !== 'PHASE1') return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            const dist = Math.hypot(clickX - ballX, clickY - ballY);
 
-  function startPhase3() {
-    showScreen('phase3');
-    noteBox.value = '';
-    startCountdown(30, function (t) {
-      document.getElementById('p3Timer').textContent = t + 's';
-    }, finishLoop);
-  }
+            if (dist <= radius + 20) {
+                score += 15;
+                p1Hits += 1;
+                speedMultiplier += 0.12;
+                document.getElementById('p1-metric').innerText = `Vect.Velocity // ${speedMultiplier.toFixed(2)}x`;
 
-  // ================= SUMMARY =================
-  function finishLoop() {
-    showScreen('summary');
-    document.getElementById('finalScore').textContent = state.score;
-    document.getElementById('statP1').textContent = state.p1Taps;
-    document.getElementById('statP2Correct').textContent = state.p2Correct;
-    document.getElementById('statP2Wrong').textContent = state.p2Wrong;
-    var note = noteBox.value.trim();
-    document.getElementById('reflectionEcho').textContent = note ? '"' + note + '"' : '';
-  }
+                haptic('tap');
+                triggerScreenShake();
+                createExplosionSparks(ballX, ballY);
+                hitEffects.push({ x: ballX, y: ballY - 20, alpha: 1.0 });
 
-  function startLoop() {
-    clearActiveTimer();
-    resetState();
-    startPhase1();
-  }
+                const currentSpeed = Math.hypot(ballVX, ballVY);
+                const randomAngle = Math.random() * Math.PI * 2;
+                ballVX = Math.cos(randomAngle) * currentSpeed;
+                ballVY = Math.sin(randomAngle) * currentSpeed;
+            }
+        }
 
-  document.getElementById('startBtn').addEventListener('click', startLoop);
-  document.getElementById('restartBtn').addEventListener('click', function () {
-    clearActiveTimer();
-    showScreen('start');
-  });
+        function createExplosionSparks(x, y) {
+            for (let i = 0; i < 15; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 4;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1.0,
+                    size: Math.random() * 3 + 2,
+                    color: Math.random() > 0.3 ? '#ff0055' : '#00ffcc'
+                });
+            }
+        }
 
-  // Recompute target bounds if the WebView is resized/rotated mid-phase 1
-  window.addEventListener('resize', function () {
-    if (screens.phase1.classList.contains('active')) moveTarget();
-  });
-})();
-</script>
+        function runCanvasEngine() {
+            if (phase !== 'PHASE1') return;
+
+            ctx.fillStyle = 'rgba(2, 2, 8, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            pulseTimer += 0.04;
+            const pulseGlow = Math.abs(Math.sin(pulseTimer)) * 4;
+
+            ballX += ballVX * speedMultiplier;
+            ballY += ballVY * speedMultiplier;
+
+            const pad = 30;
+            const minY = 160;
+            if (ballX <= pad || ballX >= canvas.width - pad) {
+                ballVX = -ballVX; ballX = ballX <= pad ? pad : canvas.width - pad;
+                triggerScreenShake();
+            }
+            if (ballY <= minY || ballY >= canvas.height - pad) {
+                ballVY = -ballVY; ballY = ballY <= minY ? minY : canvas.height - pad;
+                triggerScreenShake();
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.04;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+
+            ctx.shadowBlur = 15 + pulseGlow * 3;
+            ctx.shadowColor = '#ff0055';
+            ctx.fillStyle = '#ff0055';
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, radius * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+
+            for (let i = hitEffects.length - 1; i >= 0; i--) {
+                const eff = hitEffects[i];
+                eff.y -= 1.5;
+                eff.alpha -= 0.03;
+                if (eff.alpha <= 0) { hitEffects.splice(i, 1); continue; }
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `900 1.3rem 'Courier New'`;
+                ctx.globalAlpha = eff.alpha;
+                ctx.fillText('+15 FOCUS', eff.x - 48, eff.y);
+            }
+            ctx.globalAlpha = 1.0;
+
+            animationFrameId = requestAnimationFrame(runCanvasEngine);
+        }
+
+        // --- PHASE 2: sequence matrix ---
+        function initPhase2() {
+            changeScreen('phase2');
+            targetNumber = 1;
+            renderGrid();
+            startTimer(60, 'p2-timer', () => initPhase3());
+        }
+
+        function renderGrid() {
+            const gridContainer = document.getElementById('grid');
+            gridContainer.innerHTML = '';
+            document.getElementById('p2-instructions').innerText = `INPUT REQUIREMENT: ACCESS NODE [${targetNumber}]`;
+
+            const arr = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+
+            arr.forEach(num => {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                if (num === targetNumber) cell.classList.add('active-target');
+                cell.innerText = num;
+                cell.addEventListener('click', () => handleGridClick(num));
+                gridContainer.appendChild(cell);
+            });
+        }
+
+        function handleGridClick(num) {
+            if (phase !== 'PHASE2') return;
+            if (num === targetNumber) {
+                score += 25;
+                p2Correct += 1;
+                haptic('success');
+                targetNumber = targetNumber === 9 ? 1 : targetNumber + 1;
+                renderGrid();
+            } else {
+                score = Math.max(0, score - 15);
+                p2Wrong += 1;
+                haptic('error');
+                triggerScreenShake();
+            }
+        }
+
+        // --- PHASE 3: serotonin harvest ---
+        function initPhase3() {
+            changeScreen('phase3');
+            document.getElementById('noteBox').value = '';
+            startTimer(30, 'p3-timer', () => displaySummary());
+        }
+
+        function displaySummary() {
+            changeScreen('summary');
+            document.getElementById('summary-score').innerText = `TOTAL CONVERGENCE: ${score} PTS`;
+            document.getElementById('statP1').innerText = p1Hits;
+            document.getElementById('statP2Correct').innerText = p2Correct;
+            document.getElementById('statP2Wrong').innerText = p2Wrong;
+            const note = document.getElementById('noteBox').value.trim();
+            document.getElementById('summary-note').innerText = note ? `"${note}"` : '';
+        }
+
+        // ---- one-time setup ----
+        canvas = document.getElementById('canvas-p1');
+        ctx = canvas.getContext('2d');
+        canvas.addEventListener('mousedown', checkCanvasHit);
+        canvas.addEventListener('touchstart', function (e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            checkCanvasHit(touch);
+        });
+
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', function () {
+            clearInterval(timerInterval);
+            cancelAnimationFrame(animationFrameId);
+            changeScreen('start');
+        });
+    })();
+    </script>
 </body>
 </html>
