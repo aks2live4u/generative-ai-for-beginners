@@ -17,7 +17,7 @@
         body {
             background-color: #020208;
             color: #ffffff;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             overflow: hidden;
             width: 100vw;
             height: 100vh;
@@ -57,8 +57,8 @@
 
         h1 {
             font-size: 2.6rem;
-            font-weight: 900;
-            letter-spacing: 8px;
+            font-weight: 800;
+            letter-spacing: 5px;
             margin-bottom: 12px;
             text-align: center;
             text-transform: uppercase;
@@ -96,17 +96,20 @@
         .header-panel {
             position: absolute;
             top: max(env(safe-area-inset-top), 32px);
+            left: 0;
             width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
+            text-align: center;
             pointer-events: none;
             z-index: 10;
+            padding: 0 24px;
         }
 
-        .phase-label { font-size: 1.1rem; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
-        .metric-label { font-size: 0.8rem; color: #a78bfa; margin-top: 6px; letter-spacing: 1px; text-align: center; padding: 0 16px; }
-        .timer { font-size: 1.4rem; font-weight: 900; color: #ffffff; margin-top: 8px; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .phase-label { width: 100%; font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; text-align: center; }
+        .metric-label { width: 100%; font-size: 0.8rem; color: #a78bfa; margin-top: 6px; letter-spacing: 1px; text-align: center; }
+        .timer { width: 100%; font-size: 1.4rem; font-weight: 900; color: #ffffff; margin-top: 8px; text-align: center; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
 
         .dots { display: flex; gap: 7px; margin-top: 14px; }
         .dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.18); transition: all .25s ease; }
@@ -160,10 +163,12 @@
         .breathing-wrapper {
             position: relative;
             display: flex; justify-content: center; align-items: center;
-            margin-bottom: 28px; margin-top: 50px;
+            width: 220px; height: 220px;
+            margin: 60px auto 36px;
+            flex-shrink: 0;
         }
         .breathing-circle {
-            width: 130px; height: 130px;
+            width: 110px; height: 110px;
             background-color: rgba(57, 255, 20, 0.15);
             border: 2px solid #39ff14;
             border-radius: 50%;
@@ -171,21 +176,21 @@
             animation: breathe 8s infinite ease-in-out;
         }
         .breathing-pulse-layer {
-            position: absolute; width: 130px; height: 130px;
+            position: absolute; width: 110px; height: 110px;
             border: 1px dashed #39ff14; border-radius: 50%;
             animation: ripple 4s infinite linear; opacity: 0.5;
         }
         @keyframes breathe {
             0%, 100% { transform: scale(0.9); opacity: 0.4; }
-            50% { transform: scale(1.7); opacity: 0.9; box-shadow: 0 0 60px #39ff14; }
+            50% { transform: scale(1.5); opacity: 0.9; box-shadow: 0 0 60px #39ff14; }
         }
         @keyframes ripple {
             0% { transform: scale(1); opacity: 0.8; }
-            100% { transform: scale(2.5); opacity: 0; }
+            100% { transform: scale(1.8); opacity: 0; }
         }
         .breath-caption {
-            color: #39ff14; letter-spacing: 2px; text-shadow: 0 0 5px #39ff14;
-            font-size: 0.8rem; text-align: center; margin-bottom: 26px;
+            color: #39ff14; letter-spacing: 1.5px; text-shadow: 0 0 5px #39ff14;
+            font-size: 0.78rem; text-align: center; margin-bottom: 30px;
         }
         .note-wrap { width: 100%; max-width: 320px; }
         .note-label { font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; color: rgba(57,255,20,0.7); margin-bottom: 8px; }
@@ -479,7 +484,7 @@
                 eff.alpha -= 0.03;
                 if (eff.alpha <= 0) { hitEffects.splice(i, 1); continue; }
                 ctx.fillStyle = '#ffffff';
-                ctx.font = `900 1.3rem 'Courier New'`;
+                ctx.font = `800 1.2rem -apple-system, Roboto, Arial, sans-serif`;
                 ctx.globalAlpha = eff.alpha;
                 ctx.fillText('+15 FOCUS', eff.x - 48, eff.y);
             }
