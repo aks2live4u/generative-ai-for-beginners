@@ -6,242 +6,348 @@
 <title>MindShift</title>
 <style>
   :root{
-    --bg:#f5f6fb; --card:#ffffff; --card2:#f1f1fb;
-    --text:#1f2335; --muted:#6b7280; --border:#e7e8f3;
-    --primary:#7c5cff; --primary-dark:#6342e0; --accent:#10b981;
-    --warn:#f59e0b; --danger:#ef4444; --good:#10b981;
-    --crisis:#ef4444; --cbt:#7c5cff; --strength:#10b981; --insight:#0ea5e9;
-    --radius:18px; --shadow:0 4px 16px rgba(31,35,53,0.06);
+    --bg:#f6f4fc; --card:#ffffff; --text:#23223a; --muted:#7a7990; --border:#ece9f7;
+    --purple:#7c5cff; --purple-dark:#6342e0; --purple-soft:#efeaff;
+    --crisis:#f2645c; --crisis-soft:#fde7e5;
+    --cbt-step:#f7931e; --cbt-step-soft:#fef0dd;
+    --teal:#1fb088; --teal-soft:#e2f7f0;
+    --blue:#3b9ee8; --blue-soft:#e6f2fc;
+    --radius:20px; --shadow:0 6px 20px rgba(60,50,110,0.08);
   }
   html[data-theme="dark"]{
-    --bg:#11121c; --card:#1b1d2b; --card2:#22243650;
-    --text:#eef0fb; --muted:#9499b5; --border:#2a2d40;
-    --primary:#9b85ff; --primary-dark:#7c5cff; --accent:#34d399;
-    --shadow:0 4px 16px rgba(0,0,0,0.35);
+    --bg:#15131f; --card:#211f30; --text:#eeecf9; --muted:#9b98b3; --border:#322e45;
+    --purple-soft:#2c2750; --crisis-soft:#3a2220; --cbt-step-soft:#3a2c14; --teal-soft:#163228; --blue-soft:#172a3a;
+    --shadow:0 6px 20px rgba(0,0,0,0.4);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
-    font-family:-apple-system,Roboto,'Segoe UI',sans-serif; overflow:hidden;
-    transition:background .25s, color .25s;}
+    font-family:-apple-system,Roboto,'Segoe UI',sans-serif; overflow:hidden; transition:background .25s,color .25s;}
   #app{position:fixed; inset:0; display:flex; flex-direction:column;}
-
-  .topbar{display:flex; align-items:center; gap:10px; padding:14px 16px 8px; flex-shrink:0;}
-  .topbar .brand{display:flex; align-items:center; gap:8px; flex:1;}
-  .topbar .brand img{width:30px; height:30px; border-radius:8px;}
-  .topbar h1{font-size:17px; margin:0; font-weight:800; letter-spacing:.2px;}
-  .topbar h1 b{color:var(--primary);}
-  .iconbtn{background:var(--card); border:1px solid var(--border); color:var(--text); width:38px; height:38px;
-    border-radius:50%; font-size:16px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);}
-
-  .legend{display:flex; gap:8px; padding:0 16px 8px; flex-shrink:0; overflow-x:auto;}
-  .legend .dot{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); white-space:nowrap;}
-  .legend .sw{width:8px; height:8px; border-radius:50%;}
-
-  .screens{flex:1; overflow-y:auto; padding:4px 16px 90px; -webkit-overflow-scrolling:touch;}
+  .screens{flex:1; overflow-y:auto; padding:0 18px 90px; -webkit-overflow-scrolling:touch;}
   .screen{display:none;}
   .screen.active{display:block; animation:fadein .25s ease;}
   @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
 
+  /* Home header */
+  .home-header{display:flex; align-items:center; gap:10px; padding:16px 0 4px;}
+  .iconbtn{background:var(--card); border:1px solid var(--border); color:var(--text); width:38px; height:38px;
+    border-radius:50%; font-size:16px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); flex-shrink:0;}
+  .home-header .greet{flex:1; font-size:13px; color:var(--muted); font-weight:600;}
+  .avatar{width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--purple),var(--blue));
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
+  .home-title{font-size:23px; font-weight:800; margin:10px 0 2px;}
+  .center{text-align:center;}
+
+  /* Gauge */
+  .gauge-wrap{position:relative; display:flex; flex-direction:column; align-items:center; margin:18px 0 4px;}
+  .gauge-center{position:absolute; top:78px; left:0; right:0; text-align:center;}
+  .gauge-val{font-size:38px; font-weight:800; line-height:1;}
+  .gauge-unit{font-size:13px; color:var(--muted); font-weight:600;}
+  .gauge-thumb{position:absolute; width:18px; height:18px; border-radius:50%; background:var(--purple);
+    border:3px solid var(--card); box-shadow:0 2px 8px rgba(124,92,255,0.5);}
+  .gauge-labels{display:flex; justify-content:space-between; width:200px; margin:0 auto 14px; font-size:12px; color:var(--muted); font-weight:600;}
+  input[type=range].gaugeRange{width:200px; margin:0 auto 14px; display:block; height:4px; accent-color:var(--purple);}
+
   .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:16px; margin-bottom:14px; box-shadow:var(--shadow);}
   .card.flush{padding:0; overflow:hidden;}
-  h2{font-size:19px; margin:6px 0 12px; font-weight:800;}
-  h3{font-size:13px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; font-weight:700;}
-  p{line-height:1.5; color:var(--text); margin:0 0 10px;}
+  .card.soft{background:var(--purple-soft); border:none; box-shadow:none;}
+  h2{font-size:20px; margin:4px 0 4px; font-weight:800;}
+  h3{font-size:12px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; font-weight:700;}
+  p{line-height:1.5; color:var(--text); margin:0 0 8px;}
   .muted{color:var(--muted); font-size:13px;}
 
-  .btn{display:block; width:100%; padding:14px; border:none; border-radius:14px;
-    font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer;}
-  .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff;}
-  .btn-ghost{background:var(--card2); color:var(--text); border:1px solid var(--border);}
-  .btn-danger{background:linear-gradient(135deg,#ef4444,#f97316); color:#fff;}
+  .btn{display:block; width:100%; padding:15px; border:none; border-radius:14px;
+    font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer; text-align:center;}
+  .btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple-dark)); color:#fff;}
+  .btn-crisis{background:linear-gradient(135deg,var(--crisis),#ef4444); color:#fff;}
+  .btn-ghost{background:var(--card); color:var(--text); border:1px solid var(--border);}
+  .btn-link{background:none; border:none; color:var(--muted); font-size:13px; font-weight:600; padding:4px 0; width:100%; text-align:center;}
   .btn-row{display:flex; gap:10px;}
   .btn-row .btn{flex:1;}
-  .btn:disabled{opacity:.4;}
 
-  .sos{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:18px;
-    border-radius:18px; background:linear-gradient(135deg,#ef4444,#f97316); color:#fff; font-size:17px;
-    font-weight:800; border:none; margin:4px 0 14px; box-shadow:0 6px 18px rgba(239,68,68,0.35);}
+  .footnote{text-align:center; font-size:12px; color:var(--muted); margin:4px 0 10px;}
 
-  /* Gauge dial */
-  .gauge-wrap{display:flex; flex-direction:column; align-items:center; padding:6px 0 0;}
-  .gauge-val{font-size:34px; font-weight:800; margin-top:-46px;}
-  .gauge-label{font-size:12px; color:var(--muted); margin-top:2px;}
-  input[type=range]{width:100%; height:6px; accent-color:var(--primary); margin-top:10px;}
+  .sos{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:16px;
+    border-radius:18px; background:linear-gradient(135deg,var(--crisis),#ef4444); color:#fff; font-size:16px;
+    font-weight:800; border:none; margin:10px 0 14px; box-shadow:0 6px 18px rgba(242,100,92,0.35);}
 
-  .qa-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;}
-  .qa-tile{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px 6px;
-    text-align:center; box-shadow:var(--shadow);}
-  .qa-tile .emoji{font-size:24px; display:block; margin-bottom:4px;}
-  .qa-tile .label{font-size:11px; font-weight:700;}
+  /* Step header (crisis / cbt / recovery) */
+  .step-header{display:flex; align-items:center; gap:10px; margin:14px 0 12px;}
+  .step-num{width:26px; height:26px; border-radius:50%; color:#fff; font-size:13px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .step-num.crisis{background:var(--crisis);}
+  .step-num.cbt{background:var(--cbt-step);}
+  .step-num.recovery{background:var(--teal);}
+  .step-title{font-size:15px; font-weight:700;}
+  .cbt-stepper{display:flex; align-items:center; gap:10px; margin:14px 0 4px; color:var(--muted); font-size:13px; font-weight:700;}
+  .cbt-stepper .back{font-size:18px; color:var(--text); cursor:pointer;}
 
-  .badge-row{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
-  .badge{width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center;
-    font-size:20px; flex-shrink:0;}
-  .badge.crisis{background:rgba(239,68,68,0.14); color:var(--crisis);}
-  .badge.cbt{background:rgba(124,92,255,0.14); color:var(--cbt);}
-  .badge.strength{background:rgba(16,185,129,0.14); color:var(--strength);}
-  .badge.insight{background:rgba(14,165,233,0.14); color:var(--insight);}
-
-  .step-dots{display:flex; gap:6px; margin-bottom:4px;}
-  .step-dots span{width:22px; height:4px; border-radius:4px; background:var(--border);}
-  .step-dots span.on{background:var(--primary);}
-
-  .chip-grid{display:flex; flex-wrap:wrap; gap:8px;}
-  .chip{background:var(--card2); border:1px solid var(--border); color:var(--text); padding:10px 14px;
-    border-radius:999px; font-size:14px;}
-  .chip.danger{border-color:#ef4444; color:var(--danger);}
-  .chip.selected{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .icon-circle{width:74px; height:74px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:32px; margin:6px auto 16px;}
+  .icon-circle.crisis{background:var(--crisis-soft);}
+  .icon-circle.cbt{background:var(--purple-soft);}
+  .icon-circle.recovery{background:var(--teal-soft);}
+  .icon-circle.blue{background:var(--blue-soft);}
 
   textarea, input[type=text], input[type=date]{
-    width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text);
-    border-radius:10px; padding:10px; font-size:14px; font-family:inherit; resize:vertical;}
-  label{font-size:13px; color:var(--muted); display:block; margin:10px 0 4px;}
+    width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:12px; font-size:14px; font-family:inherit; resize:vertical;}
+  label{font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; font-weight:600;}
 
-  .breath-circle{width:150px; height:150px; margin:16px auto; border-radius:50%;
-    background:radial-gradient(circle,var(--primary),var(--primary-dark));
-    display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:#fff;
+  .breath-circle{width:140px; height:140px; margin:10px auto 16px; border-radius:50%;
+    background:radial-gradient(circle,var(--crisis),#ef4444);
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff;
     transition:transform 4s ease-in-out; transform:scale(0.7);}
   .breath-circle.in{transform:scale(1.15); transition:transform 4s ease-in-out;}
   .breath-circle.hold{transition:transform 2s ease-in-out;}
   .breath-circle.out{transform:scale(0.7); transition:transform 6s ease-in-out;}
+  .breath-phases{display:flex; flex-direction:column; gap:6px; align-items:center; margin-bottom:6px;}
+  .breath-phases span{font-size:13px; color:var(--muted); font-weight:600;}
+  .breath-phases span.on{color:var(--crisis); font-weight:800;}
+
+  .icon-row{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);}
+  .icon-row:last-child{border-bottom:none;}
+  .icon-row .ic-bubble{width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:16px; flex-shrink:0;}
+  .icon-row .ic-text{font-size:14px;}
+  .icon-row .ic-text b{font-weight:800;}
+  .icon-row .ic-sub{font-size:11px; color:var(--muted);}
 
   .check-item{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);}
   .check-item:last-child{border-bottom:none;}
   .check-item input{width:20px; height:20px;}
   .check-item .ctext{flex:1; font-size:14px;}
 
+  .chip-grid{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{background:var(--purple-soft); border:1px solid var(--border); color:var(--purple-dark); padding:9px 14px;
+    border-radius:999px; font-size:13px; font-weight:700;}
+  .chip.danger{background:var(--crisis-soft); color:var(--crisis);}
+  .chip.selected{background:var(--purple); color:#fff; border-color:var(--purple);}
+
   .evidence-cols{display:flex; gap:10px;}
   .evidence-cols .col{flex:1;}
 
-  .distortion{background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
-  .distortion.selected{border-color:var(--primary); background:rgba(124,92,255,0.1);}
-  .distortion .dname{font-weight:700; font-size:14px;}
-  .distortion .ddesc{font-size:12px; color:var(--muted); margin-top:2px;}
+  .quote-card{background:var(--teal-soft); border-left:4px solid var(--teal); padding:14px;
+    border-radius:12px; font-size:14px; line-height:1.6;}
 
   .bottomnav{position:fixed; left:0; right:0; bottom:0; display:flex; background:var(--card);
     border-top:1px solid var(--border); padding:6px 4px env(safe-area-inset-bottom);}
   .navbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
-    background:none; border:none; color:var(--muted); font-size:11px; padding:8px 0; font-weight:600;}
-  .navbtn.active{color:var(--primary);}
-  .navbtn .ic{font-size:20px;}
+    background:none; border:none; color:var(--muted); font-size:11px; padding:8px 0; font-weight:700;}
+  .navbtn.active{color:var(--purple);}
+  .navbtn .ic{font-size:19px;}
 
   .banner{padding:12px 14px; border-radius:12px; font-size:13px; margin-bottom:14px; font-weight:600;}
-  .banner.low{background:rgba(16,185,129,0.12); color:#0f9d6f;}
-  .banner.moderate{background:rgba(245,158,11,0.14); color:#b9750a;}
-  .banner.high{background:rgba(239,68,68,0.14); color:#d9362d;}
+  .banner.low{background:var(--teal-soft); color:#0f7a5c;}
+  .banner.moderate{background:var(--cbt-step-soft); color:#b9750a;}
+  .banner.high{background:var(--crisis-soft); color:#c92e26;}
 
   .history-item{border-bottom:1px solid var(--border); padding:10px 0; font-size:13px;}
   .history-item .when{color:var(--muted); font-size:11px;}
+  .score-pill{font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; flex-shrink:0;}
+  .score-pill.lo{background:var(--teal-soft); color:#0f7a5c;}
+  .score-pill.mid{background:var(--cbt-step-soft); color:#b9750a;}
+  .score-pill.hi{background:var(--crisis-soft); color:#c92e26;}
+
   table{width:100%; border-collapse:collapse; font-size:13px;}
   td,th{padding:6px 4px; border-bottom:1px solid var(--border); text-align:left;}
 
   .week-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; margin-bottom:8px;}
-  .week-grid .dcell{background:var(--card2); border-radius:8px; padding:6px 2px; font-size:11px;}
-  .week-grid .dcell.full{background:var(--accent); color:#fff;}
-  .week-grid .dcell.part{background:rgba(16,185,129,0.3);}
+  .week-grid .dcell{background:var(--bg); border-radius:8px; padding:6px 2px; font-size:11px;}
+  .week-grid .dcell.full{background:var(--teal); color:#fff;}
+  .week-grid .dcell.part{background:var(--teal-soft);}
 
-  .streak{font-size:32px; font-weight:800; color:var(--accent); text-align:center;}
-  .scriptbox{background:var(--card2); border-left:4px solid var(--primary); padding:14px;
+  .streak{font-size:30px; font-weight:800; color:var(--teal); text-align:center;}
+  .scriptbox{background:var(--purple-soft); border-left:4px solid var(--purple); padding:14px;
     border-radius:10px; font-size:15px; line-height:1.6; font-style:italic;}
+
+  .tabbar{display:flex; gap:6px; margin:14px 0 12px; overflow-x:auto;}
+  .tabbtn{flex:1; padding:9px 4px; border-radius:10px; border:1px solid var(--border); background:var(--card);
+    color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap;}
+  .tabbtn.active{background:var(--teal); color:#fff; border-color:var(--teal);}
 
   .stat-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
   .stat-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px; box-shadow:var(--shadow);}
-  .stat-card .num{font-size:24px; font-weight:800;}
-  .stat-card .lab{font-size:11px; color:var(--muted); margin-top:2px;}
+  .stat-card .lab{font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase;}
+  .stat-card .val{font-size:18px; font-weight:800; margin-top:6px;}
 
-  .tabbar{display:flex; gap:6px; margin-bottom:12px;}
-  .tabbtn{flex:1; padding:9px; border-radius:10px; border:1px solid var(--border); background:var(--card2);
-    color:var(--muted); font-size:12px; font-weight:700;}
-  .tabbtn.active{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .bar-row{margin-bottom:12px;}
+  .bar-row .bar-top{display:flex; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:5px;}
+  .bar-track{background:var(--bg); border-radius:6px; height:10px;}
+  .bar-fill{height:10px; border-radius:6px;}
+
+  .qa-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .qa-tile{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;
+    display:flex; align-items:center; gap:10px; box-shadow:var(--shadow);}
+  .qa-tile .ic-bubble{width:34px; height:34px;}
+  .qa-tile .qa-text b{display:block; font-size:13px;}
+  .qa-tile .qa-text span{font-size:11px; color:var(--muted);}
+
+  .legend-strip{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px;}
+  .legend-item{display:flex; align-items:flex-start; gap:8px; font-size:12px;}
+  .legend-item .dot{width:8px; height:8px; border-radius:50%; margin-top:4px; flex-shrink:0;}
+  .legend-item b{display:block; font-size:12px;}
+  .legend-item span{color:var(--muted); font-size:11px;}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="topbar">
-    <button class="iconbtn" onclick="App.go('settings')">☰</button>
-    <div class="brand">
-      <img src="mindshift-mark.png" alt="">
-      <h1>Mind<b>Shift</b></h1>
-    </div>
-    <button class="iconbtn" id="themeBtn" onclick="App.toggleTheme()">🌙</button>
-  </div>
-
-  <div class="legend">
-    <span class="dot"><span class="sw" style="background:var(--crisis)"></span>Crisis</span>
-    <span class="dot"><span class="sw" style="background:var(--cbt)"></span>CBT</span>
-    <span class="dot"><span class="sw" style="background:var(--strength)"></span>Strength</span>
-    <span class="dot"><span class="sw" style="background:var(--insight)"></span>Insights</span>
-  </div>
-
   <div class="screens" id="screens">
 
     <!-- HOME -->
     <div class="screen active" data-screen="home">
-      <button class="sos" onclick="App.go('crisisState')">🆘 I need help right now</button>
-      <div class="card">
-        <h3>How intense is this feeling, right now?</h3>
-        <div class="gauge-wrap">
-          <svg width="200" height="110" viewBox="0 0 200 110">
-            <path d="M14,100 A86,86 0 0 1 186,100" stroke="var(--border)" stroke-width="14" fill="none" stroke-linecap="round"/>
-            <defs>
-              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#10b981"/>
-                <stop offset="50%" stop-color="#f59e0b"/>
-                <stop offset="100%" stop-color="#ef4444"/>
-              </linearGradient>
-            </defs>
-            <path id="gaugeArc" d="M14,100 A86,86 0 0 1 186,100" stroke="url(#gaugeGrad)" stroke-width="14" fill="none"
-              stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="270"/>
-          </svg>
-          <div class="gauge-val" id="homeIntensityVal">3</div>
-          <div class="gauge-label">out of 10</div>
-        </div>
-        <input type="range" id="homeIntensity" min="0" max="10" value="3" oninput="App.homeIntensityChange()">
-        <button class="btn btn-primary" id="homeRouteBtn" onclick="App.homeRoute()">Continue</button>
+      <div class="home-header">
+        <button class="iconbtn" onclick="App.go('settings')">☰</button>
+        <div class="greet">Good to see you,</div>
+        <div class="avatar">🙂</div>
       </div>
+      <h2 class="home-title">How is your mind<br>right now?</h2>
+      <p class="muted">Slide to select intensity</p>
 
-      <h3>Quick access</h3>
-      <div class="qa-row">
-        <button class="qa-tile" onclick="App.go('cbtStep1')"><span class="emoji">🧠</span><span class="label">CBT Journal</span></button>
-        <button class="qa-tile" onclick="App.go('log')"><span class="emoji">💪</span><span class="label">Daily Strength</span></button>
-        <button class="qa-tile" onclick="App.go('insights')"><span class="emoji">📊</span><span class="label">Insights</span></button>
+      <div class="gauge-wrap">
+        <svg width="220" height="120" viewBox="0 0 220 120">
+          <path d="M16,108 A94,94 0 0 1 204,108" stroke="var(--border)" stroke-width="16" fill="none" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#34d399"/>
+              <stop offset="45%" stop-color="#fbbf24"/>
+              <stop offset="100%" stop-color="#f2645c"/>
+            </linearGradient>
+          </defs>
+          <path id="gaugeArc" d="M16,108 A94,94 0 0 1 204,108" stroke="url(#gaugeGrad)" stroke-width="16" fill="none"
+            stroke-linecap="round" stroke-dasharray="296" stroke-dashoffset="296"/>
+          <circle id="gaugeThumb" cx="16" cy="108" r="9" fill="#fff" stroke="var(--purple)" stroke-width="4"/>
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-val" id="homeIntensityVal">3</div>
+          <div class="gauge-unit">/10</div>
+        </div>
       </div>
+      <div class="gauge-labels"><span>Mild</span><span>Severe</span></div>
+      <input type="range" class="gaugeRange" id="homeIntensity" min="0" max="10" value="3" oninput="App.homeIntensityChange()">
+
+      <div class="card soft">
+        <p style="margin:0;">This helps us show the right support for you.</p>
+      </div>
+      <button class="btn btn-primary" id="homeRouteBtn" onclick="App.homeRoute()">Continue</button>
+      <div class="footnote">🔒 Your data is private &amp; secure</div>
+
+      <button class="sos" onclick="App.go('crisisStep1')">🆘 I need help right now</button>
 
       <div id="warningBannerHome"></div>
 
+      <h3>Quick access <span style="text-transform:none; font-weight:500;">(from anywhere)</span></h3>
+      <div class="qa-grid">
+        <button class="qa-tile" onclick="App.quickTool('breathe')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">🌬️</div>
+          <div class="qa-text"><b>Breathe</b><span>1 min</span></div>
+        </button>
+        <button class="qa-tile" onclick="App.quickTool('ground')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">✋</div>
+          <div class="qa-text"><b>Grounding</b><span>2 min</span></div>
+        </button>
+        <button class="qa-tile" onclick="App.quickTool('reality')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">🛡️</div>
+          <div class="qa-text"><b>Reality Check</b><span>30 sec</span></div>
+        </button>
+        <button class="qa-tile" onclick="App.quickTool('words')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">💬</div>
+          <div class="qa-text"><b>Calm Words</b><span>Read now</span></div>
+        </button>
+      </div>
+      <button class="btn btn-crisis" onclick="App.go('crisisStep1')">Open Crisis Mode</button>
+
       <div class="card">
         <h3>Help &amp; support</h3>
-        <button class="btn btn-ghost" onclick="App.go('crisisSafety')">📞 Crisis lines &amp; contacts</button>
-        <button class="btn btn-ghost" onclick="App.go('settings')">⚙️ Manage contacts &amp; settings</button>
+        <div class="icon-row" onclick="App.go('crisisSafety')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">📞</div>
+          <div><div class="ic-text"><b>Emergency?</b></div><div class="ic-sub">Call your local emergency number.</div></div>
+        </div>
+        <div class="icon-row" onclick="App.go('crisisSafety')">
+          <div class="ic-bubble icon-circle blue" style="margin:0;">💬</div>
+          <div><div class="ic-text"><b>Helpline</b></div><div class="ic-sub">Talk to a professional.</div></div>
+        </div>
+        <div class="icon-row" onclick="App.go('settings')">
+          <div class="ic-bubble icon-circle recovery" style="margin:0;">👥</div>
+          <div><div class="ic-text"><b>Trusted Contacts</b></div><div class="ic-sub">Reach out to someone you trust.</div></div>
+        </div>
+        <p class="muted center" style="margin-top:10px;">♡ You are not alone.</p>
       </div>
     </div>
 
-    <!-- CRISIS: state select -->
-    <div class="screen" data-screen="crisisState">
-      <div class="badge-row"><div class="badge crisis">🆘</div><h2 style="margin:0;">What's happening right now?</h2></div>
-      <p class="muted">Pick whichever fits closest. There's no wrong answer.</p>
-      <div class="card flush">
-        <div style="padding:6px;">
-          <button class="btn btn-ghost" onclick="App.selectState('Panic')">😰 Panic</button>
-          <button class="btn btn-ghost" onclick="App.selectState('Overwhelm')">🌊 Overwhelm</button>
-          <button class="btn btn-ghost" onclick="App.selectState('Intrusive thoughts')">🌀 Intrusive thoughts</button>
-          <button class="btn btn-ghost" onclick="App.selectState('Dissociation')">🫥 Dissociation</button>
-          <button class="btn btn-danger" onclick="App.selectState('Suicidal thoughts')">Thoughts of suicide / self-harm</button>
+    <!-- CRISIS step 1: You are safe -->
+    <div class="screen" data-screen="crisisStep1">
+      <div class="step-header"><span class="step-num crisis">1</span><span class="step-title">You are safe</span></div>
+      <div class="icon-circle crisis">❤️</div>
+      <h2 class="center">You are in a stress spike.</h2>
+      <p class="center">This will pass.</p>
+      <p class="muted center">Your nervous system is overactive.</p>
+      <button class="btn btn-crisis" onclick="App.go('crisisStep2')">Start Calming</button>
+      <button class="btn-link" onclick="App.go('crisisSafety')">Need immediate help? &rsaquo;</button>
+    </div>
+
+    <!-- CRISIS step 2: Breathe -->
+    <div class="screen" data-screen="crisisStep2">
+      <div class="step-header"><span class="step-num crisis">2</span><span class="step-title">Breathe</span></div>
+      <h2 class="center">Breathe with me</h2>
+      <p class="muted center">Follow the circle</p>
+      <div style="text-align:center;">
+        <div class="breath-circle" id="breathCircle">Breathe</div>
+      </div>
+      <div class="breath-phases">
+        <span id="phaseIn">Inhale 4 sec</span>
+        <span id="phaseHold">Hold 2 sec</span>
+        <span id="phaseOut">Exhale 6 sec</span>
+      </div>
+      <button class="btn btn-crisis" onclick="App.stopBreathingAndGo('crisisStep3')">I'm doing it</button>
+    </div>
+
+    <!-- CRISIS step 3: Grounding -->
+    <div class="screen" data-screen="crisisStep3">
+      <div class="step-header"><span class="step-num crisis">3</span><span class="step-title">Grounding</span></div>
+      <h2>Grounding Check</h2>
+      <p class="muted">Let's bring you back to the present.</p>
+      <div class="card" id="groundList"></div>
+      <button class="btn btn-crisis" onclick="App.go('crisisStep4')">Done</button>
+    </div>
+
+    <!-- CRISIS step 4: Reality Anchor -->
+    <div class="screen" data-screen="crisisStep4">
+      <div class="step-header"><span class="step-num crisis">4</span><span class="step-title">Reality Anchor</span></div>
+      <h2>Reality Check</h2>
+      <p class="muted">Remind yourself:</p>
+      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🕐</div><div class="ic-text">This feeling is temporary.</div></div>
+      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🧠</div><div class="ic-text">It is a stress response.</div></div>
+      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🛡️</div><div class="ic-text">You are safe in this moment.</div></div>
+      <button class="btn btn-crisis" onclick="App.go('crisisStep5')">Continue</button>
+    </div>
+
+    <!-- CRISIS step 5: Support -->
+    <div class="screen" data-screen="crisisStep5">
+      <div class="step-header"><span class="step-num crisis">5</span><span class="step-title">Support (if needed)</span></div>
+      <h2>Support Options</h2>
+      <p class="muted">You don't have to go through this alone.</p>
+      <div class="card">
+        <div class="icon-row" onclick="App.go('crisisSafety')">
+          <div class="ic-bubble icon-circle crisis" style="margin:0;">📞</div><div class="ic-text">Call someone you trust</div>
+        </div>
+        <div class="icon-row" onclick="App.go('crisisSafety')">
+          <div class="ic-bubble icon-circle blue" style="margin:0;">💬</div><div class="ic-text">Contact support service</div>
+        </div>
+        <div class="icon-row" onclick="App.go('settings')">
+          <div class="ic-bubble icon-circle recovery" style="margin:0;">👥</div><div class="ic-text">Stay with someone nearby</div>
         </div>
       </div>
-      <button class="btn btn-ghost" onclick="App.go('home')">Back</button>
+      <p class="muted center">If this is an emergency, call your local emergency number.</p>
+      <button class="btn btn-crisis" onclick="App.finishCrisis()">I'm okay now</button>
     </div>
 
-    <!-- CRISIS: safety gate -->
+    <!-- CRISIS: safety / hotline gate -->
     <div class="screen" data-screen="crisisSafety">
-      <div class="card" style="border:1px solid var(--danger);">
+      <div class="card" style="border:1px solid var(--crisis);">
         <h2>You're not alone in this.</h2>
         <p>This feeling is real and serious — and it can pass with help. Please reach out to a person right now, not just this app.</p>
-      </div>
-      <div class="card">
-        <h3>Do not stay alone</h3>
-        <p>If you can, go to where another person is, or call/text someone you trust right now.</p>
       </div>
       <div class="card">
         <h3>Crisis lines</h3>
@@ -252,151 +358,84 @@
         <div id="safetyContactList"><p class="muted">No contacts saved yet. Add them in Settings.</p></div>
         <button class="btn btn-ghost" onclick="App.go('settings')">Add an emergency contact</button>
       </div>
-      <div class="card">
-        <h3>Right now, only this</h3>
-        <p class="muted">No analysis, no journaling — just breathing and grounding until you're with someone.</p>
-        <button class="btn btn-primary" onclick="App.go('crisisStep2')">Start slow breathing</button>
-        <button class="btn btn-ghost" onclick="App.go('crisisStep1')">5-4-3-2-1 grounding</button>
-      </div>
+      <button class="btn btn-ghost" onclick="App.go('home')">Back to home</button>
     </div>
 
-    <!-- CRISIS step 1: grounding -->
-    <div class="screen" data-screen="crisisStep1">
-      <div class="badge-row"><div class="badge crisis">🖐️</div><h2 style="margin:0;">5-4-3-2-1 grounding</h2></div>
-      <div class="scriptbox" id="crisisScript"></div>
-      <div class="card">
-        <p class="muted">Name them in your head or out loud. Checking them off is optional.</p>
-        <div id="groundList"></div>
-      </div>
-      <button class="btn btn-primary" onclick="App.go('crisisStep2')">Next — breathing</button>
-      <button class="btn btn-ghost" onclick="App.go('crisisState')">Back</button>
-    </div>
-
-    <!-- CRISIS step 2: breathing -->
-    <div class="screen" data-screen="crisisStep2">
-      <div class="badge-row"><div class="badge crisis">🌬️</div><h2 style="margin:0;">Slow breathing</h2></div>
-      <div class="card" style="text-align:center;">
-        <div class="breath-circle" id="breathCircle">Breathe</div>
-        <p class="muted" id="breathPhase">Starting automatically…</p>
-      </div>
-      <button class="btn btn-primary" onclick="App.go('crisisStep3')">Next — cold reset</button>
-      <button class="btn btn-ghost" onclick="App.stopBreathingAndGo('crisisStep1')">Back</button>
-    </div>
-
-    <!-- CRISIS step 3: cold water -->
-    <div class="screen" data-screen="crisisStep3">
-      <div class="badge-row"><div class="badge crisis">💧</div><h2 style="margin:0;">Cold water reset</h2></div>
-      <div class="card">
-        <p>Splash cold water on your face, or hold a cold object (ice, a chilled can) against your cheeks and the back of your neck for 20–30 seconds.</p>
-        <p class="muted">This triggers the mammalian dive reflex and can slow a racing heart within seconds.</p>
-      </div>
-      <button class="btn btn-primary" onclick="App.go('crisisStep4')">Next — feet pressure</button>
-      <button class="btn btn-ghost" onclick="App.go('crisisStep2')">Back</button>
-    </div>
-
-    <!-- CRISIS step 4: feet pressure -->
-    <div class="screen" data-screen="crisisStep4">
-      <div class="badge-row"><div class="badge crisis">🦶</div><h2 style="margin:0;">Feet pressure exercise</h2></div>
-      <div class="card">
-        <p>Plant both feet flat on the floor. Press down hard through your heels and toes, like you're pushing the floor away. Hold for 10 seconds. Release. Repeat 5 times.</p>
-        <p class="muted">This pulls attention into the body and out of the spiral of thoughts.</p>
-      </div>
-      <button class="btn btn-primary" onclick="App.go('crisisStep5')">Check in with yourself</button>
-      <button class="btn btn-ghost" onclick="App.go('crisisStep3')">Back</button>
-    </div>
-
-    <!-- CRISIS step 5: check-in -->
-    <div class="screen" data-screen="crisisStep5">
-      <div class="badge-row"><div class="badge crisis">✅</div><h2 style="margin:0;">Check in with yourself</h2></div>
-      <div class="card">
-        <h3>How intense does it feel now?</h3>
-        <input type="range" id="checkinIntensity" min="0" max="10" value="5" oninput="App.checkinChange()">
-        <p class="muted" style="text-align:center;">Level: <span id="checkinVal">5</span> / 10</p>
-        <button class="btn btn-primary" onclick="App.finishCrisis()">Continue</button>
-      </div>
-    </div>
-
-    <!-- CRISIS: aftermath route -->
-    <div class="screen" data-screen="crisisAfter">
-      <div class="card" id="crisisAfterCard"></div>
+    <!-- CALM WORDS -->
+    <div class="screen" data-screen="calmWords">
+      <div class="step-header"><span class="step-num crisis">💬</span><span class="step-title">Calm Words</span></div>
+      <h2>Read these slowly</h2>
+      <div class="scriptbox">This is a stress spike, not danger. It feels intense, but it cannot hurt you. Your body is doing what bodies do under pressure — and it will settle. You have gotten through this before. You will get through it again. Just this breath. Just this moment.</div>
       <button class="btn btn-ghost" onclick="App.go('home')">Back to home</button>
     </div>
 
     <!-- CBT step 1: trigger -->
     <div class="screen" data-screen="cbtStep1">
-      <div class="badge-row"><div class="badge cbt">🧠</div><h2 style="margin:0;">What happened just before this spike?</h2></div>
-      <div class="step-dots"><span class="on"></span><span></span><span></span><span></span><span></span></div>
+      <div class="cbt-stepper"><span class="back" onclick="App.go('home')">&lsaquo;</span><span>1/5</span></div>
+      <div class="icon-circle cbt">📓</div>
+      <h2 class="center">What happened?</h2>
+      <p class="muted center">Describe the situation briefly.</p>
       <div class="card">
-        <textarea id="cbtTrigger" rows="4" placeholder="e.g. Got a message from my doctor about a med change..."></textarea>
-        <button class="btn btn-primary" onclick="App.cbtNext(1)">Next</button>
+        <textarea id="cbtTrigger" rows="4" placeholder="Write here..."></textarea>
       </div>
+      <button class="btn btn-primary" onclick="App.cbtNext(1)">Continue</button>
     </div>
 
     <!-- CBT step 2: automatic thought -->
     <div class="screen" data-screen="cbtStep2">
-      <div class="badge-row"><div class="badge cbt">💭</div><h2 style="margin:0;">What is your mind telling you will happen?</h2></div>
-      <div class="step-dots"><span class="on"></span><span class="on"></span><span></span><span></span><span></span></div>
+      <div class="cbt-stepper"><span class="back" onclick="App.go('cbtStep1')">&lsaquo;</span><span>2/5</span></div>
+      <div class="icon-circle cbt">💭</div>
+      <h2 class="center">What did your mind immediately say?</h2>
+      <p class="muted center">Capture the first thought that appeared.</p>
       <div class="card">
-        <textarea id="cbtThought" rows="4" placeholder="e.g. Something is seriously wrong with me..."></textarea>
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="App.go('cbtStep1')">Back</button>
-          <button class="btn btn-primary" onclick="App.cbtNext(2)">Next</button>
-        </div>
+        <textarea id="cbtThought" rows="4" placeholder="Write here..."></textarea>
       </div>
+      <button class="btn btn-primary" onclick="App.cbtNext(2)">Analyse Thought</button>
     </div>
 
-    <!-- CBT step 3: evidence -->
+    <!-- CBT step 3: distortions -->
     <div class="screen" data-screen="cbtStep3">
-      <div class="badge-row"><div class="badge cbt">⚖️</div><h2 style="margin:0;">Evidence check</h2></div>
-      <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
-      <div class="card">
-        <div class="evidence-cols">
-          <div class="col">
-            <label>Supports the thought</label>
-            <textarea id="cbtFor" rows="6"></textarea>
-          </div>
-          <div class="col">
-            <label>Against the thought</label>
-            <textarea id="cbtAgainst" rows="6"></textarea>
-          </div>
-        </div>
-        <div class="btn-row" style="margin-top:10px;">
-          <button class="btn btn-ghost" onclick="App.go('cbtStep2')">Back</button>
-          <button class="btn btn-primary" onclick="App.cbtNext(3)">Next</button>
-        </div>
+      <div class="cbt-stepper"><span class="back" onclick="App.go('cbtStep2')">&lsaquo;</span><span>3/5</span></div>
+      <div class="icon-circle cbt">🧠</div>
+      <h2 class="center">Thought Pattern Detected</h2>
+      <p class="muted center">We noticed some thinking patterns that may be intensifying this.</p>
+      <div class="card flush" style="padding:14px;">
+        <div class="chip-grid" id="distortionList"></div>
       </div>
+      <button class="btn btn-primary" onclick="App.cbtNext(3)">Check Evidence</button>
     </div>
 
-    <!-- CBT step 4: distortions -->
+    <!-- CBT step 4: evidence -->
     <div class="screen" data-screen="cbtStep4">
-      <div class="badge-row"><div class="badge cbt">🔍</div><h2 style="margin:0;">Does the thought match a pattern?</h2></div>
-      <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span></div>
-      <p class="muted">Tap any that fit. This is a self-check, not a diagnosis.</p>
-      <div id="distortionList"></div>
-      <div class="btn-row" style="margin-top:6px;">
-        <button class="btn btn-ghost" onclick="App.go('cbtStep3')">Back</button>
-        <button class="btn btn-primary" onclick="App.cbtNext(4)">Next</button>
+      <div class="cbt-stepper"><span class="back" onclick="App.go('cbtStep3')">&lsaquo;</span><span>4/5</span></div>
+      <div class="icon-circle cbt">⚖️</div>
+      <h2 class="center">Let's check the evidence</h2>
+      <p class="muted center">Is this thought 100% true?</p>
+      <div class="card">
+        <label>Evidence FOR this thought</label>
+        <textarea id="cbtFor" rows="3" placeholder="Write here..."></textarea>
+        <label>Evidence AGAINST this thought</label>
+        <textarea id="cbtAgainst" rows="3" placeholder="Write here..."></textarea>
       </div>
+      <button class="btn btn-primary" onclick="App.cbtNext(4)">Reframe</button>
     </div>
 
     <!-- CBT step 5: balanced thought -->
     <div class="screen" data-screen="cbtStep5">
-      <div class="badge-row"><div class="badge cbt">🌤️</div><h2 style="margin:0;">Build a balanced thought</h2></div>
-      <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+      <div class="cbt-stepper"><span class="back" onclick="App.go('cbtStep4')">&lsaquo;</span><span>5/5</span></div>
+      <div class="icon-circle recovery">🌱</div>
+      <h2 class="center">More balanced thought</h2>
+      <p class="muted center">Here's a more realistic way to see it:</p>
       <div class="card">
-        <p class="muted">"A more realistic interpretation might be…"</p>
-        <textarea id="cbtBalanced" rows="5" placeholder="e.g. This is uncomfortable, but my doctor is adjusting the dose because they're paying attention, not because something is wrong."></textarea>
-        <div class="btn-row">
-          <button class="btn btn-ghost" onclick="App.go('cbtStep4')">Back</button>
-          <button class="btn btn-primary" onclick="App.cbtSave()">Save entry</button>
-        </div>
+        <textarea id="cbtBalanced" rows="4" placeholder="This situation is uncomfortable, but not dangerous or permanent."></textarea>
       </div>
+      <button class="btn btn-primary" onclick="App.cbtSave()">Save Insight</button>
     </div>
 
     <!-- CBT saved confirmation -->
     <div class="screen" data-screen="cbtDone">
-      <div class="card" style="text-align:center;">
-        <div class="badge cbt" style="margin:0 auto 10px;">✅</div>
+      <div class="card center">
+        <div class="icon-circle recovery" style="margin:6px auto 16px;">✅</div>
         <h2>Saved</h2>
         <p class="muted">This entry is stored on your device so you can spot patterns later.</p>
         <button class="btn btn-primary" onclick="App.go('home')">Back to home</button>
@@ -404,82 +443,83 @@
       </div>
     </div>
 
-    <!-- LOG (Daily Strength + entries) -->
+    <!-- LOG (Daily Strength) -->
     <div class="screen" data-screen="log">
-      <div class="badge-row"><div class="badge strength">💪</div><h2 style="margin:0;">Daily Strength</h2></div>
+      <div class="step-header" style="margin-top:14px;"><span class="step-num recovery">💪</span><span class="step-title">Daily Strength</span></div>
       <p class="muted">Small, repeatable things that build resilience between panic episodes.</p>
-      <div class="card" style="text-align:center;">
+      <div class="card center">
         <div class="streak" id="streakCount">0</div>
         <p class="muted">day streak</p>
         <div class="week-grid" id="weekGrid"></div>
       </div>
       <div class="card flush">
-        <div id="strengthChecklist" style="padding:6px;"></div>
+        <div id="strengthChecklist" style="padding:6px 14px;"></div>
       </div>
       <div class="card">
         <h3>Note (optional)</h3>
         <textarea id="strengthNote" rows="2" placeholder="Anything you want to remember about today..." onblur="App.saveStrengthNote()"></textarea>
       </div>
-      <button class="btn btn-ghost" onclick="App.go('cbtStep1')">＋ New CBT journal entry</button>
-      <div class="card">
-        <h3>Recent entries</h3>
-        <div id="entryList"></div>
-      </div>
+      <button class="btn btn-ghost" onclick="App.go('cbtStep1')">+ New CBT journal entry</button>
     </div>
 
-    <!-- INSIGHTS -->
+    <!-- INSIGHTS (Recovery mode, 4 tabs) -->
     <div class="screen" data-screen="insights">
-      <div class="badge-row"><div class="badge insight">📊</div><h2 style="margin:0;">Insights</h2></div>
+      <div class="step-header" style="margin-top:14px;"><span class="step-num recovery">📈</span><span class="step-title">Recovery Mode</span></div>
       <div class="tabbar">
         <button class="tabbtn" data-tab="dashboard" onclick="App.insightsTab('dashboard')">Dashboard</button>
-        <button class="tabbtn" data-tab="weekly" onclick="App.insightsTab('weekly')">Weekly</button>
+        <button class="tabbtn" data-tab="entries" onclick="App.insightsTab('entries')">Entries</button>
+        <button class="tabbtn" data-tab="weekly" onclick="App.insightsTab('weekly')">Insights</button>
         <button class="tabbtn" data-tab="triggers" onclick="App.insightsTab('triggers')">Triggers</button>
       </div>
       <div id="warningBannerHistory"></div>
 
       <div id="insightsDashboard">
-        <div class="stat-row">
-          <div class="stat-card"><div class="num" id="statEntries">0</div><div class="lab">Entries logged</div></div>
-          <div class="stat-card"><div class="num" id="statStreak">0</div><div class="lab">Day streak</div></div>
-        </div>
+        <h2>Dashboard</h2>
         <div class="card">
-          <h3>Mood trend</h3>
-          <svg id="sparkline" width="100%" height="80" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
+          <h3>Average mood</h3>
+          <div style="display:flex; align-items:baseline; gap:6px;">
+            <div style="font-size:28px; font-weight:800;" id="statAvgMood">—</div>
+            <div class="muted">/10 this week</div>
+          </div>
+          <svg id="sparkline" width="100%" height="70" viewBox="0 0 300 70" preserveAspectRatio="none" style="margin-top:8px;"></svg>
         </div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="lab">High Stress Time</div><div class="val" id="statHighTime">—</div></div>
+          <div class="stat-card"><div class="lab">Top Trigger</div><div class="val" id="statTopTrigger">—</div></div>
+        </div>
+      </div>
+
+      <div id="insightsEntries" style="display:none;">
+        <h2>Recent Entries</h2>
+        <div class="card" id="entryList"></div>
       </div>
 
       <div id="insightsWeekly" style="display:none;">
-        <div class="card">
-          <h3>Time of day</h3>
-          <div id="todChart"></div>
-        </div>
-        <div class="card">
-          <h3>This week's notes</h3>
-          <div id="weeklyNotes"></div>
-        </div>
+        <h2 class="center">Weekly Insight</h2>
+        <div class="icon-circle blue" style="width:88px; height:88px; font-size:38px;">💡</div>
+        <p class="center">You've had more stress episodes on days with:</p>
+        <div class="card" id="weeklyInsightList"></div>
+        <button class="btn btn-primary" onclick="App.insightsTab('triggers')">View Details</button>
       </div>
 
       <div id="insightsTriggers" style="display:none;">
-        <div class="card">
-          <h3>Common triggers</h3>
-          <div id="triggerChart"></div>
-        </div>
+        <h2>Top Triggers</h2>
+        <div class="card" id="triggerBars"></div>
+        <p class="muted center">Based on last 14 days</p>
         <div class="card">
           <h3>Medication log</h3>
           <input type="date" id="medDate">
           <label>Medication / change</label>
           <input type="text" id="medName" placeholder="e.g. Started sertraline 50mg">
-          <label>Notes</label>
-          <input type="text" id="medNotes" placeholder="optional">
-          <button class="btn btn-primary" onclick="App.addMedEntry()">Add entry</button>
+          <button class="btn btn-primary" style="margin-top:10px;" onclick="App.addMedEntry()">Add entry</button>
           <div id="medList" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>
 
-    <!-- SETTINGS -->
+    <!-- SETTINGS / ABOUT -->
     <div class="screen" data-screen="settings">
-      <h2>⚙️ Settings</h2>
+      <h2 style="margin-top:14px;">⚙️ Settings</h2>
       <div class="card">
         <h3>Appearance</h3>
         <button class="btn btn-ghost" onclick="App.toggleTheme()">Toggle light / dark mode</button>
@@ -488,12 +528,22 @@
         <h3>Emergency contacts</h3>
         <input type="text" id="contactName" placeholder="Name">
         <input type="text" id="contactPhone" placeholder="Phone number" style="margin-top:6px;">
-        <button class="btn btn-primary" onclick="App.addContact()">Add contact</button>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="App.addContact()">Add contact</button>
         <div id="contactList" style="margin-top:10px;"></div>
       </div>
       <div class="card">
         <h3>Crisis line region</h3>
         <div class="chip-grid" id="regionChips"></div>
+      </div>
+      <div class="card">
+        <h3>About MindShift</h3>
+        <div class="legend-strip">
+          <div class="legend-item"><span class="dot" style="background:var(--crisis);"></span><div><b>Crisis Mode</b><span>For intense overwhelm</span></div></div>
+          <div class="legend-item"><span class="dot" style="background:var(--purple);"></span><div><b>CBT Mode</b><span>For reframing distorted thoughts</span></div></div>
+          <div class="legend-item"><span class="dot" style="background:var(--teal);"></span><div><b>Recovery Mode</b><span>For tracking &amp; building resilience</span></div></div>
+          <div class="legend-item"><span class="dot" style="background:var(--muted);"></span><div><b>Private</b><span>Your data stays with you</span></div></div>
+          <div class="legend-item"><span class="dot" style="background:var(--blue);"></span><div><b>Offline First</b><span>Works anytime, anywhere</span></div></div>
+        </div>
       </div>
       <div class="card">
         <h3>Data</h3>
@@ -508,12 +558,11 @@
   <div class="bottomnav">
     <button class="navbtn" data-nav="home" onclick="App.go('home')"><span class="ic">🏠</span>Home</button>
     <button class="navbtn" data-nav="log" onclick="App.go('log')"><span class="ic">📝</span>Log</button>
-    <button class="navbtn" data-nav="insights" onclick="App.go('insights')"><span class="ic">📊</span>Insights</button>
+    <button class="navbtn" data-nav="insights" onclick="App.go('insights')"><span class="ic">📈</span>Insights</button>
   </div>
 </div>
 
 <script>
-/* ---------- Native haptics bridge (graceful no-op if absent) ---------- */
 function haptic(kind){
   try{
     if (window.AndroidBridge){
@@ -526,7 +575,6 @@ function haptic(kind){
   }catch(e){}
 }
 
-/* ---------- Storage ---------- */
 const STORAGE_KEY = 'mindshift_data_v1';
 function loadData(){
   try{
@@ -539,35 +587,24 @@ function saveData(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
 let DATA = loadData();
 if (!DATA.settings) DATA.settings = {region:'global', theme:null};
 
-function todayKey(d){
-  d = d || new Date();
-  return d.toISOString().slice(0,10);
-}
+function todayKey(d){ d = d || new Date(); return d.toISOString().slice(0,10); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
-/* ---------- Content data ---------- */
-const SCRIPTS = {
-  'Panic': "This is a panic surge. It feels dangerous, but it is temporary. Your brain is misfiring stress signals. It will pass.",
-  'Overwhelm': "There is too much happening at once. You don't have to solve all of it right now — just this next minute.",
-  'Intrusive thoughts': "This is a thought, not a fact and not a plan. Thoughts arrive uninvited. You don't have to fight it — just let it pass through.",
-  'Dissociation': "You are safe, even if it doesn't feel real right now. This is your mind protecting you. Slowly come back to your senses, one at a time."
-};
-
 const GROUNDING = [
-  {n:5, label:'things you can see'},
-  {n:4, label:'things you can hear'},
-  {n:3, label:'things you can touch'},
-  {n:2, label:'things you can smell'},
-  {n:1, label:'thing you can taste'}
+  {n:5, label:'things you see', icon:'👁️'},
+  {n:4, label:'things you feel', icon:'✋'},
+  {n:3, label:'things you hear', icon:'👂'},
+  {n:2, label:'things you smell', icon:'👃'},
+  {n:1, label:'thing you taste', icon:'👅'}
 ];
 
 const DISTORTIONS = [
-  {key:'catastrophising', name:'Catastrophising', desc:'Jumping to the worst possible outcome.'},
-  {key:'fortune', name:'Fortune telling', desc:'Predicting the future as if it were certain.'},
-  {key:'emotional', name:'Emotional reasoning', desc:'"I feel it, so it must be true."'},
-  {key:'overgeneral', name:'Overgeneralisation', desc:'One bad moment becomes "always" or "never".'},
-  {key:'mindreading', name:'Mind reading', desc:'Assuming you know what others think of you.'},
-  {key:'allnothing', name:'All-or-nothing thinking', desc:'Seeing things as only totally fine or a complete disaster.'}
+  {key:'catastrophising', name:'Catastrophising'},
+  {key:'fortune', name:'Future Prediction'},
+  {key:'emotional', name:'Emotional Reasoning'},
+  {key:'overgeneral', name:'Overgeneralisation'},
+  {key:'mindreading', name:'Mind Reading'},
+  {key:'allnothing', name:'All-or-Nothing'}
 ];
 
 const STRENGTH_ITEMS = [
@@ -580,36 +617,19 @@ const STRENGTH_ITEMS = [
 ];
 
 const HOTLINES = {
-  global: [
-    {name:'Find a local helpline', phone:'', note:'befrienders.org lists crisis lines by country'},
-  ],
-  us: [
-    {name:'988 Suicide & Crisis Lifeline (US/Canada)', phone:'988'},
-  ],
-  uk: [
-    {name:'Samaritans (UK & Ireland)', phone:'116123'},
-  ],
-  india: [
-    {name:'iCall', phone:'9152987821'},
-    {name:'KIRAN Mental Health Helpline', phone:'18005990019'},
-  ]
+  global: [ {name:'Find a local helpline', phone:'', note:'befrienders.org lists crisis lines by country'} ],
+  us: [ {name:'988 Suicide & Crisis Lifeline (US/Canada)', phone:'988'} ],
+  uk: [ {name:'Samaritans (UK & Ireland)', phone:'116123'} ],
+  india: [ {name:'iCall', phone:'9152987821'}, {name:'KIRAN Mental Health Helpline', phone:'18005990019'} ]
 };
 
-/* ---------- Theme ---------- */
 function initTheme(){
   let t = DATA.settings.theme;
-  if (!t){
-    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-  }
+  if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   applyTheme(t);
 }
-function applyTheme(t){
-  document.documentElement.setAttribute('data-theme', t);
-  const btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
-}
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
 
-/* ---------- Navigation ---------- */
 let currentScreen = 'home';
 let breathingTimer = null;
 let insightsActiveTab = 'dashboard';
@@ -624,15 +644,16 @@ const App = {
     document.querySelectorAll('.navbtn').forEach(b=>{
       b.classList.toggle('active', b.dataset.nav===screen ||
         (screen.indexOf('cbt')===0 && b.dataset.nav==='log') ||
-        (screen.indexOf('crisis')===0 && b.dataset.nav==='home'));
+        (screen.indexOf('crisis')===0 && b.dataset.nav==='home') ||
+        (screen==='calmWords' && b.dataset.nav==='home'));
     });
     document.getElementById('screens').scrollTop = 0;
-    if (screen==='crisisStep1') renderGrounding();
+    if (screen==='crisisStep3') renderGrounding();
     if (screen==='crisisStep2') this.startBreathing();
+    if (screen==='crisisSafety') renderSafety();
     if (screen==='log') renderStrength();
     if (screen==='insights') renderInsights();
-    if (screen==='cbtStep4') renderDistortions();
-    if (screen==='crisisSafety') renderSafety();
+    if (screen==='cbtStep3') renderDistortions();
     if (screen==='settings') renderSettings();
     if (screen==='home') renderHome();
   },
@@ -645,7 +666,6 @@ const App = {
     applyTheme(next);
   },
 
-  /* ----- Home ----- */
   homeIntensityChange(){
     const v = parseInt(document.getElementById('homeIntensity').value, 10);
     document.getElementById('homeIntensityVal').textContent = v;
@@ -653,66 +673,35 @@ const App = {
   },
   homeRoute(){
     const v = parseInt(document.getElementById('homeIntensity').value, 10);
-    if (v >= 6) this.go('crisisState');
+    this.pendingIntensity = v;
+    if (v >= 6) this.go('crisisStep1');
     else this.go('cbtStep1');
   },
 
-  /* ----- Crisis flow ----- */
-  pendingEntry: null,
-  selectState(state){
-    this.pendingEntry = { id: uid(), ts: Date.now(), state, intensityBefore: null, intensityAfter: null };
-    if (state === 'Suicidal thoughts'){
-      this.go('crisisSafety');
-      return;
-    }
-    document.getElementById('crisisScript').textContent = SCRIPTS[state] || '';
-    this.go('crisisStep1');
+  quickTool(kind){
+    if (kind==='breathe') this.go('crisisStep2');
+    else if (kind==='ground') this.go('crisisStep3');
+    else if (kind==='reality') this.go('crisisStep4');
+    else if (kind==='words') this.go('calmWords');
   },
 
-  checkinChange(){
-    document.getElementById('checkinVal').textContent = document.getElementById('checkinIntensity').value;
-  },
   finishCrisis(){
-    const v = parseInt(document.getElementById('checkinIntensity').value, 10);
-    if (this.pendingEntry){
-      this.pendingEntry.intensityAfter = v;
-      DATA.entries.unshift(this.pendingEntry);
-      saveData();
-    }
-    const card = document.getElementById('crisisAfterCard');
-    if (v <= 5){
-      card.innerHTML = '<h2>Good — that eased a little</h2>'+
-        '<p>Now might be a good time to look at the thought underneath this, if you want to.</p>'+
-        '<button class="btn btn-primary" onclick="App.go(\'cbtStep1\')">Start CBT journal</button>'+
-        '<button class="btn btn-ghost" onclick="App.go(\'home\')">Not now, just rest</button>';
-    } else {
-      card.innerHTML = '<h2>Still high — that\'s okay</h2>'+
-        '<p>No need to think it through yet. Try another grounding tool, or reach out to someone.</p>'+
-        '<button class="btn btn-primary" onclick="App.go(\'crisisStep1\')">Try another tool</button>'+
-        '<button class="btn btn-ghost" onclick="App.go(\'settings\')">View my contacts</button>';
-    }
-    this.go('crisisAfter');
+    DATA.entries.unshift({ id: uid(), ts: Date.now(), state:'Crisis', intensityBefore: this.pendingIntensity!=null?this.pendingIntensity:null, intensityAfter:null });
+    saveData();
+    this.go('home');
   },
 
-  /* ----- Breathing tool: inhale 4s, hold 2s, exhale 6s ----- */
   startBreathing(){
     if (breathingTimer) return;
     const circle = document.getElementById('breathCircle');
-    const phaseLabel = document.getElementById('breathPhase');
+    const pIn = document.getElementById('phaseIn'), pHold = document.getElementById('phaseHold'), pOut = document.getElementById('phaseOut');
+    const setPhase = (el)=>{ [pIn,pHold,pOut].forEach(s=>s.classList.remove('on')); if (el) el.classList.add('on'); };
     const cycle = ()=>{
-      circle.className='breath-circle in';
-      circle.textContent='Breathe in';
-      phaseLabel.textContent='Inhale for 4 seconds';
-      haptic('in');
+      circle.className='breath-circle in'; circle.textContent='Breathe in'; setPhase(pIn); haptic('in');
       breathingTimer = setTimeout(()=>{
-        circle.className='breath-circle hold';
-        circle.textContent='Hold';
-        phaseLabel.textContent='Hold for 2 seconds';
+        circle.className='breath-circle hold'; circle.textContent='Hold'; setPhase(pHold);
         breathingTimer = setTimeout(()=>{
-          circle.className='breath-circle out';
-          circle.textContent='Breathe out';
-          phaseLabel.textContent='Exhale slowly for 6 seconds';
-          haptic('out');
+          circle.className='breath-circle out'; circle.textContent='Breathe out'; setPhase(pOut); haptic('out');
           breathingTimer = setTimeout(cycle, 6000);
         }, 2000);
       }, 4000);
@@ -723,22 +712,18 @@ const App = {
     if (breathingTimer){ clearTimeout(breathingTimer); breathingTimer=null; }
     const circle = document.getElementById('breathCircle');
     if (circle){ circle.className='breath-circle'; circle.textContent='Breathe'; }
-    const phaseLabel = document.getElementById('breathPhase');
-    if (phaseLabel) phaseLabel.textContent='Starting automatically…';
+    ['phaseIn','phaseHold','phaseOut'].forEach(id=>{ const el=document.getElementById(id); if (el) el.classList.remove('on'); });
   },
   stopBreathingAndGo(screen){ this.stopBreathing(); this.go(screen); },
 
-  /* ----- CBT wizard ----- */
   cbtDraft: {},
   cbtNext(step){
     if (step===1) this.cbtDraft.trigger = document.getElementById('cbtTrigger').value;
     if (step===2) this.cbtDraft.thought = document.getElementById('cbtThought').value;
-    if (step===3){
+    if (step===3){ this.cbtDraft.distortions = Array.from(document.querySelectorAll('.distortion.selected')).map(el=>el.dataset.key); }
+    if (step===4){
       this.cbtDraft.evidenceFor = document.getElementById('cbtFor').value;
       this.cbtDraft.evidenceAgainst = document.getElementById('cbtAgainst').value;
-    }
-    if (step===4){
-      this.cbtDraft.distortions = Array.from(document.querySelectorAll('.distortion.selected')).map(el=>el.dataset.key);
     }
     this.go('cbtStep'+(step+1));
   },
@@ -752,13 +737,10 @@ const App = {
     });
     saveData();
     this.cbtDraft = {};
-    ['cbtTrigger','cbtThought','cbtFor','cbtAgainst','cbtBalanced'].forEach(id=>{
-      const el = document.getElementById(id); if (el) el.value='';
-    });
+    ['cbtTrigger','cbtThought','cbtFor','cbtAgainst','cbtBalanced'].forEach(id=>{ const el = document.getElementById(id); if (el) el.value=''; });
     this.go('cbtDone');
   },
 
-  /* ----- Daily strength ----- */
   toggleStrength(key){
     const k = todayKey();
     DATA.daily[k] = DATA.daily[k] || {};
@@ -773,20 +755,16 @@ const App = {
     saveData();
   },
 
-  /* ----- Medication log ----- */
   addMedEntry(){
     const date = document.getElementById('medDate').value || todayKey();
     const name = document.getElementById('medName').value.trim();
-    const notes = document.getElementById('medNotes').value.trim();
     if (!name) return;
-    DATA.meds.unshift({id: uid(), date, name, notes});
+    DATA.meds.unshift({id: uid(), date, name});
     saveData();
     document.getElementById('medName').value='';
-    document.getElementById('medNotes').value='';
     renderInsights();
   },
 
-  /* ----- Contacts / settings ----- */
   addContact(){
     const name = document.getElementById('contactName').value.trim();
     const phone = document.getElementById('contactPhone').value.trim();
@@ -797,16 +775,8 @@ const App = {
     document.getElementById('contactPhone').value='';
     renderSettings();
   },
-  removeContact(id){
-    DATA.contacts = DATA.contacts.filter(c=>c.id!==id);
-    saveData();
-    renderSettings();
-  },
-  setRegion(region){
-    DATA.settings.region = region;
-    saveData();
-    renderSettings();
-  },
+  removeContact(id){ DATA.contacts = DATA.contacts.filter(c=>c.id!==id); saveData(); renderSettings(); },
+  setRegion(region){ DATA.settings.region = region; saveData(); renderSettings(); },
   clearData(){
     if (confirm('This deletes all journal entries, contacts, and habit history from this device. Continue?')){
       const theme = DATA.settings.theme;
@@ -820,24 +790,26 @@ const App = {
     insightsActiveTab = tab;
     document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
     document.getElementById('insightsDashboard').style.display = tab==='dashboard' ? '' : 'none';
+    document.getElementById('insightsEntries').style.display = tab==='entries' ? '' : 'none';
     document.getElementById('insightsWeekly').style.display = tab==='weekly' ? '' : 'none';
     document.getElementById('insightsTriggers').style.display = tab==='triggers' ? '' : 'none';
   }
 };
 
-/* ---------- Gauge ---------- */
 function updateGauge(v){
   const arc = document.getElementById('gaugeArc');
+  const thumb = document.getElementById('gaugeThumb');
   if (!arc) return;
-  const total = 270;
-  const offset = total - (total * (v/10));
-  arc.setAttribute('stroke-dashoffset', offset);
+  const total = 296;
+  arc.setAttribute('stroke-dashoffset', total - total*(v/10));
+  const cx=110, cy=108, r=94;
+  const angle = Math.PI - (Math.PI * (v/10));
+  thumb.setAttribute('cx', cx + r*Math.cos(angle));
+  thumb.setAttribute('cy', cy - r*Math.sin(angle));
 }
 
-/* ---------- Render helpers ---------- */
 function renderHome(){
-  const banner = computeWarning();
-  document.getElementById('warningBannerHome').innerHTML = banner || '';
+  document.getElementById('warningBannerHome').innerHTML = computeWarning() || '';
   updateGauge(parseInt(document.getElementById('homeIntensity').value, 10));
 }
 
@@ -848,26 +820,21 @@ function renderSafety(){
     h.phone ? `<button class="btn btn-ghost" onclick="location.href='tel:${h.phone}'">📞 ${h.name} — ${h.phone}</button>`
             : `<p class="muted">${h.name}${h.note ? ' — '+h.note : ''}</p>`
   ).join('');
-
   const contactsEl = document.getElementById('safetyContactList');
   if (DATA.contacts.length){
-    contactsEl.innerHTML = DATA.contacts.map(c=>
-      `<button class="btn btn-ghost" onclick="location.href='tel:${c.phone}'">📞 ${c.name}</button>`
-    ).join('');
+    contactsEl.innerHTML = DATA.contacts.map(c=>`<button class="btn btn-ghost" onclick="location.href='tel:${c.phone}'">📞 ${c.name}</button>`).join('');
   }
 }
 
 function renderGrounding(){
-  document.getElementById('groundList').innerHTML = GROUNDING.map((g,i)=>
-    `<div class="check-item"><input type="checkbox" id="g${i}"><label class="ctext" for="g${i}">${g.n} ${g.label}</label></div>`
+  document.getElementById('groundList').innerHTML = GROUNDING.map(g=>
+    `<div class="icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">${g.icon}</div><div class="ic-text"><b>${g.n}</b> ${g.label}</div></div>`
   ).join('');
 }
 
 function renderDistortions(){
   document.getElementById('distortionList').innerHTML = DISTORTIONS.map(d=>
-    `<div class="distortion" data-key="${d.key}" onclick="this.classList.toggle('selected')">
-       <div class="dname">${d.name}</div><div class="ddesc">${d.desc}</div>
-     </div>`
+    `<span class="chip" data-key="${d.key}" onclick="this.classList.toggle('selected')">${d.name}</span>`
   ).join('');
 }
 
@@ -881,10 +848,7 @@ function renderStrength(){
      </div>`
   ).join('');
   document.getElementById('strengthNote').value = today.note || '';
-
-  const streak = computeStreak();
-  document.getElementById('streakCount').textContent = streak;
-
+  document.getElementById('streakCount').textContent = computeStreak();
   let html = '';
   for (let i=6;i>=0;i--){
     const d = new Date(); d.setDate(d.getDate()-i);
@@ -894,8 +858,6 @@ function renderStrength(){
     html += `<div class="dcell ${cls}">${d.toLocaleDateString(undefined,{weekday:'short'}).slice(0,2)}</div>`;
   }
   document.getElementById('weekGrid').innerHTML = html;
-
-  document.getElementById('entryList').innerHTML = renderEntryList(DATA.entries.slice(0,8));
 }
 
 function computeStreak(){
@@ -909,21 +871,15 @@ function computeStreak(){
   return streak;
 }
 
-function renderEntryList(list){
-  return list.map(e=>{
-    const when = new Date(e.ts).toLocaleString();
-    if (e.type==='cbt'){
-      return `<div class="history-item"><div class="when">${when} · CBT</div>
-        <div><b>Trigger:</b> ${escapeHtml(e.trigger||'')}</div>
-        <div><b>Balanced thought:</b> ${escapeHtml(e.balanced||'')}</div></div>`;
-    }
-    return `<div class="history-item"><div class="when">${when} · ${e.state}</div>
-      <div>Intensity ${e.intensityBefore!=null?e.intensityBefore:'-'} → ${e.intensityAfter!=null?e.intensityAfter:'-'}</div></div>`;
-  }).join('') || '<p class="muted">Nothing logged yet.</p>';
-}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-function escapeHtml(s){
-  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function scoreClass(v){ if (v==null) return 'mid'; if (v>=7) return 'hi'; if (v>=4) return 'mid'; return 'lo'; }
+function dayLabel(ts){
+  const d = new Date(ts), now = new Date();
+  const diffDays = Math.floor((todayKey(now)===todayKey(d)) ? 0 : (now - new Date(d.toDateString()))/86400000);
+  if (todayKey(d)===todayKey(now)) return 'Today';
+  if (diffDays===1) return 'Yesterday';
+  return diffDays + ' days ago';
 }
 
 function renderSettings(){
@@ -931,7 +887,6 @@ function renderSettings(){
     `<div class="check-item"><span class="ctext">${escapeHtml(c.name)} — ${escapeHtml(c.phone)}</span>
      <button class="iconbtn" onclick="App.removeContact('${c.id}')">✕</button></div>`
   ).join('') || '<p class="muted">No contacts saved.</p>';
-
   const region = DATA.settings.region || 'global';
   const regions = [['global','Global'],['us','US/Canada'],['uk','UK/Ireland'],['india','India']];
   document.getElementById('regionChips').innerHTML = regions.map(([key,label])=>
@@ -941,61 +896,79 @@ function renderSettings(){
 
 function renderInsights(){
   document.getElementById('warningBannerHistory').innerHTML = computeWarning() || '';
-  document.getElementById('statEntries').textContent = DATA.entries.length;
-  document.getElementById('statStreak').textContent = computeStreak();
+
+  const week = DATA.entries.filter(e=>Date.now()-e.ts < 1000*60*60*24*7 && e.intensityBefore!=null);
+  const avg = week.length ? (week.reduce((s,e)=>s+e.intensityBefore,0)/week.length).toFixed(1) : '—';
+  document.getElementById('statAvgMood').textContent = avg;
   drawSparkline();
 
-  // time of day buckets
-  const buckets = {Morning:0, Afternoon:0, Evening:0, Night:0};
-  DATA.entries.forEach(e=>{
-    const h = new Date(e.ts).getHours();
-    if (h>=5 && h<12) buckets.Morning++;
-    else if (h>=12 && h<17) buckets.Afternoon++;
-    else if (h>=17 && h<22) buckets.Evening++;
-    else buckets.Night++;
-  });
-  const maxB = Math.max(1, ...Object.values(buckets));
-  document.getElementById('todChart').innerHTML = Object.entries(buckets).map(([label,count])=>
-    `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-       <span style="width:70px; font-size:12px;" class="muted">${label}</span>
-       <div style="flex:1; background:var(--card2); border-radius:6px; height:10px;">
-         <div style="width:${(count/maxB)*100}%; background:var(--primary); height:10px; border-radius:6px;"></div>
-       </div>
-       <span style="font-size:12px;">${count}</span>
-     </div>`
-  ).join('') || '<p class="muted">No entries yet.</p>';
+  const hourCounts = {};
+  DATA.entries.forEach(e=>{ const h = new Date(e.ts).getHours(); hourCounts[h] = (hourCounts[h]||0)+1; });
+  const topHour = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('statHighTime').textContent = topHour ? fmtHourRange(parseInt(topHour[0],10)) : '—';
 
-  // weekly notes
-  let notesHtml = '';
-  for (let i=6;i>=0;i--){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const day = DATA.daily[todayKey(d)];
-    if (day && day.note){
-      notesHtml += `<div class="history-item"><div class="when">${d.toLocaleDateString()}</div><div>${escapeHtml(day.note)}</div></div>`;
-    }
-  }
-  document.getElementById('weeklyNotes').innerHTML = notesHtml || '<p class="muted">No notes this week.</p>';
+  const tally = triggerTally();
+  const topTrig = Object.entries(tally).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('statTopTrigger').textContent = topTrig ? topTrig[0] : '—';
 
-  // trigger keyword tally
-  const tally = {};
-  DATA.entries.filter(e=>e.trigger).forEach(e=>{
-    e.trigger.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3).forEach(w=>{
-      tally[w] = (tally[w]||0)+1;
-    });
-  });
-  const top = Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  document.getElementById('triggerChart').innerHTML = top.length
-    ? `<div class="chip-grid">${top.map(([w,c])=>`<span class="chip">${w} (${c})</span>`).join('')}</div>`
+  document.getElementById('entryList').innerHTML = DATA.entries.slice(0,20).map(e=>{
+    const when = new Date(e.ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+    const label = e.type==='cbt' ? 'CBT Entry' : (e.state||'Crisis');
+    const score = e.intensityBefore!=null ? e.intensityBefore : (e.intensityAfter!=null ? e.intensityAfter : null);
+    return `<div class="history-item" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><div class="when">${dayLabel(e.ts)}</div><div>${when} &middot; ${escapeHtml(label)}</div></div>
+      ${score!=null ? `<span class="score-pill ${scoreClass(score)}">${score}/10</span>` : ''}
+    </div>`;
+  }).join('') || '<p class="muted">Nothing logged yet.</p>';
+
+  const weeklyFactors = [];
+  if (avgStrengthRecent() < 0.4) weeklyFactors.push({icon:'🌙', label:'Poor sleep'});
+  if (week.length >= 3) weeklyFactors.push({icon:'📊', label:'High workload'});
+  if (DATA.entries.some(e=>new Date(e.ts).getHours()>=22 || new Date(e.ts).getHours()<5)) weeklyFactors.push({icon:'🕐', label:'Late night overthinking'});
+  document.getElementById('weeklyInsightList').innerHTML = weeklyFactors.length
+    ? weeklyFactors.map(f=>`<div class="icon-row"><div class="ic-bubble icon-circle blue" style="margin:0;">${f.icon}</div><div class="ic-text">${f.label}</div></div>`).join('')
+    : '<p class="muted">Not enough data yet — keep logging to see patterns.</p>';
+
+  const top = Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const total = top.reduce((s,[,c])=>s+c,0) || 1;
+  const colors = ['var(--crisis)','var(--blue)','var(--purple)','var(--cbt-step)'];
+  document.getElementById('triggerBars').innerHTML = top.length
+    ? top.map(([w,c],i)=>{
+        const pct = Math.round((c/total)*100);
+        return `<div class="bar-row"><div class="bar-top"><span>${w}</span><span>${pct}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:${colors[i%colors.length]};"></div></div></div>`;
+      }).join('')
     : '<p class="muted">Add a few CBT entries to see trigger patterns.</p>';
 
-  // med list
   document.getElementById('medList').innerHTML = DATA.meds.length
-    ? `<table><tr><th>Date</th><th>Change</th><th>Notes</th></tr>` +
-      DATA.meds.map(m=>`<tr><td>${m.date}</td><td>${m.name}</td><td>${m.notes||''}</td></tr>`).join('') +
-      `</table>`
+    ? `<table><tr><th>Date</th><th>Change</th></tr>` + DATA.meds.map(m=>`<tr><td>${m.date}</td><td>${escapeHtml(m.name)}</td></tr>`).join('') + `</table>`
     : '<p class="muted">No medication changes logged.</p>';
 
   App.insightsTab(insightsActiveTab);
+}
+
+function fmtHourRange(h){
+  const fmt = (x)=>{ const hh = x%24; const period = hh<12?'am':'pm'; let disp = hh%12; if (disp===0) disp=12; return disp+period; };
+  return fmt(h) + ' – ' + fmt(h+3);
+}
+
+function triggerTally(){
+  const tally = {};
+  DATA.entries.filter(e=>e.trigger).forEach(e=>{
+    e.trigger.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3).forEach(w=>{ tally[w] = (tally[w]||0)+1; });
+  });
+  return tally;
+}
+
+function avgStrengthRecent(){
+  let score = 0, days = 0;
+  for (let i=0;i<3;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const day = DATA.daily[todayKey(d)];
+    days++;
+    if (day) score += STRENGTH_ITEMS.filter(it=>day[it.key]).length;
+  }
+  return score / (days * STRENGTH_ITEMS.length);
 }
 
 function drawSparkline(){
@@ -1005,45 +978,26 @@ function drawSparkline(){
     const d = new Date(); d.setDate(d.getDate()-i);
     const k = todayKey(d);
     const dayEntries = DATA.entries.filter(e=>todayKey(new Date(e.ts))===k && e.intensityBefore!=null);
-    if (dayEntries.length){
-      const avg = dayEntries.reduce((s,e)=>s+e.intensityBefore,0)/dayEntries.length;
-      points.push(avg);
-    } else {
-      points.push(null);
-    }
+    points.push(dayEntries.length ? dayEntries.reduce((s,e)=>s+e.intensityBefore,0)/dayEntries.length : null);
   }
   const known = points.filter(p=>p!=null);
-  if (!known.length){
-    svg.innerHTML = '<text x="10" y="40" font-size="12" fill="var(--muted)">No data yet</text>';
-    return;
-  }
-  const w = 300, h = 80, step = w/(points.length-1);
-  let path = '';
-  let lastY = h/2;
+  if (!known.length){ svg.innerHTML = '<text x="10" y="40" font-size="12" fill="var(--muted)">No data yet</text>'; return; }
+  const w = 300, h = 70, step = w/(points.length-1);
+  let path = '', lastY = h/2;
   points.forEach((p,i)=>{
     const y = p==null ? lastY : h - (p/10)*h;
     lastY = y;
-    const x = i*step;
-    path += (i===0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    path += (i===0 ? 'M' : 'L') + (i*step).toFixed(1) + ',' + y.toFixed(1) + ' ';
   });
-  svg.innerHTML = `<path d="${path.trim()}" fill="none" stroke="var(--insight)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  svg.innerHTML = `<path d="${path.trim()}" fill="none" stroke="var(--teal)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-/* ---------- Early warning heuristic (informational only, not diagnostic) ---------- */
 function computeWarning(){
   const now = Date.now();
   const recentEntries = DATA.entries.filter(e=>now - e.ts < 1000*60*60*48);
-  const highIntensityCount = recentEntries.filter(e=>(e.intensityBefore||0) >= 7 || (e.state && e.state!=='cbt')).length;
+  const highIntensityCount = recentEntries.filter(e=>(e.intensityBefore||0) >= 7).length;
   const recentMed = DATA.meds.some(m=> now - new Date(m.date).getTime() < 1000*60*60*24*7);
-
-  let strengthScore = 0, daysChecked = 0;
-  for (let i=0;i<3;i++){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const day = DATA.daily[todayKey(d)];
-    daysChecked++;
-    if (day) strengthScore += STRENGTH_ITEMS.filter(it=>day[it.key]).length;
-  }
-  const avgStrength = strengthScore / (daysChecked * STRENGTH_ITEMS.length);
+  const avgStrength = avgStrengthRecent();
 
   let level = null;
   if (recentMed && highIntensityCount >= 2) level = 'high';
@@ -1059,7 +1013,6 @@ function computeWarning(){
   return `<div class="banner ${level}">${copy[level]}</div>`;
 }
 
-/* ---------- Init ---------- */
 initTheme();
 renderSettings();
 App.go('home');
