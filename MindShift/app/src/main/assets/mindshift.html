@@ -3,148 +3,223 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>CalmAnchor</title>
+<title>MindShift</title>
 <style>
   :root{
-    --bg:#0a1620; --bg2:#0d3b36; --card:#102530; --card2:#13303c;
-    --teal:#2dd4bf; --teal-dark:#0d9488; --blue:#38bdf8;
-    --text:#e6f2f0; --muted:#8fa9a6; --warn:#f59e0b; --danger:#f87171;
-    --good:#4ade80; --radius:18px;
+    --bg:#f5f6fb; --card:#ffffff; --card2:#f1f1fb;
+    --text:#1f2335; --muted:#6b7280; --border:#e7e8f3;
+    --primary:#7c5cff; --primary-dark:#6342e0; --accent:#10b981;
+    --warn:#f59e0b; --danger:#ef4444; --good:#10b981;
+    --crisis:#ef4444; --cbt:#7c5cff; --strength:#10b981; --insight:#0ea5e9;
+    --radius:18px; --shadow:0 4px 16px rgba(31,35,53,0.06);
+  }
+  html[data-theme="dark"]{
+    --bg:#11121c; --card:#1b1d2b; --card2:#22243650;
+    --text:#eef0fb; --muted:#9499b5; --border:#2a2d40;
+    --primary:#9b85ff; --primary-dark:#7c5cff; --accent:#34d399;
+    --shadow:0 4px 16px rgba(0,0,0,0.35);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
-    font-family:-apple-system,Roboto,'Segoe UI',sans-serif; overflow:hidden;}
+    font-family:-apple-system,Roboto,'Segoe UI',sans-serif; overflow:hidden;
+    transition:background .25s, color .25s;}
   #app{position:fixed; inset:0; display:flex; flex-direction:column;}
-  .topbar{display:flex; align-items:center; justify-content:space-between;
-    padding:14px 18px 8px; flex-shrink:0;}
-  .topbar h1{font-size:18px; margin:0; font-weight:700; letter-spacing:.3px;}
-  .iconbtn{background:var(--card); border:none; color:var(--text); width:38px; height:38px;
-    border-radius:50%; font-size:18px; display:flex; align-items:center; justify-content:center;}
-  .screens{flex:1; overflow-y:auto; padding:8px 18px 90px; -webkit-overflow-scrolling:touch;}
+
+  .topbar{display:flex; align-items:center; gap:10px; padding:14px 16px 8px; flex-shrink:0;}
+  .topbar .brand{display:flex; align-items:center; gap:8px; flex:1;}
+  .topbar .brand img{width:30px; height:30px; border-radius:8px;}
+  .topbar h1{font-size:17px; margin:0; font-weight:800; letter-spacing:.2px;}
+  .topbar h1 b{color:var(--primary);}
+  .iconbtn{background:var(--card); border:1px solid var(--border); color:var(--text); width:38px; height:38px;
+    border-radius:50%; font-size:16px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);}
+
+  .legend{display:flex; gap:8px; padding:0 16px 8px; flex-shrink:0; overflow-x:auto;}
+  .legend .dot{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); white-space:nowrap;}
+  .legend .sw{width:8px; height:8px; border-radius:50%;}
+
+  .screens{flex:1; overflow-y:auto; padding:4px 16px 90px; -webkit-overflow-scrolling:touch;}
   .screen{display:none;}
   .screen.active{display:block; animation:fadein .25s ease;}
   @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
 
-  .card{background:var(--card); border-radius:var(--radius); padding:16px; margin-bottom:14px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px; box-shadow:var(--shadow);}
   .card.flush{padding:0; overflow:hidden;}
-  h2{font-size:20px; margin:6px 0 12px;}
-  h3{font-size:15px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+  h2{font-size:19px; margin:6px 0 12px; font-weight:800;}
+  h3{font-size:13px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; font-weight:700;}
   p{line-height:1.5; color:var(--text); margin:0 0 10px;}
   .muted{color:var(--muted); font-size:13px;}
 
   .btn{display:block; width:100%; padding:14px; border:none; border-radius:14px;
-    font-size:15px; font-weight:600; margin-bottom:10px; cursor:pointer;}
-  .btn-primary{background:linear-gradient(135deg,var(--teal),var(--blue)); color:#04201c;}
-  .btn-ghost{background:var(--card2); color:var(--text);}
-  .btn-danger{background:linear-gradient(135deg,#f87171,#fb923c); color:#260a08;}
+    font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer;}
+  .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff;}
+  .btn-ghost{background:var(--card2); color:var(--text); border:1px solid var(--border);}
+  .btn-danger{background:linear-gradient(135deg,#ef4444,#f97316); color:#fff;}
   .btn-row{display:flex; gap:10px;}
   .btn-row .btn{flex:1;}
   .btn:disabled{opacity:.4;}
 
-  .tile-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .tile{background:var(--card); border-radius:16px; padding:16px 12px; text-align:center;}
-  .tile .emoji{font-size:30px; display:block; margin-bottom:6px;}
-  .tile .label{font-size:13px; font-weight:600;}
+  .sos{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:18px;
+    border-radius:18px; background:linear-gradient(135deg,#ef4444,#f97316); color:#fff; font-size:17px;
+    font-weight:800; border:none; margin:4px 0 14px; box-shadow:0 6px 18px rgba(239,68,68,0.35);}
 
-  .sos{display:block; width:100%; text-align:center; padding:22px; border-radius:20px;
-    background:linear-gradient(135deg,#f87171,#fb923c); color:#260a08; font-size:20px;
-    font-weight:800; border:none; margin:6px 0 16px; letter-spacing:.5px;}
+  /* Gauge dial */
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center; padding:6px 0 0;}
+  .gauge-val{font-size:34px; font-weight:800; margin-top:-46px;}
+  .gauge-label{font-size:12px; color:var(--muted); margin-top:2px;}
+  input[type=range]{width:100%; height:6px; accent-color:var(--primary); margin-top:10px;}
+
+  .qa-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px;}
+  .qa-tile{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px 6px;
+    text-align:center; box-shadow:var(--shadow);}
+  .qa-tile .emoji{font-size:24px; display:block; margin-bottom:4px;}
+  .qa-tile .label{font-size:11px; font-weight:700;}
+
+  .badge-row{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  .badge{width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; flex-shrink:0;}
+  .badge.crisis{background:rgba(239,68,68,0.14); color:var(--crisis);}
+  .badge.cbt{background:rgba(124,92,255,0.14); color:var(--cbt);}
+  .badge.strength{background:rgba(16,185,129,0.14); color:var(--strength);}
+  .badge.insight{background:rgba(14,165,233,0.14); color:var(--insight);}
+
+  .step-dots{display:flex; gap:6px; margin-bottom:4px;}
+  .step-dots span{width:22px; height:4px; border-radius:4px; background:var(--border);}
+  .step-dots span.on{background:var(--primary);}
 
   .chip-grid{display:flex; flex-wrap:wrap; gap:8px;}
-  .chip{background:var(--card2); border:1px solid #1d4d47; color:var(--text); padding:10px 14px;
+  .chip{background:var(--card2); border:1px solid var(--border); color:var(--text); padding:10px 14px;
     border-radius:999px; font-size:14px;}
-  .chip.danger{border-color:#7f1d1d; color:#fca5a5;}
-  .chip.selected{background:var(--teal-dark); color:#04201c; border-color:var(--teal);}
+  .chip.danger{border-color:#ef4444; color:var(--danger);}
+  .chip.selected{background:var(--primary); color:#fff; border-color:var(--primary);}
 
-  input[type=range]{width:100%; height:6px; accent-color:var(--teal);}
   textarea, input[type=text], input[type=date]{
-    width:100%; background:var(--card2); border:1px solid #1d4d47; color:var(--text);
+    width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text);
     border-radius:10px; padding:10px; font-size:14px; font-family:inherit; resize:vertical;}
   label{font-size:13px; color:var(--muted); display:block; margin:10px 0 4px;}
 
-  .breath-circle{width:160px; height:160px; margin:20px auto; border-radius:50%;
-    background:radial-gradient(circle,var(--teal-dark),var(--bg2));
-    display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;
+  .breath-circle{width:150px; height:150px; margin:16px auto; border-radius:50%;
+    background:radial-gradient(circle,var(--primary),var(--primary-dark));
+    display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:#fff;
     transition:transform 4s ease-in-out; transform:scale(0.7);}
   .breath-circle.in{transform:scale(1.15); transition:transform 4s ease-in-out;}
+  .breath-circle.hold{transition:transform 2s ease-in-out;}
   .breath-circle.out{transform:scale(0.7); transition:transform 6s ease-in-out;}
 
-  .check-item{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1a3a36;}
+  .check-item{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);}
   .check-item:last-child{border-bottom:none;}
   .check-item input{width:20px; height:20px;}
   .check-item .ctext{flex:1; font-size:14px;}
 
-  .step-dots{display:flex; gap:6px; justify-content:center; margin-bottom:14px;}
-  .step-dots span{width:8px; height:8px; border-radius:50%; background:#22443f;}
-  .step-dots span.on{background:var(--teal);}
-
   .evidence-cols{display:flex; gap:10px;}
   .evidence-cols .col{flex:1;}
 
-  .distortion{background:var(--card2); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .distortion{background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .distortion.selected{border-color:var(--primary); background:rgba(124,92,255,0.1);}
   .distortion .dname{font-weight:700; font-size:14px;}
   .distortion .ddesc{font-size:12px; color:var(--muted); margin-top:2px;}
 
-  .bottomnav{position:fixed; left:0; right:0; bottom:0; display:flex; background:#0c1f29;
-    border-top:1px solid #14302c; padding:6px 4px env(safe-area-inset-bottom);}
+  .bottomnav{position:fixed; left:0; right:0; bottom:0; display:flex; background:var(--card);
+    border-top:1px solid var(--border); padding:6px 4px env(safe-area-inset-bottom);}
   .navbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
-    background:none; border:none; color:var(--muted); font-size:11px; padding:8px 0;}
-  .navbtn.active{color:var(--teal);}
+    background:none; border:none; color:var(--muted); font-size:11px; padding:8px 0; font-weight:600;}
+  .navbtn.active{color:var(--primary);}
   .navbtn .ic{font-size:20px;}
 
   .banner{padding:12px 14px; border-radius:12px; font-size:13px; margin-bottom:14px; font-weight:600;}
-  .banner.low{background:#0f3a2e; color:#86efac;}
-  .banner.moderate{background:#3a300f; color:#fcd34d;}
-  .banner.high{background:#3a1414; color:#fca5a5;}
+  .banner.low{background:rgba(16,185,129,0.12); color:#0f9d6f;}
+  .banner.moderate{background:rgba(245,158,11,0.14); color:#b9750a;}
+  .banner.high{background:rgba(239,68,68,0.14); color:#d9362d;}
 
-  .history-item{border-bottom:1px solid #1a3a36; padding:10px 0; font-size:13px;}
+  .history-item{border-bottom:1px solid var(--border); padding:10px 0; font-size:13px;}
   .history-item .when{color:var(--muted); font-size:11px;}
   table{width:100%; border-collapse:collapse; font-size:13px;}
-  td,th{padding:6px 4px; border-bottom:1px solid #1a3a36; text-align:left;}
+  td,th{padding:6px 4px; border-bottom:1px solid var(--border); text-align:left;}
 
   .week-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; margin-bottom:8px;}
   .week-grid .dcell{background:var(--card2); border-radius:8px; padding:6px 2px; font-size:11px;}
-  .week-grid .dcell.full{background:var(--teal-dark); color:#04201c;}
-  .week-grid .dcell.part{background:#1d4d47;}
+  .week-grid .dcell.full{background:var(--accent); color:#fff;}
+  .week-grid .dcell.part{background:rgba(16,185,129,0.3);}
 
-  .streak{font-size:34px; font-weight:800; color:var(--teal); text-align:center;}
-  .scriptbox{background:var(--card2); border-left:4px solid var(--teal); padding:14px;
+  .streak{font-size:32px; font-weight:800; color:var(--accent); text-align:center;}
+  .scriptbox{background:var(--card2); border-left:4px solid var(--primary); padding:14px;
     border-radius:10px; font-size:15px; line-height:1.6; font-style:italic;}
-  .anchor-emoji{font-size:46px; text-align:center; display:block; margin:4px 0 0;}
+
+  .stat-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .stat-card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px; box-shadow:var(--shadow);}
+  .stat-card .num{font-size:24px; font-weight:800;}
+  .stat-card .lab{font-size:11px; color:var(--muted); margin-top:2px;}
+
+  .tabbar{display:flex; gap:6px; margin-bottom:12px;}
+  .tabbtn{flex:1; padding:9px; border-radius:10px; border:1px solid var(--border); background:var(--card2);
+    color:var(--muted); font-size:12px; font-weight:700;}
+  .tabbtn.active{background:var(--primary); color:#fff; border-color:var(--primary);}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
-    <h1 id="topTitle">CalmAnchor</h1>
-    <button class="iconbtn" onclick="App.go('settings')">⚙️</button>
+    <button class="iconbtn" onclick="App.go('settings')">☰</button>
+    <div class="brand">
+      <img src="mindshift-mark.png" alt="">
+      <h1>Mind<b>Shift</b></h1>
+    </div>
+    <button class="iconbtn" id="themeBtn" onclick="App.toggleTheme()">🌙</button>
+  </div>
+
+  <div class="legend">
+    <span class="dot"><span class="sw" style="background:var(--crisis)"></span>Crisis</span>
+    <span class="dot"><span class="sw" style="background:var(--cbt)"></span>CBT</span>
+    <span class="dot"><span class="sw" style="background:var(--strength)"></span>Strength</span>
+    <span class="dot"><span class="sw" style="background:var(--insight)"></span>Insights</span>
   </div>
 
   <div class="screens" id="screens">
 
     <!-- HOME -->
     <div class="screen active" data-screen="home">
-      <span class="anchor-emoji">⚓</span>
-      <button class="sos" onclick="App.go('crisisSelect')">🆘 I need help right now</button>
+      <button class="sos" onclick="App.go('crisisState')">🆘 I need help right now</button>
       <div class="card">
         <h3>How intense is this feeling, right now?</h3>
+        <div class="gauge-wrap">
+          <svg width="200" height="110" viewBox="0 0 200 110">
+            <path d="M14,100 A86,86 0 0 1 186,100" stroke="var(--border)" stroke-width="14" fill="none" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#10b981"/>
+                <stop offset="50%" stop-color="#f59e0b"/>
+                <stop offset="100%" stop-color="#ef4444"/>
+              </linearGradient>
+            </defs>
+            <path id="gaugeArc" d="M14,100 A86,86 0 0 1 186,100" stroke="url(#gaugeGrad)" stroke-width="14" fill="none"
+              stroke-linecap="round" stroke-dasharray="270" stroke-dashoffset="270"/>
+          </svg>
+          <div class="gauge-val" id="homeIntensityVal">3</div>
+          <div class="gauge-label">out of 10</div>
+        </div>
         <input type="range" id="homeIntensity" min="0" max="10" value="3" oninput="App.homeIntensityChange()">
-        <p class="muted" style="text-align:center; margin-top:6px;">Level: <span id="homeIntensityVal">3</span> / 10</p>
         <button class="btn btn-primary" id="homeRouteBtn" onclick="App.homeRoute()">Continue</button>
       </div>
-      <h3>Explore</h3>
-      <div class="tile-grid">
-        <button class="tile" onclick="App.go('cbtStep1')"><span class="emoji">🧠</span><span class="label">CBT Journal</span></button>
-        <button class="tile" onclick="App.go('strength')"><span class="emoji">💪</span><span class="label">Daily Strength</span></button>
-        <button class="tile" onclick="App.go('history')"><span class="emoji">📊</span><span class="label">Patterns</span></button>
-        <button class="tile" onclick="App.go('settings')"><span class="emoji">📒</span><span class="label">Contacts</span></button>
+
+      <h3>Quick access</h3>
+      <div class="qa-row">
+        <button class="qa-tile" onclick="App.go('cbtStep1')"><span class="emoji">🧠</span><span class="label">CBT Journal</span></button>
+        <button class="qa-tile" onclick="App.go('log')"><span class="emoji">💪</span><span class="label">Daily Strength</span></button>
+        <button class="qa-tile" onclick="App.go('insights')"><span class="emoji">📊</span><span class="label">Insights</span></button>
       </div>
+
       <div id="warningBannerHome"></div>
+
+      <div class="card">
+        <h3>Help &amp; support</h3>
+        <button class="btn btn-ghost" onclick="App.go('crisisSafety')">📞 Crisis lines &amp; contacts</button>
+        <button class="btn btn-ghost" onclick="App.go('settings')">⚙️ Manage contacts &amp; settings</button>
+      </div>
     </div>
 
     <!-- CRISIS: state select -->
-    <div class="screen" data-screen="crisisSelect">
-      <h2>What's happening right now?</h2>
+    <div class="screen" data-screen="crisisState">
+      <div class="badge-row"><div class="badge crisis">🆘</div><h2 style="margin:0;">What's happening right now?</h2></div>
       <p class="muted">Pick whichever fits closest. There's no wrong answer.</p>
       <div class="card flush">
         <div style="padding:6px;">
@@ -160,7 +235,7 @@
 
     <!-- CRISIS: safety gate -->
     <div class="screen" data-screen="crisisSafety">
-      <div class="card" style="border:1px solid #7f1d1d;">
+      <div class="card" style="border:1px solid var(--danger);">
         <h2>You're not alone in this.</h2>
         <p>This feeling is real and serious — and it can pass with help. Please reach out to a person right now, not just this app.</p>
       </div>
@@ -180,67 +255,59 @@
       <div class="card">
         <h3>Right now, only this</h3>
         <p class="muted">No analysis, no journaling — just breathing and grounding until you're with someone.</p>
-        <button class="btn btn-primary" onclick="App.go('breathTool')">Start slow breathing</button>
-        <button class="btn btn-ghost" onclick="App.go('groundTool')">5-4-3-2-1 grounding</button>
+        <button class="btn btn-primary" onclick="App.go('crisisStep2')">Start slow breathing</button>
+        <button class="btn btn-ghost" onclick="App.go('crisisStep1')">5-4-3-2-1 grounding</button>
       </div>
     </div>
 
-    <!-- CRISIS: tool picker -->
-    <div class="screen" data-screen="crisisTools">
-      <h2>Let's settle the body first</h2>
+    <!-- CRISIS step 1: grounding -->
+    <div class="screen" data-screen="crisisStep1">
+      <div class="badge-row"><div class="badge crisis">🖐️</div><h2 style="margin:0;">5-4-3-2-1 grounding</h2></div>
       <div class="scriptbox" id="crisisScript"></div>
-      <h3 style="margin-top:16px;">Pick one to try</h3>
-      <button class="btn btn-ghost" onclick="App.go('coldTool')">💧 Cold water / splash face</button>
-      <button class="btn btn-ghost" onclick="App.go('groundTool')">🖐️ 5-4-3-2-1 grounding</button>
-      <button class="btn btn-ghost" onclick="App.go('feetTool')">🦶 Feet pressure exercise</button>
-      <button class="btn btn-ghost" onclick="App.go('breathTool')">🌬️ Slow exhale breathing</button>
-      <button class="btn btn-ghost" onclick="App.go('crisisCheckin')">I've calmed a little — check in</button>
-    </div>
-
-    <!-- TOOL: cold water -->
-    <div class="screen" data-screen="coldTool">
-      <h2>💧 Cold water reset</h2>
-      <div class="card">
-        <p>Splash cold water on your face, or hold a cold object (ice, a chilled can) against your cheeks and the back of your neck for 20–30 seconds.</p>
-        <p class="muted">This triggers the mammalian dive reflex and can slow a racing heart within seconds.</p>
-      </div>
-      <button class="btn btn-primary" onclick="App.go('crisisTools')">Done — back to tools</button>
-    </div>
-
-    <!-- TOOL: grounding -->
-    <div class="screen" data-screen="groundTool">
-      <h2>🖐️ 5-4-3-2-1 grounding</h2>
       <div class="card">
         <p class="muted">Name them in your head or out loud. Checking them off is optional.</p>
         <div id="groundList"></div>
       </div>
-      <button class="btn btn-primary" onclick="App.go('crisisTools')">Done — back to tools</button>
+      <button class="btn btn-primary" onclick="App.go('crisisStep2')">Next — breathing</button>
+      <button class="btn btn-ghost" onclick="App.go('crisisState')">Back</button>
     </div>
 
-    <!-- TOOL: feet pressure -->
-    <div class="screen" data-screen="feetTool">
-      <h2>🦶 Feet pressure exercise</h2>
+    <!-- CRISIS step 2: breathing -->
+    <div class="screen" data-screen="crisisStep2">
+      <div class="badge-row"><div class="badge crisis">🌬️</div><h2 style="margin:0;">Slow breathing</h2></div>
+      <div class="card" style="text-align:center;">
+        <div class="breath-circle" id="breathCircle">Breathe</div>
+        <p class="muted" id="breathPhase">Starting automatically…</p>
+      </div>
+      <button class="btn btn-primary" onclick="App.go('crisisStep3')">Next — cold reset</button>
+      <button class="btn btn-ghost" onclick="App.stopBreathingAndGo('crisisStep1')">Back</button>
+    </div>
+
+    <!-- CRISIS step 3: cold water -->
+    <div class="screen" data-screen="crisisStep3">
+      <div class="badge-row"><div class="badge crisis">💧</div><h2 style="margin:0;">Cold water reset</h2></div>
+      <div class="card">
+        <p>Splash cold water on your face, or hold a cold object (ice, a chilled can) against your cheeks and the back of your neck for 20–30 seconds.</p>
+        <p class="muted">This triggers the mammalian dive reflex and can slow a racing heart within seconds.</p>
+      </div>
+      <button class="btn btn-primary" onclick="App.go('crisisStep4')">Next — feet pressure</button>
+      <button class="btn btn-ghost" onclick="App.go('crisisStep2')">Back</button>
+    </div>
+
+    <!-- CRISIS step 4: feet pressure -->
+    <div class="screen" data-screen="crisisStep4">
+      <div class="badge-row"><div class="badge crisis">🦶</div><h2 style="margin:0;">Feet pressure exercise</h2></div>
       <div class="card">
         <p>Plant both feet flat on the floor. Press down hard through your heels and toes, like you're pushing the floor away. Hold for 10 seconds. Release. Repeat 5 times.</p>
         <p class="muted">This pulls attention into the body and out of the spiral of thoughts.</p>
       </div>
-      <button class="btn btn-primary" onclick="App.go('crisisTools')">Done — back to tools</button>
+      <button class="btn btn-primary" onclick="App.go('crisisStep5')">Check in with yourself</button>
+      <button class="btn btn-ghost" onclick="App.go('crisisStep3')">Back</button>
     </div>
 
-    <!-- TOOL: breathing -->
-    <div class="screen" data-screen="breathTool">
-      <h2>🌬️ Slow exhale breathing</h2>
-      <div class="card" style="text-align:center;">
-        <div class="breath-circle" id="breathCircle">Breathe</div>
-        <p class="muted" id="breathPhase">Tap start when ready</p>
-        <button class="btn btn-primary" id="breathBtn" onclick="App.toggleBreathing()">Start</button>
-      </div>
-      <button class="btn btn-ghost" onclick="App.stopBreathingAndGo('crisisTools')">Back to tools</button>
-    </div>
-
-    <!-- CRISIS: check-in -->
-    <div class="screen" data-screen="crisisCheckin">
-      <h2>Check in with yourself</h2>
+    <!-- CRISIS step 5: check-in -->
+    <div class="screen" data-screen="crisisStep5">
+      <div class="badge-row"><div class="badge crisis">✅</div><h2 style="margin:0;">Check in with yourself</h2></div>
       <div class="card">
         <h3>How intense does it feel now?</h3>
         <input type="range" id="checkinIntensity" min="0" max="10" value="5" oninput="App.checkinChange()">
@@ -257,8 +324,8 @@
 
     <!-- CBT step 1: trigger -->
     <div class="screen" data-screen="cbtStep1">
+      <div class="badge-row"><div class="badge cbt">🧠</div><h2 style="margin:0;">What happened just before this spike?</h2></div>
       <div class="step-dots"><span class="on"></span><span></span><span></span><span></span><span></span></div>
-      <h2>What happened just before this spike?</h2>
       <div class="card">
         <textarea id="cbtTrigger" rows="4" placeholder="e.g. Got a message from my doctor about a med change..."></textarea>
         <button class="btn btn-primary" onclick="App.cbtNext(1)">Next</button>
@@ -267,8 +334,8 @@
 
     <!-- CBT step 2: automatic thought -->
     <div class="screen" data-screen="cbtStep2">
+      <div class="badge-row"><div class="badge cbt">💭</div><h2 style="margin:0;">What is your mind telling you will happen?</h2></div>
       <div class="step-dots"><span class="on"></span><span class="on"></span><span></span><span></span><span></span></div>
-      <h2>What is your mind telling you will happen?</h2>
       <div class="card">
         <textarea id="cbtThought" rows="4" placeholder="e.g. Something is seriously wrong with me..."></textarea>
         <div class="btn-row">
@@ -280,8 +347,8 @@
 
     <!-- CBT step 3: evidence -->
     <div class="screen" data-screen="cbtStep3">
+      <div class="badge-row"><div class="badge cbt">⚖️</div><h2 style="margin:0;">Evidence check</h2></div>
       <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
-      <h2>Evidence check</h2>
       <div class="card">
         <div class="evidence-cols">
           <div class="col">
@@ -302,8 +369,8 @@
 
     <!-- CBT step 4: distortions -->
     <div class="screen" data-screen="cbtStep4">
+      <div class="badge-row"><div class="badge cbt">🔍</div><h2 style="margin:0;">Does the thought match a pattern?</h2></div>
       <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span></div>
-      <h2>Does the thought match a pattern?</h2>
       <p class="muted">Tap any that fit. This is a self-check, not a diagnosis.</p>
       <div id="distortionList"></div>
       <div class="btn-row" style="margin-top:6px;">
@@ -314,8 +381,8 @@
 
     <!-- CBT step 5: balanced thought -->
     <div class="screen" data-screen="cbtStep5">
+      <div class="badge-row"><div class="badge cbt">🌤️</div><h2 style="margin:0;">Build a balanced thought</h2></div>
       <div class="step-dots"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
-      <h2>Build a balanced thought</h2>
       <div class="card">
         <p class="muted">"A more realistic interpretation might be…"</p>
         <textarea id="cbtBalanced" rows="5" placeholder="e.g. This is uncomfortable, but my doctor is adjusting the dose because they're paying attention, not because something is wrong."></textarea>
@@ -329,17 +396,17 @@
     <!-- CBT saved confirmation -->
     <div class="screen" data-screen="cbtDone">
       <div class="card" style="text-align:center;">
-        <span class="anchor-emoji">✅</span>
+        <div class="badge cbt" style="margin:0 auto 10px;">✅</div>
         <h2>Saved</h2>
         <p class="muted">This entry is stored on your device so you can spot patterns later.</p>
         <button class="btn btn-primary" onclick="App.go('home')">Back to home</button>
-        <button class="btn btn-ghost" onclick="App.go('history')">View patterns</button>
+        <button class="btn btn-ghost" onclick="App.go('insights')">View insights</button>
       </div>
     </div>
 
-    <!-- DAILY STRENGTH -->
-    <div class="screen" data-screen="strength">
-      <h2>💪 Daily Strength</h2>
+    <!-- LOG (Daily Strength + entries) -->
+    <div class="screen" data-screen="log">
+      <div class="badge-row"><div class="badge strength">💪</div><h2 style="margin:0;">Daily Strength</h2></div>
       <p class="muted">Small, repeatable things that build resilience between panic episodes.</p>
       <div class="card" style="text-align:center;">
         <div class="streak" id="streakCount">0</div>
@@ -353,39 +420,70 @@
         <h3>Note (optional)</h3>
         <textarea id="strengthNote" rows="2" placeholder="Anything you want to remember about today..." onblur="App.saveStrengthNote()"></textarea>
       </div>
-    </div>
-
-    <!-- HISTORY / RECOVERY -->
-    <div class="screen" data-screen="history">
-      <h2>📊 Patterns</h2>
-      <div id="warningBannerHistory"></div>
-      <div class="card">
-        <h3>Time of day</h3>
-        <div id="todChart"></div>
-      </div>
-      <div class="card">
-        <h3>Common triggers</h3>
-        <div id="triggerChart"></div>
-      </div>
-      <div class="card">
-        <h3>Medication log</h3>
-        <input type="date" id="medDate">
-        <label>Medication / change</label>
-        <input type="text" id="medName" placeholder="e.g. Started sertraline 50mg">
-        <label>Notes</label>
-        <input type="text" id="medNotes" placeholder="optional">
-        <button class="btn btn-primary" onclick="App.addMedEntry()">Add entry</button>
-        <div id="medList" style="margin-top:10px;"></div>
-      </div>
+      <button class="btn btn-ghost" onclick="App.go('cbtStep1')">＋ New CBT journal entry</button>
       <div class="card">
         <h3>Recent entries</h3>
         <div id="entryList"></div>
       </div>
     </div>
 
+    <!-- INSIGHTS -->
+    <div class="screen" data-screen="insights">
+      <div class="badge-row"><div class="badge insight">📊</div><h2 style="margin:0;">Insights</h2></div>
+      <div class="tabbar">
+        <button class="tabbtn" data-tab="dashboard" onclick="App.insightsTab('dashboard')">Dashboard</button>
+        <button class="tabbtn" data-tab="weekly" onclick="App.insightsTab('weekly')">Weekly</button>
+        <button class="tabbtn" data-tab="triggers" onclick="App.insightsTab('triggers')">Triggers</button>
+      </div>
+      <div id="warningBannerHistory"></div>
+
+      <div id="insightsDashboard">
+        <div class="stat-row">
+          <div class="stat-card"><div class="num" id="statEntries">0</div><div class="lab">Entries logged</div></div>
+          <div class="stat-card"><div class="num" id="statStreak">0</div><div class="lab">Day streak</div></div>
+        </div>
+        <div class="card">
+          <h3>Mood trend</h3>
+          <svg id="sparkline" width="100%" height="80" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <div id="insightsWeekly" style="display:none;">
+        <div class="card">
+          <h3>Time of day</h3>
+          <div id="todChart"></div>
+        </div>
+        <div class="card">
+          <h3>This week's notes</h3>
+          <div id="weeklyNotes"></div>
+        </div>
+      </div>
+
+      <div id="insightsTriggers" style="display:none;">
+        <div class="card">
+          <h3>Common triggers</h3>
+          <div id="triggerChart"></div>
+        </div>
+        <div class="card">
+          <h3>Medication log</h3>
+          <input type="date" id="medDate">
+          <label>Medication / change</label>
+          <input type="text" id="medName" placeholder="e.g. Started sertraline 50mg">
+          <label>Notes</label>
+          <input type="text" id="medNotes" placeholder="optional">
+          <button class="btn btn-primary" onclick="App.addMedEntry()">Add entry</button>
+          <div id="medList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- SETTINGS -->
     <div class="screen" data-screen="settings">
       <h2>⚙️ Settings</h2>
+      <div class="card">
+        <h3>Appearance</h3>
+        <button class="btn btn-ghost" onclick="App.toggleTheme()">Toggle light / dark mode</button>
+      </div>
       <div class="card">
         <h3>Emergency contacts</h3>
         <input type="text" id="contactName" placeholder="Name">
@@ -409,10 +507,8 @@
 
   <div class="bottomnav">
     <button class="navbtn" data-nav="home" onclick="App.go('home')"><span class="ic">🏠</span>Home</button>
-    <button class="navbtn" data-nav="crisisSelect" onclick="App.go('crisisSelect')"><span class="ic">🆘</span>Crisis</button>
-    <button class="navbtn" data-nav="cbtStep1" onclick="App.go('cbtStep1')"><span class="ic">🧠</span>CBT</button>
-    <button class="navbtn" data-nav="strength" onclick="App.go('strength')"><span class="ic">💪</span>Strength</button>
-    <button class="navbtn" data-nav="history" onclick="App.go('history')"><span class="ic">📊</span>Patterns</button>
+    <button class="navbtn" data-nav="log" onclick="App.go('log')"><span class="ic">📝</span>Log</button>
+    <button class="navbtn" data-nav="insights" onclick="App.go('insights')"><span class="ic">📊</span>Insights</button>
   </div>
 </div>
 
@@ -431,16 +527,17 @@ function haptic(kind){
 }
 
 /* ---------- Storage ---------- */
-const STORAGE_KEY = 'calmanchor_data_v1';
+const STORAGE_KEY = 'mindshift_data_v1';
 function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   }catch(e){}
-  return { entries:[], meds:[], daily:{}, contacts:[], settings:{region:'global'} };
+  return { entries:[], meds:[], daily:{}, contacts:[], settings:{region:'global', theme:null} };
 }
 function saveData(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
 let DATA = loadData();
+if (!DATA.settings) DATA.settings = {region:'global', theme:null};
 
 function todayKey(d){
   d = d || new Date();
@@ -498,38 +595,65 @@ const HOTLINES = {
   ]
 };
 
+/* ---------- Theme ---------- */
+function initTheme(){
+  let t = DATA.settings.theme;
+  if (!t){
+    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  applyTheme(t);
+}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
 /* ---------- Navigation ---------- */
 let currentScreen = 'home';
 let breathingTimer = null;
-let breathingPhase = null;
+let insightsActiveTab = 'dashboard';
 
 const App = {
   go(screen){
-    if (breathingTimer && screen !== 'breathTool') this.stopBreathing();
+    if (breathingTimer && screen !== 'crisisStep2') this.stopBreathing();
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     const target = document.querySelector('[data-screen="'+screen+'"]');
     if (target) target.classList.add('active');
     currentScreen = screen;
     document.querySelectorAll('.navbtn').forEach(b=>{
-      b.classList.toggle('active', b.dataset.nav===screen || (screen.indexOf('cbt')===0 && b.dataset.nav==='cbtStep1') || (screen.indexOf('crisis')===0 && b.dataset.nav==='crisisSelect'));
+      b.classList.toggle('active', b.dataset.nav===screen ||
+        (screen.indexOf('cbt')===0 && b.dataset.nav==='log') ||
+        (screen.indexOf('crisis')===0 && b.dataset.nav==='home'));
     });
     document.getElementById('screens').scrollTop = 0;
-    if (screen==='groundTool') renderGrounding();
-    if (screen==='strength') renderStrength();
-    if (screen==='history') renderHistory();
-    if (screen==='settings') renderSettings();
+    if (screen==='crisisStep1') renderGrounding();
+    if (screen==='crisisStep2') this.startBreathing();
+    if (screen==='log') renderStrength();
+    if (screen==='insights') renderInsights();
     if (screen==='cbtStep4') renderDistortions();
     if (screen==='crisisSafety') renderSafety();
+    if (screen==='settings') renderSettings();
     if (screen==='home') renderHome();
+  },
+
+  toggleTheme(){
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    DATA.settings.theme = next;
+    saveData();
+    applyTheme(next);
   },
 
   /* ----- Home ----- */
   homeIntensityChange(){
-    document.getElementById('homeIntensityVal').textContent = document.getElementById('homeIntensity').value;
+    const v = parseInt(document.getElementById('homeIntensity').value, 10);
+    document.getElementById('homeIntensityVal').textContent = v;
+    updateGauge(v);
   },
   homeRoute(){
     const v = parseInt(document.getElementById('homeIntensity').value, 10);
-    if (v >= 6) this.go('crisisSelect');
+    if (v >= 6) this.go('crisisState');
     else this.go('cbtStep1');
   },
 
@@ -542,7 +666,7 @@ const App = {
       return;
     }
     document.getElementById('crisisScript').textContent = SCRIPTS[state] || '';
-    this.go('crisisTools');
+    this.go('crisisStep1');
   },
 
   checkinChange(){
@@ -564,16 +688,15 @@ const App = {
     } else {
       card.innerHTML = '<h2>Still high — that\'s okay</h2>'+
         '<p>No need to think it through yet. Try another grounding tool, or reach out to someone.</p>'+
-        '<button class="btn btn-primary" onclick="App.go(\'crisisTools\')">Try another tool</button>'+
+        '<button class="btn btn-primary" onclick="App.go(\'crisisStep1\')">Try another tool</button>'+
         '<button class="btn btn-ghost" onclick="App.go(\'settings\')">View my contacts</button>';
     }
     this.go('crisisAfter');
   },
 
-  /* ----- Breathing tool: inhale 4s, exhale 6s (longer exhale calms the nervous system) ----- */
-  toggleBreathing(){
-    if (breathingTimer){ this.stopBreathing(); document.getElementById('breathBtn').textContent='Start'; return; }
-    document.getElementById('breathBtn').textContent='Stop';
+  /* ----- Breathing tool: inhale 4s, hold 2s, exhale 6s ----- */
+  startBreathing(){
+    if (breathingTimer) return;
     const circle = document.getElementById('breathCircle');
     const phaseLabel = document.getElementById('breathPhase');
     const cycle = ()=>{
@@ -582,11 +705,16 @@ const App = {
       phaseLabel.textContent='Inhale for 4 seconds';
       haptic('in');
       breathingTimer = setTimeout(()=>{
-        circle.className='breath-circle out';
-        circle.textContent='Breathe out';
-        phaseLabel.textContent='Exhale slowly for 6 seconds';
-        haptic('out');
-        breathingTimer = setTimeout(cycle, 6000);
+        circle.className='breath-circle hold';
+        circle.textContent='Hold';
+        phaseLabel.textContent='Hold for 2 seconds';
+        breathingTimer = setTimeout(()=>{
+          circle.className='breath-circle out';
+          circle.textContent='Breathe out';
+          phaseLabel.textContent='Exhale slowly for 6 seconds';
+          haptic('out');
+          breathingTimer = setTimeout(cycle, 6000);
+        }, 2000);
       }, 4000);
     };
     cycle();
@@ -595,10 +723,8 @@ const App = {
     if (breathingTimer){ clearTimeout(breathingTimer); breathingTimer=null; }
     const circle = document.getElementById('breathCircle');
     if (circle){ circle.className='breath-circle'; circle.textContent='Breathe'; }
-    const btn = document.getElementById('breathBtn');
-    if (btn) btn.textContent='Start';
     const phaseLabel = document.getElementById('breathPhase');
-    if (phaseLabel) phaseLabel.textContent='Tap start when ready';
+    if (phaseLabel) phaseLabel.textContent='Starting automatically…';
   },
   stopBreathingAndGo(screen){ this.stopBreathing(); this.go(screen); },
 
@@ -657,7 +783,7 @@ const App = {
     saveData();
     document.getElementById('medName').value='';
     document.getElementById('medNotes').value='';
-    renderHistory();
+    renderInsights();
   },
 
   /* ----- Contacts / settings ----- */
@@ -683,17 +809,36 @@ const App = {
   },
   clearData(){
     if (confirm('This deletes all journal entries, contacts, and habit history from this device. Continue?')){
-      DATA = { entries:[], meds:[], daily:{}, contacts:[], settings:{region:'global'} };
+      const theme = DATA.settings.theme;
+      DATA = { entries:[], meds:[], daily:{}, contacts:[], settings:{region:'global', theme} };
       saveData();
       this.go('home');
     }
+  },
+
+  insightsTab(tab){
+    insightsActiveTab = tab;
+    document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+    document.getElementById('insightsDashboard').style.display = tab==='dashboard' ? '' : 'none';
+    document.getElementById('insightsWeekly').style.display = tab==='weekly' ? '' : 'none';
+    document.getElementById('insightsTriggers').style.display = tab==='triggers' ? '' : 'none';
   }
 };
+
+/* ---------- Gauge ---------- */
+function updateGauge(v){
+  const arc = document.getElementById('gaugeArc');
+  if (!arc) return;
+  const total = 270;
+  const offset = total - (total * (v/10));
+  arc.setAttribute('stroke-dashoffset', offset);
+}
 
 /* ---------- Render helpers ---------- */
 function renderHome(){
   const banner = computeWarning();
   document.getElementById('warningBannerHome').innerHTML = banner || '';
+  updateGauge(parseInt(document.getElementById('homeIntensity').value, 10));
 }
 
 function renderSafety(){
@@ -737,17 +882,9 @@ function renderStrength(){
   ).join('');
   document.getElementById('strengthNote').value = today.note || '';
 
-  // streak: consecutive days with at least half the items checked
-  let streak = 0;
-  for (let i=0;i<365;i++){
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const day = DATA.daily[todayKey(d)];
-    const count = day ? STRENGTH_ITEMS.filter(it=>day[it.key]).length : 0;
-    if (count >= 3) streak++; else break;
-  }
+  const streak = computeStreak();
   document.getElementById('streakCount').textContent = streak;
 
-  // week grid: last 7 days completion ratio
   let html = '';
   for (let i=6;i>=0;i--){
     const d = new Date(); d.setDate(d.getDate()-i);
@@ -757,52 +894,23 @@ function renderStrength(){
     html += `<div class="dcell ${cls}">${d.toLocaleDateString(undefined,{weekday:'short'}).slice(0,2)}</div>`;
   }
   document.getElementById('weekGrid').innerHTML = html;
+
+  document.getElementById('entryList').innerHTML = renderEntryList(DATA.entries.slice(0,8));
 }
 
-function renderHistory(){
-  document.getElementById('warningBannerHistory').innerHTML = computeWarning() || '';
+function computeStreak(){
+  let streak = 0;
+  for (let i=0;i<365;i++){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const day = DATA.daily[todayKey(d)];
+    const count = day ? STRENGTH_ITEMS.filter(it=>day[it.key]).length : 0;
+    if (count >= 3) streak++; else break;
+  }
+  return streak;
+}
 
-  // time of day buckets
-  const buckets = {Morning:0, Afternoon:0, Evening:0, Night:0};
-  DATA.entries.forEach(e=>{
-    const h = new Date(e.ts).getHours();
-    if (h>=5 && h<12) buckets.Morning++;
-    else if (h>=12 && h<17) buckets.Afternoon++;
-    else if (h>=17 && h<22) buckets.Evening++;
-    else buckets.Night++;
-  });
-  const maxB = Math.max(1, ...Object.values(buckets));
-  document.getElementById('todChart').innerHTML = Object.entries(buckets).map(([label,count])=>
-    `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-       <span style="width:70px; font-size:12px;" class="muted">${label}</span>
-       <div style="flex:1; background:#1a3a36; border-radius:6px; height:10px;">
-         <div style="width:${(count/maxB)*100}%; background:var(--teal); height:10px; border-radius:6px;"></div>
-       </div>
-       <span style="font-size:12px;">${count}</span>
-     </div>`
-  ).join('') || '<p class="muted">No entries yet.</p>';
-
-  // trigger keyword tally
-  const tally = {};
-  DATA.entries.filter(e=>e.trigger).forEach(e=>{
-    e.trigger.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3).forEach(w=>{
-      tally[w] = (tally[w]||0)+1;
-    });
-  });
-  const top = Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  document.getElementById('triggerChart').innerHTML = top.length
-    ? `<div class="chip-grid">${top.map(([w,c])=>`<span class="chip">${w} (${c})</span>`).join('')}</div>`
-    : '<p class="muted">Add a few CBT entries to see trigger patterns.</p>';
-
-  // med list
-  document.getElementById('medList').innerHTML = DATA.meds.length
-    ? `<table><tr><th>Date</th><th>Change</th><th>Notes</th></tr>` +
-      DATA.meds.map(m=>`<tr><td>${m.date}</td><td>${m.name}</td><td>${m.notes||''}</td></tr>`).join('') +
-      `</table>`
-    : '<p class="muted">No medication changes logged.</p>';
-
-  // recent entries
-  document.getElementById('entryList').innerHTML = DATA.entries.slice(0,15).map(e=>{
+function renderEntryList(list){
+  return list.map(e=>{
     const when = new Date(e.ts).toLocaleString();
     if (e.type==='cbt'){
       return `<div class="history-item"><div class="when">${when} · CBT</div>
@@ -829,6 +937,96 @@ function renderSettings(){
   document.getElementById('regionChips').innerHTML = regions.map(([key,label])=>
     `<span class="chip ${region===key?'selected':''}" onclick="App.setRegion('${key}')">${label}</span>`
   ).join('');
+}
+
+function renderInsights(){
+  document.getElementById('warningBannerHistory').innerHTML = computeWarning() || '';
+  document.getElementById('statEntries').textContent = DATA.entries.length;
+  document.getElementById('statStreak').textContent = computeStreak();
+  drawSparkline();
+
+  // time of day buckets
+  const buckets = {Morning:0, Afternoon:0, Evening:0, Night:0};
+  DATA.entries.forEach(e=>{
+    const h = new Date(e.ts).getHours();
+    if (h>=5 && h<12) buckets.Morning++;
+    else if (h>=12 && h<17) buckets.Afternoon++;
+    else if (h>=17 && h<22) buckets.Evening++;
+    else buckets.Night++;
+  });
+  const maxB = Math.max(1, ...Object.values(buckets));
+  document.getElementById('todChart').innerHTML = Object.entries(buckets).map(([label,count])=>
+    `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+       <span style="width:70px; font-size:12px;" class="muted">${label}</span>
+       <div style="flex:1; background:var(--card2); border-radius:6px; height:10px;">
+         <div style="width:${(count/maxB)*100}%; background:var(--primary); height:10px; border-radius:6px;"></div>
+       </div>
+       <span style="font-size:12px;">${count}</span>
+     </div>`
+  ).join('') || '<p class="muted">No entries yet.</p>';
+
+  // weekly notes
+  let notesHtml = '';
+  for (let i=6;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const day = DATA.daily[todayKey(d)];
+    if (day && day.note){
+      notesHtml += `<div class="history-item"><div class="when">${d.toLocaleDateString()}</div><div>${escapeHtml(day.note)}</div></div>`;
+    }
+  }
+  document.getElementById('weeklyNotes').innerHTML = notesHtml || '<p class="muted">No notes this week.</p>';
+
+  // trigger keyword tally
+  const tally = {};
+  DATA.entries.filter(e=>e.trigger).forEach(e=>{
+    e.trigger.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3).forEach(w=>{
+      tally[w] = (tally[w]||0)+1;
+    });
+  });
+  const top = Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  document.getElementById('triggerChart').innerHTML = top.length
+    ? `<div class="chip-grid">${top.map(([w,c])=>`<span class="chip">${w} (${c})</span>`).join('')}</div>`
+    : '<p class="muted">Add a few CBT entries to see trigger patterns.</p>';
+
+  // med list
+  document.getElementById('medList').innerHTML = DATA.meds.length
+    ? `<table><tr><th>Date</th><th>Change</th><th>Notes</th></tr>` +
+      DATA.meds.map(m=>`<tr><td>${m.date}</td><td>${m.name}</td><td>${m.notes||''}</td></tr>`).join('') +
+      `</table>`
+    : '<p class="muted">No medication changes logged.</p>';
+
+  App.insightsTab(insightsActiveTab);
+}
+
+function drawSparkline(){
+  const svg = document.getElementById('sparkline');
+  const points = [];
+  for (let i=13;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = todayKey(d);
+    const dayEntries = DATA.entries.filter(e=>todayKey(new Date(e.ts))===k && e.intensityBefore!=null);
+    if (dayEntries.length){
+      const avg = dayEntries.reduce((s,e)=>s+e.intensityBefore,0)/dayEntries.length;
+      points.push(avg);
+    } else {
+      points.push(null);
+    }
+  }
+  const known = points.filter(p=>p!=null);
+  if (!known.length){
+    svg.innerHTML = '<text x="10" y="40" font-size="12" fill="var(--muted)">No data yet</text>';
+    return;
+  }
+  const w = 300, h = 80, step = w/(points.length-1);
+  let path = '';
+  let lastY = h/2;
+  points.forEach((p,i)=>{
+    const y = p==null ? lastY : h - (p/10)*h;
+    lastY = y;
+    const x = i*step;
+    path += (i===0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+  });
+  svg.innerHTML = `<path d="${path.trim()}" fill="none" stroke="var(--insight)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 /* ---------- Early warning heuristic (informational only, not diagnostic) ---------- */
@@ -862,6 +1060,7 @@ function computeWarning(){
 }
 
 /* ---------- Init ---------- */
+initTheme();
 renderSettings();
 App.go('home');
 </script>
