@@ -12,11 +12,15 @@
     --cbt-step:#f7931e; --cbt-step-soft:#fef0dd;
     --teal:#1fb088; --teal-soft:#e2f7f0;
     --blue:#3b9ee8; --blue-soft:#e6f2fc;
+    --gray:#8b8aa0; --gray-soft:#eceaf4;
+    --pink:#ec6fa3; --pink-soft:#fce8f1;
+    --green:#3fae5c; --green-soft:#e5f6ea;
     --radius:20px; --shadow:0 6px 20px rgba(60,50,110,0.08);
   }
   html[data-theme="dark"]{
     --bg:#15131f; --card:#211f30; --text:#eeecf9; --muted:#9b98b3; --border:#322e45;
     --purple-soft:#2c2750; --crisis-soft:#3a2220; --cbt-step-soft:#3a2c14; --teal-soft:#163228; --blue-soft:#172a3a;
+    --gray-soft:#2a2838; --pink-soft:#3a2433; --green-soft:#1c3324;
     --shadow:0 6px 20px rgba(0,0,0,0.4);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -33,8 +37,8 @@
   .iconbtn{background:var(--card); border:1px solid var(--border); color:var(--text); width:38px; height:38px;
     border-radius:50%; font-size:16px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); flex-shrink:0;}
   .home-header .greet{flex:1; font-size:13px; color:var(--muted); font-weight:600;}
-  .avatar{width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--purple),var(--blue));
-    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
+  .avatar{width:38px; height:38px; border-radius:50%; background:var(--purple-soft); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:19px; color:var(--purple); flex-shrink:0;}
   .home-title{font-size:23px; font-weight:800; margin:10px 0 2px;}
   .center{text-align:center;}
 
@@ -59,18 +63,14 @@
 
   .btn{display:block; width:100%; padding:15px; border:none; border-radius:14px;
     font-size:15px; font-weight:700; margin-bottom:10px; cursor:pointer; text-align:center;}
-  .btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple-dark)); color:#fff;}
-  .btn-crisis{background:linear-gradient(135deg,var(--crisis),#ef4444); color:#fff;}
+  .btn-primary{background:var(--purple); color:#fff;}
+  .btn-crisis{background:var(--crisis); color:#fff;}
   .btn-ghost{background:var(--card); color:var(--text); border:1px solid var(--border);}
   .btn-link{background:none; border:none; color:var(--muted); font-size:13px; font-weight:600; padding:4px 0; width:100%; text-align:center;}
   .btn-row{display:flex; gap:10px;}
   .btn-row .btn{flex:1;}
 
   .footnote{text-align:center; font-size:12px; color:var(--muted); margin:4px 0 10px;}
-
-  .sos{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:16px;
-    border-radius:18px; background:linear-gradient(135deg,var(--crisis),#ef4444); color:#fff; font-size:16px;
-    font-weight:800; border:none; margin:10px 0 14px; box-shadow:0 6px 18px rgba(242,100,92,0.35);}
 
   /* Step header (crisis / cbt / recovery) */
   .step-header{display:flex; align-items:center; gap:10px; margin:14px 0 12px;}
@@ -84,11 +84,17 @@
   .cbt-stepper .back{font-size:18px; color:var(--text); cursor:pointer;}
 
   .icon-circle{width:74px; height:74px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-size:32px; margin:6px auto 16px;}
+    font-size:32px; margin:6px auto 16px; position:relative;}
   .icon-circle.crisis{background:var(--crisis-soft);}
   .icon-circle.cbt{background:var(--purple-soft);}
   .icon-circle.recovery{background:var(--teal-soft);}
   .icon-circle.blue{background:var(--blue-soft);}
+  .icon-circle.gray{background:var(--gray-soft);}
+  .icon-circle.pink{background:var(--pink-soft);}
+  .icon-circle.green{background:var(--green-soft);}
+  .icon-circle .badge{position:absolute; bottom:-2px; right:-2px; width:26px; height:26px; border-radius:50%;
+    background:var(--cbt-step); color:#fff; font-size:14px; display:flex; align-items:center; justify-content:center;
+    border:2px solid var(--bg);}
 
   textarea, input[type=text], input[type=date]{
     width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text);
@@ -96,8 +102,8 @@
   label{font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; font-weight:600;}
 
   .breath-circle{width:140px; height:140px; margin:10px auto 16px; border-radius:50%;
-    background:radial-gradient(circle,var(--crisis),#ef4444);
-    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff;
+    background:var(--pink-soft); border:4px solid var(--pink);
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--crisis);
     transition:transform 4s ease-in-out; transform:scale(0.7);}
   .breath-circle.in{transform:scale(1.15); transition:transform 4s ease-in-out;}
   .breath-circle.hold{transition:transform 2s ease-in-out;}
@@ -200,7 +206,7 @@
       <div class="home-header">
         <button class="iconbtn" onclick="App.go('settings')">☰</button>
         <div class="greet">Good to see you,</div>
-        <div class="avatar">🙂</div>
+        <div class="avatar">👤</div>
       </div>
       <h2 class="home-title">How is your mind<br>right now?</h2>
       <p class="muted">Slide to select intensity</p>
@@ -233,26 +239,24 @@
       <button class="btn btn-primary" id="homeRouteBtn" onclick="App.homeRoute()">Continue</button>
       <div class="footnote">🔒 Your data is private &amp; secure</div>
 
-      <button class="sos" onclick="App.go('crisisStep1')">🆘 I need help right now</button>
-
       <div id="warningBannerHome"></div>
 
       <h3>Quick access <span style="text-transform:none; font-weight:500;">(from anywhere)</span></h3>
       <div class="qa-grid">
         <button class="qa-tile" onclick="App.quickTool('breathe')">
-          <div class="ic-bubble icon-circle crisis" style="margin:0;">🌬️</div>
+          <div class="ic-bubble icon-circle blue" style="margin:0;">🌬️</div>
           <div class="qa-text"><b>Breathe</b><span>1 min</span></div>
         </button>
         <button class="qa-tile" onclick="App.quickTool('ground')">
-          <div class="ic-bubble icon-circle crisis" style="margin:0;">✋</div>
+          <div class="ic-bubble icon-circle pink" style="margin:0;">✋</div>
           <div class="qa-text"><b>Grounding</b><span>2 min</span></div>
         </button>
         <button class="qa-tile" onclick="App.quickTool('reality')">
-          <div class="ic-bubble icon-circle crisis" style="margin:0;">🛡️</div>
+          <div class="ic-bubble icon-circle cbt" style="margin:0;">🛡️</div>
           <div class="qa-text"><b>Reality Check</b><span>30 sec</span></div>
         </button>
         <button class="qa-tile" onclick="App.quickTool('words')">
-          <div class="ic-bubble icon-circle crisis" style="margin:0;">💬</div>
+          <div class="ic-bubble icon-circle gray" style="margin:0;">💬</div>
           <div class="qa-text"><b>Calm Words</b><span>Read now</span></div>
         </button>
       </div>
@@ -273,6 +277,14 @@
           <div><div class="ic-text"><b>Trusted Contacts</b></div><div class="ic-sub">Reach out to someone you trust.</div></div>
         </div>
         <p class="muted center" style="margin-top:10px;">♡ You are not alone.</p>
+      </div>
+
+      <div class="legend-strip">
+        <div class="legend-item"><span class="ic-bubble icon-circle crisis" style="margin:0; width:30px; height:30px; font-size:14px;">❤️</span><div><b>Crisis Mode</b><span>For intense overwhelm</span></div></div>
+        <div class="legend-item"><span class="ic-bubble icon-circle cbt" style="margin:0; width:30px; height:30px; font-size:14px;">🧠</span><div><b>CBT Mode</b><span>For reframing distorted thoughts</span></div></div>
+        <div class="legend-item"><span class="ic-bubble icon-circle recovery" style="margin:0; width:30px; height:30px; font-size:14px;">🌱</span><div><b>Recovery Mode</b><span>For tracking &amp; building resilience</span></div></div>
+        <div class="legend-item"><span class="ic-bubble icon-circle gray" style="margin:0; width:30px; height:30px; font-size:14px;">🔒</span><div><b>Private</b><span>Your data stays with you</span></div></div>
+        <div class="legend-item"><span class="ic-bubble icon-circle blue" style="margin:0; width:30px; height:30px; font-size:14px;">📶</span><div><b>Offline First</b><span>Works anytime, anywhere</span></div></div>
       </div>
     </div>
 
@@ -317,9 +329,9 @@
       <div class="step-header"><span class="step-num crisis">4</span><span class="step-title">Reality Anchor</span></div>
       <h2>Reality Check</h2>
       <p class="muted">Remind yourself:</p>
-      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🕐</div><div class="ic-text">This feeling is temporary.</div></div>
-      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🧠</div><div class="ic-text">It is a stress response.</div></div>
-      <div class="card icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">🛡️</div><div class="ic-text">You are safe in this moment.</div></div>
+      <div class="card icon-row"><div class="ic-bubble icon-circle pink" style="margin:0;">🕐</div><div class="ic-text">This feeling is temporary.</div></div>
+      <div class="card icon-row"><div class="ic-bubble icon-circle cbt" style="margin:0;">🧠</div><div class="ic-text">It is a stress response.</div></div>
+      <div class="card icon-row"><div class="ic-bubble icon-circle blue" style="margin:0;">🛡️</div><div class="ic-text">You are safe in this moment.</div></div>
       <button class="btn btn-crisis" onclick="App.go('crisisStep5')">Continue</button>
     </div>
 
@@ -330,13 +342,13 @@
       <p class="muted">You don't have to go through this alone.</p>
       <div class="card">
         <div class="icon-row" onclick="App.go('crisisSafety')">
-          <div class="ic-bubble icon-circle crisis" style="margin:0;">📞</div><div class="ic-text">Call someone you trust</div>
+          <div class="ic-bubble icon-circle green" style="margin:0;">📞</div><div class="ic-text">Call someone you trust</div>
         </div>
         <div class="icon-row" onclick="App.go('crisisSafety')">
           <div class="ic-bubble icon-circle blue" style="margin:0;">💬</div><div class="ic-text">Contact support service</div>
         </div>
         <div class="icon-row" onclick="App.go('settings')">
-          <div class="ic-bubble icon-circle recovery" style="margin:0;">👥</div><div class="ic-text">Stay with someone nearby</div>
+          <div class="ic-bubble icon-circle cbt" style="margin:0;">👥</div><div class="ic-text">Stay with someone nearby</div>
         </div>
       </div>
       <p class="muted center">If this is an emergency, call your local emergency number.</p>
@@ -396,7 +408,7 @@
     <!-- CBT step 3: distortions -->
     <div class="screen" data-screen="cbtStep3">
       <div class="cbt-stepper"><span class="back" onclick="App.go('cbtStep2')">&lsaquo;</span><span>3/5</span></div>
-      <div class="icon-circle cbt">🧠</div>
+      <div class="icon-circle cbt">🧠<span class="badge">⚠️</span></div>
       <h2 class="center">Thought Pattern Detected</h2>
       <p class="muted center">We noticed some thinking patterns that may be intensifying this.</p>
       <div class="card flush" style="padding:14px;">
@@ -537,13 +549,7 @@
       </div>
       <div class="card">
         <h3>About MindShift</h3>
-        <div class="legend-strip">
-          <div class="legend-item"><span class="dot" style="background:var(--crisis);"></span><div><b>Crisis Mode</b><span>For intense overwhelm</span></div></div>
-          <div class="legend-item"><span class="dot" style="background:var(--purple);"></span><div><b>CBT Mode</b><span>For reframing distorted thoughts</span></div></div>
-          <div class="legend-item"><span class="dot" style="background:var(--teal);"></span><div><b>Recovery Mode</b><span>For tracking &amp; building resilience</span></div></div>
-          <div class="legend-item"><span class="dot" style="background:var(--muted);"></span><div><b>Private</b><span>Your data stays with you</span></div></div>
-          <div class="legend-item"><span class="dot" style="background:var(--blue);"></span><div><b>Offline First</b><span>Works anytime, anywhere</span></div></div>
-        </div>
+        <p class="muted">A support tool, not a replacement for clinical care. See the mode legend at the bottom of the Home screen.</p>
       </div>
       <div class="card">
         <h3>Data</h3>
@@ -591,11 +597,11 @@ function todayKey(d){ d = d || new Date(); return d.toISOString().slice(0,10); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
 const GROUNDING = [
-  {n:5, label:'things you see', icon:'👁️'},
-  {n:4, label:'things you feel', icon:'✋'},
-  {n:3, label:'things you hear', icon:'👂'},
-  {n:2, label:'things you smell', icon:'👃'},
-  {n:1, label:'thing you taste', icon:'👅'}
+  {n:5, label:'things you see', icon:'👁️', color:'blue'},
+  {n:4, label:'things you feel', icon:'✋', color:'pink'},
+  {n:3, label:'things you hear', icon:'👂', color:'cbt'},
+  {n:2, label:'things you smell', icon:'👃', color:'gray'},
+  {n:1, label:'thing you taste', icon:'👅', color:'crisis'}
 ];
 
 const DISTORTIONS = [
@@ -828,7 +834,7 @@ function renderSafety(){
 
 function renderGrounding(){
   document.getElementById('groundList').innerHTML = GROUNDING.map(g=>
-    `<div class="icon-row"><div class="ic-bubble icon-circle crisis" style="margin:0;">${g.icon}</div><div class="ic-text"><b>${g.n}</b> ${g.label}</div></div>`
+    `<div class="icon-row"><div class="ic-bubble icon-circle ${g.color}" style="margin:0;">${g.icon}</div><div class="ic-text"><b>${g.n}</b> ${g.label}</div></div>`
   ).join('');
 }
 
