@@ -1,4 +1,4 @@
-package com.calmanchor
+package com.mindshift
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webChromeClient = WebChromeClient()
-        webView.loadUrl("file:///android_asset/calmanchor.html")
+        webView.loadUrl("file:///android_asset/mindshift.html")
     }
 
     private fun hideSystemUI() {
