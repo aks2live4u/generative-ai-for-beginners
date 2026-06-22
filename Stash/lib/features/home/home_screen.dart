@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../models/collection.dart';
 import '../../models/content_item.dart';
 import '../../state/providers.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/stash_card.dart';
+import '../capture/add_collection_sheet.dart';
 import '../capture/quick_capture_sheet.dart';
 import '../favorites/favorites_screen.dart';
 import 'content_detail_screen.dart';
@@ -81,10 +83,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(searchResultsProvider);
   }
 
+  // Lets the user manually group selected items (e.g. movie reviews, recipe
+  // videos, research clips) into a folder of their own, separate from the
+  // automatic platform/type filters above. Moving doesn't remove the items
+  // from "All" or their type filter — it only adds them to the folder so
+  // they're also reachable from that folder's own pill.
+  Future<void> _moveSelectedToFolder() async {
+    final collections = await ref.read(collectionsListProvider.future);
+    if (!mounted) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Move to folder', style: Theme.of(ctx).textTheme.titleLarge),
+                ),
+              ),
+              for (final c in collections)
+                ListTile(
+                  leading: const Icon(Icons.folder_rounded),
+                  title: Text(c.name),
+                  onTap: () => Navigator.pop(ctx, c.id),
+                ),
+              ListTile(
+                leading: Icon(Icons.add_rounded, color: Theme.of(ctx).colorScheme.primary),
+                title: Text('New folder', style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
+                onTap: () => Navigator.pop(ctx, '__new__'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (choice == null) return;
+
+    String? targetId = choice;
+    if (choice == '__new__') {
+      targetId = await _createFolder(returnId: true);
+      if (targetId == null) return;
+    }
+
+    final repo = ref.read(contentRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.addToCollection(id, targetId);
+    }
+    setState(() => _selectedIds.clear());
+    ref.invalidate(collectionsListProvider);
+  }
+
+  // Opens the same "create collection" sheet used elsewhere in the app.
+  // When [returnId] is true (called from the move-to-folder flow), it waits
+  // for the newly created folder's id instead of just closing.
+  Future<String?> _createFolder({bool returnId = false}) async {
+    if (!returnId) {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => const AddCollectionSheet(),
+      );
+      return null;
+    }
+
+    final before = await ref.read(collectionsListProvider.future);
+    if (!mounted) return null;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const AddCollectionSheet(),
+    );
+    ref.invalidate(collectionsListProvider);
+    final after = await ref.read(collectionsListProvider.future);
+    final created = after.where((c) => !before.any((b) => b.id == c.id));
+    return created.isEmpty ? null : created.first.id;
+  }
+
+  void _openFolder(Collection collection) {
+    ref.read(contentFilterProvider.notifier).state = ContentFilter(collectionId: collection.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final contentAsync = ref.watch(contentListProvider);
     final filter = ref.watch(contentFilterProvider);
+    final collectionsAsync = ref.watch(collectionsListProvider);
 
     return Scaffold(
       appBar: _selectionMode
@@ -95,6 +189,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               title: Text('${_selectedIds.length} selected'),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.folder_outlined),
+                  tooltip: 'Move to folder',
+                  onPressed: _moveSelectedToFolder,
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded),
                   onPressed: _deleteSelected,
@@ -120,27 +219,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              children: _filters.map((entry) {
-                final types = entry.$2;
-                final selected = types == null
-                    ? (filter.types == null || filter.types!.isEmpty)
-                    : (filter.types != null &&
-                        filter.types!.length == types.length &&
-                        types.every(filter.types!.contains));
-                return Padding(
+              children: [
+                ..._filters.map((entry) {
+                  final types = entry.$2;
+                  final selected = filter.collectionId == null &&
+                      (types == null
+                          ? (filter.types == null || filter.types!.isEmpty)
+                          : (filter.types != null &&
+                              filter.types!.length == types.length &&
+                              types.every(filter.types!.contains)));
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _FilterPill(
+                      label: entry.$1,
+                      selected: selected,
+                      onTap: () {
+                        ref.read(contentFilterProvider.notifier).state = ContentFilter(
+                          types: types,
+                          onlyFavorites: filter.onlyFavorites,
+                        );
+                      },
+                    ),
+                  );
+                }),
+                // Custom, user-created folders (e.g. "Movies", "Recipes",
+                // "Research") for manually grouping items that don't fit
+                // any single platform/type filter above.
+                ...collectionsAsync.maybeWhen(
+                  data: (collections) => collections.map((c) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _FilterPill(
+                        label: c.name,
+                        selected: filter.collectionId == c.id,
+                        onTap: () => _openFolder(c),
+                      ),
+                    );
+                  }),
+                  orElse: () => const <Widget>[],
+                ),
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _FilterPill(
-                    label: entry.$1,
-                    selected: selected,
-                    onTap: () {
-                      ref.read(contentFilterProvider.notifier).state = ContentFilter(
-                        types: types,
-                        onlyFavorites: filter.onlyFavorites,
-                      );
-                    },
-                  ),
-                );
-              }).toList(),
+                  child: _AddFolderPill(onTap: () => _createFolder()),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -250,6 +372,34 @@ class _FilterPill extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// A small circular "+" pill at the end of the filter row for creating a new
+// folder on the spot, matching the row's existing chip styling rather than
+// looking like an unrelated button bolted on.
+class _AddFolderPill extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddFolderPill({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: CircleBorder(
+        side: BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.4)),
+      ),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(Icons.add_rounded, size: 22, color: theme.colorScheme.primary),
         ),
       ),
     );

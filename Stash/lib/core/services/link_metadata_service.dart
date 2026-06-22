@@ -67,17 +67,25 @@ class LinkMetadataService {
 
       final title = og('og:title') ?? document.querySelector('title')?.text.trim() ?? url;
       final description = og('og:description') ?? og('description');
-      // Instagram's anti-scraping defenses inconsistently strip OpenGraph
-      // tags from the served HTML (sometimes a login wall, sometimes a
-      // stripped page), which is why some posts show a thumbnail and others
-      // don't. Falling back to Twitter Card tags, and finally to the image
-      // URL embedded directly in the page's inline JSON, recovers a
-      // thumbnail in more of those cases (though not all — Instagram can
-      // still serve a page with no image reference at all).
-      final image = og('og:image') ??
-          og('twitter:image') ??
-          og('twitter:image:src') ??
-          _extractEmbeddedImage(response.body);
+      // Instagram's og:image is a pre-cropped square thumbnail regardless of
+      // the original photo's aspect ratio, which is why image posts look
+      // cropped while Reels/videos (whose frame is already that shape)
+      // don't. The actual, uncropped photo URL is embedded directly in the
+      // page's inline JSON, so for Instagram it's tried first; other
+      // platforms keep checking og:image first since their pages don't
+      // reliably contain that same JSON shape. The Twitter Card fallback and
+      // embedded-JSON last-resort both also help recover a thumbnail at all
+      // when Instagram strips OG tags entirely, which was the other reason
+      // some posts had no picture.
+      final image = platform == SourcePlatform.instagram
+          ? _extractEmbeddedImage(response.body) ??
+              og('og:image') ??
+              og('twitter:image') ??
+              og('twitter:image:src')
+          : og('og:image') ??
+              og('twitter:image') ??
+              og('twitter:image:src') ??
+              _extractEmbeddedImage(response.body);
       final author = og('og:site_name') ?? og('author');
 
       return LinkMetadata(
