@@ -356,9 +356,24 @@ class GuardrailAccessibilityService : AccessibilityService() {
         try {
             val root = rootInActiveWindow ?: return
             val viewId = browserUrlBarId[browserPkg] ?: return
-            val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
-            val urlText = nodes?.firstOrNull()?.text?.toString()?.trim() ?: return
+            val node = root.findAccessibilityNodeInfosByViewId(viewId)?.firstOrNull() ?: return
+            val rawText = node.text?.toString() ?: return
+
+            // While typing, Chrome's omnibox shows an inline autocomplete suggestion as
+            // selected text appended right after what was actually typed — e.g. typing
+            // just "f" can surface "flipkart.com" highlighted from history, and the node's
+            // text already contains the full suggested domain even though the user hasn't
+            // typed or navigated there. The unselected prefix is what was actually typed,
+            // so use that instead of the full (possibly auto-completed) text.
+            val selStart = node.textSelectionStart
+            val selEnd = node.textSelectionEnd
+            val typedText = if (selStart in 0..rawText.length && selEnd in 0..rawText.length && selStart < selEnd) {
+                rawText.substring(0, selStart)
+            } else rawText
             root.recycle()
+
+            val urlText = typedText.trim()
+            if (urlText.isEmpty()) return
 
             val domain = extractDomain(urlText) ?: return
             val site   = websiteCache[domain]  ?: return
