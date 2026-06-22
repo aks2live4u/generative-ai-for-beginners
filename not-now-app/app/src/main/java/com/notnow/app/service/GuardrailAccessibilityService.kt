@@ -268,12 +268,15 @@ class GuardrailAccessibilityService : AccessibilityService() {
         when (type) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 if (pkg in phoneCallPackages) onIncomingCallSignal()
-                // Always check browser URL on window changes too (catches page loads)
-                if (pkg in browserPackages) checkBrowserUrl(pkg)
+                // A full window-state change is a definite page-load signal — check immediately.
+                if (pkg in browserPackages) checkBrowserUrl(pkg, immediate = true)
                 handleAppSwitch(pkg)
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                if (pkg in browserPackages) checkBrowserUrl(pkg)
+                // Fires on every keystroke while typing — debounce in checkBrowserUrl so a
+                // single letter (which can transiently show an autocomplete suggestion for
+                // an unrelated, previously-visited site) doesn't trigger an instant block.
+                if (pkg in browserPackages) checkBrowserUrl(pkg, immediate = false)
             }
             AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED -> {
                 // A "Calling" style notification (category=call) is the most reliable,
@@ -352,19 +355,30 @@ class GuardrailAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun checkBrowserUrl(browserPkg: String) {
+    // Debounce state for the typing path: a content-change event only triggers a block
+    // once the same url text has been stable (unchanged) for URL_STABLE_MS. This absorbs
+    // transient autocomplete-suggestion text and rendering races while the user is mid-keystroke.
+    private var pendingUrlText = ""
+    private var pendingUrlSince = 0L
+    private val URL_STABLE_MS = 400L
+
+    private fun checkBrowserUrl(browserPkg: String, immediate: Boolean) {
         try {
             val root = rootInActiveWindow ?: return
             val viewId = browserUrlBarId[browserPkg] ?: return
-            val node = root.findAccessibilityNodeInfosByViewId(viewId)?.firstOrNull() ?: return
+            val candidates = root.findAccessibilityNodeInfosByViewId(viewId) ?: return
+            // The same resource id can be shared by the actual address bar EditText AND
+            // the autocomplete suggestion rows below it (e.g. a suggestion row showing
+            // "flipkart.com" from history while the address bar itself only has "f"
+            // typed in it). Only the address bar field is editable — pick that one
+            // specifically rather than whichever node happens to come first.
+            val node = candidates.firstOrNull { it.isEditable } ?: candidates.firstOrNull() ?: return
             val rawText = node.text?.toString() ?: return
 
-            // While typing, Chrome's omnibox shows an inline autocomplete suggestion as
-            // selected text appended right after what was actually typed — e.g. typing
-            // just "f" can surface "flipkart.com" highlighted from history, and the node's
-            // text already contains the full suggested domain even though the user hasn't
-            // typed or navigated there. The unselected prefix is what was actually typed,
-            // so use that instead of the full (possibly auto-completed) text.
+            // While typing, Chrome's omnibox can also show an inline autocomplete
+            // suggestion as selected text appended right after what was actually typed.
+            // The unselected prefix is what was actually typed, so use that instead of
+            // the full (possibly auto-completed) text.
             val selStart = node.textSelectionStart
             val selEnd = node.textSelectionEnd
             val typedText = if (selStart in 0..rawText.length && selEnd in 0..rawText.length && selStart < selEnd) {
@@ -374,6 +388,16 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
             val urlText = typedText.trim()
             if (urlText.isEmpty()) return
+
+            if (!immediate) {
+                val now = System.currentTimeMillis()
+                if (urlText != pendingUrlText) {
+                    pendingUrlText = urlText
+                    pendingUrlSince = now
+                    return
+                }
+                if (now - pendingUrlSince < URL_STABLE_MS) return
+            }
 
             val domain = extractDomain(urlText) ?: return
             val site   = websiteCache[domain]  ?: return
