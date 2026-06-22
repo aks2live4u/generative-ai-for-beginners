@@ -93,33 +93,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     final choice = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      // A long list of folders was overflowing past the bottom of the
+      // screen since nothing here was scrollable; capping the sheet's
+      // height and putting the folder list in its own ListView lets it
+      // scroll instead.
       builder: (ctx) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Move to folder', style: Theme.of(ctx).textTheme.titleLarge),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Move to folder', style: Theme.of(ctx).textTheme.titleLarge),
+                  ),
                 ),
-              ),
-              for (final c in collections)
-                ListTile(
-                  leading: const Icon(Icons.folder_rounded),
-                  title: Text(c.name),
-                  onTap: () => Navigator.pop(ctx, c.id),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final c in collections)
+                        ListTile(
+                          leading: const Icon(Icons.folder_rounded),
+                          title: Text(c.name),
+                          onTap: () => Navigator.pop(ctx, c.id),
+                        ),
+                      ListTile(
+                        leading: Icon(Icons.add_rounded, color: Theme.of(ctx).colorScheme.primary),
+                        title: Text('New folder', style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
+                        onTap: () => Navigator.pop(ctx, '__new__'),
+                      ),
+                    ],
+                  ),
                 ),
-              ListTile(
-                leading: Icon(Icons.add_rounded, color: Theme.of(ctx).colorScheme.primary),
-                title: Text('New folder', style: TextStyle(color: Theme.of(ctx).colorScheme.primary)),
-                onTap: () => Navigator.pop(ctx, '__new__'),
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -172,6 +187,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openFolder(Collection collection) {
     ref.read(contentFilterProvider.notifier).state = ContentFilter(collectionId: collection.id);
+  }
+
+  // Folders are entirely user-created (no auto-deduction), so they also need
+  // a user-facing way to remove ones that aren't wanted. Long-pressing a
+  // folder pill mirrors the existing long-press-to-act pattern already used
+  // on content cards, rather than adding a separate "manage folders" screen.
+  Future<void> _confirmDeleteFolder(Collection collection) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${collection.name}"?'),
+        content: const Text(
+            'This deletes the folder. Items inside it are not deleted and stay in their other lists.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await ref.read(collectionRepositoryProvider).delete(collection.id);
+    if (ref.read(contentFilterProvider).collectionId == collection.id) {
+      ref.read(contentFilterProvider.notifier).state = const ContentFilter();
+    }
+    ref.invalidate(collectionsListProvider);
   }
 
   @override
@@ -253,6 +294,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         label: c.name,
                         selected: filter.collectionId == c.id,
                         onTap: () => _openFolder(c),
+                        onLongPress: () => _confirmDeleteFolder(c),
                       ),
                     );
                   }),
@@ -328,8 +370,9 @@ class _FilterPill extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const _FilterPill({required this.label, required this.selected, required this.onTap});
+  const _FilterPill({required this.label, required this.selected, required this.onTap, this.onLongPress});
 
   // The whole filter row used to be black-on-black with only the selected
   // pill picking up the purple primary color. Giving every unselected pill
@@ -355,6 +398,7 @@ class _FilterPill extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),

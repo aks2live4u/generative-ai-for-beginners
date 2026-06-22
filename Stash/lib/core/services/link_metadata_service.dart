@@ -110,7 +110,30 @@ class LinkMetadataService {
   /// Last-resort fallback: pulls an image URL out of the raw HTML body's
   /// inline JSON (the fields Instagram/Facebook embed for their own client
   /// rendering), for pages that strip all OpenGraph/Twitter Card meta tags.
+  ///
+  /// Instagram's plain "display_url"/"thumbnail_url" fields are sometimes a
+  /// separately generated, deliberately square poster (most visible on
+  /// video/Reel posts), which doesn't match the actual photo/video's aspect
+  /// ratio. "image_versions2.candidates" and "display_resources" are the
+  /// structures Instagram's own client uses to render the real media, listed
+  /// at multiple resolutions but all sharing the correct, uncropped aspect
+  /// ratio -- so those are checked first.
   static String? _extractEmbeddedImage(String body) {
+    final candidates = RegExp(r'"image_versions2"\s*:\s*\{\s*"candidates"\s*:\s*\[\s*\{[^}]*?"url"\s*:\s*"([^"]+)"')
+        .firstMatch(body);
+    if (candidates != null) return _unescapeJsonUrl(candidates.group(1));
+
+    final displayResources = RegExp(r'"display_resources"\s*:\s*\[(.*?)\]').firstMatch(body);
+    if (displayResources != null) {
+      final urls = RegExp(r'"src"\s*:\s*"([^"]+)"')
+          .allMatches(displayResources.group(1)!)
+          .map((m) => m.group(1))
+          .whereType<String>()
+          .toList();
+      // Listed smallest-to-largest; the last is the highest resolution.
+      if (urls.isNotEmpty) return _unescapeJsonUrl(urls.last);
+    }
+
     final patterns = [
       RegExp(r'"display_url"\s*:\s*"([^"]+)"'),
       RegExp(r'"thumbnail_url"\s*:\s*"([^"]+)"'),
@@ -118,11 +141,12 @@ class LinkMetadataService {
     ];
     for (final pattern in patterns) {
       final match = pattern.firstMatch(body);
-      if (match != null) {
-        // JSON-escaped slashes/ampersands need unescaping to form a valid URL.
-        return match.group(1)?.replaceAll(r'\/', '/').replaceAll('\\u0026', '&');
-      }
+      if (match != null) return _unescapeJsonUrl(match.group(1));
     }
     return null;
   }
+
+  // JSON-escaped slashes/ampersands need unescaping to form a valid URL.
+  static String? _unescapeJsonUrl(String? raw) =>
+      raw?.replaceAll(r'\/', '/').replaceAll('\\u0026', '&');
 }

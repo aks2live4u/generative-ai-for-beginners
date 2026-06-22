@@ -39,44 +39,7 @@ class _AddLinkSheetState extends ConsumerState<AddLinkSheet> {
       final ai = ref.read(aiServiceProvider);
       final organized = await ai.organize(title: metadata.title, description: metadata.description);
 
-      final collectionRepo = ref.read(collectionRepositoryProvider);
       final contentRepo = ref.read(contentRepositoryProvider);
-      final existingCollections = await collectionRepo.all();
-      final collectionIds = <String>[];
-      // A suggested name only becomes a new collection once enough other
-      // saved items already share it as a tag — a single offhand keyword
-      // should never spawn its own collection. Manually creating a
-      // collection (Add Collection) is unaffected by this threshold.
-      const minRelatedItemsToAutoCreate = 3;
-      for (final name in organized.suggestedCollections) {
-        final match = existingCollections.where((c) => c.name.toLowerCase() == name.toLowerCase());
-        if (match.isNotEmpty) {
-          collectionIds.add(match.first.id);
-          continue;
-        }
-        final relatedItemIds = await contentRepo.contentIdsWithTag(name);
-        if (relatedItemIds.length + 1 >= minRelatedItemsToAutoCreate) {
-          final created = await collectionRepo.create(name);
-          collectionIds.add(created.id);
-          for (final relatedId in relatedItemIds) {
-            await contentRepo.addToCollection(relatedId, created.id);
-          }
-        }
-      }
-
-      // Give freshly created or still-cover-less collections a thumbnail
-      // so they're recognizable at a glance, instead of a generic gradient.
-      if (metadata.thumbnailUrl != null && metadata.thumbnailUrl!.isNotEmpty) {
-        for (final id in collectionIds) {
-          final existing = existingCollections.where((c) => c.id == id);
-          final hasCover = existing.isNotEmpty &&
-              existing.first.coverImage != null &&
-              existing.first.coverImage!.isNotEmpty;
-          if (!hasCover) {
-            await collectionRepo.setCoverImage(id, metadata.thumbnailUrl);
-          }
-        }
-      }
 
       final now = DateTime.now();
       final item = ContentItem(
@@ -92,11 +55,9 @@ class _AddLinkSheetState extends ConsumerState<AddLinkSheet> {
         createdAt: now,
         updatedAt: now,
         tags: organized.tags,
-        collectionIds: collectionIds,
       );
       await contentRepo.create(item);
       ref.invalidate(contentListProvider);
-      ref.invalidate(collectionsListProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       setState(() => _error = 'Could not save link: $e');
