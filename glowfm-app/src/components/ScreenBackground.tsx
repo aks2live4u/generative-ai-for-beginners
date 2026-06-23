@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = {
   children: React.ReactNode;
@@ -17,13 +18,18 @@ export default function ScreenBackground({ children, style }: Props) {
       />
       <View style={[styles.glow, styles.glowTopLeft]} />
       <View style={[styles.glow, styles.glowBottomRight]} />
-      {children}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        {children}
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  safeArea: {
     flex: 1,
   },
   glow: {
