@@ -1,6 +1,7 @@
-import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import ScreenBackground from '../components/ScreenBackground';
 import TopBar from '../components/TopBar';
 import FrequencyDial from '../components/FrequencyDial';
 import Equalizer from '../components/Equalizer';
@@ -20,7 +21,16 @@ export default function HomeScreen({ navigation }: Props) {
   const stations = useRadioStore((s) => s.stations);
   const currentStation = useRadioStore((s) => s.currentStation);
   const toggleFavorite = useRadioStore((s) => s.toggleFavorite);
+  const refreshStations = useRadioStore((s) => s.refreshStations);
+  const error = useRadioStore((s) => s.error);
   const { playbackState, signal, toast, dismissToast, playStation, togglePlayPause } = usePlayer();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshStations();
+    setRefreshing(false);
+  }, [refreshStations]);
 
   const list = favorites.length > 0 ? favorites : stations.slice(0, 10);
   const dialStation = currentStation ?? list[0] ?? null;
@@ -38,7 +48,7 @@ export default function HomeScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenBackground style={styles.container}>
       <TopBar
         leftIcon="⌂"
         onLeftPress={() => navigation.navigate('Home')}
@@ -69,7 +79,14 @@ export default function HomeScreen({ navigation }: Props) {
             onToggleFavorite={() => toggleFavorite(item)}
           />
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No stations yet — pull to refresh.</Text>}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.neonCyan} />
+        }
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {error ? `Couldn't load stations: ${error}` : 'No stations yet — pull to refresh.'}
+          </Text>
+        }
       />
 
       <PlaybackBar
@@ -80,14 +97,13 @@ export default function HomeScreen({ navigation }: Props) {
       />
 
       {toast && <Toast message={toast.message} onDismiss={dismissToast} />}
-    </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   dialSection: {
     alignItems: 'center',

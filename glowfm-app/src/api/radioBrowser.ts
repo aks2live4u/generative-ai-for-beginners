@@ -97,21 +97,37 @@ function languageQueryValue(language: LanguageOption): string | undefined {
   return language;
 }
 
+// Radio Browser's `tagList` param is an AND filter (station must carry every tag
+// listed), not OR — so each accepted tag is queried separately and merged here.
 export async function searchStations(language: LanguageOption, limit = 100): Promise<Station[]> {
-  const params = new URLSearchParams({
-    tagList: NON_COMMERCIAL_TAGS.join(','),
-    order: 'clickcount',
-    reverse: 'true',
-    limit: String(limit),
-    hidebroken: 'true',
-  });
   const lang = languageQueryValue(language);
-  if (lang) params.set('language', lang);
 
-  const raw = await requestWithFailover<RawStation[]>(`/json/stations/search?${params.toString()}`);
-  return raw
-    .map(mapStation)
-    .filter((station) => station.lastCheckOk && isNonCommercial(station));
+  const resultsPerTag = await Promise.all(
+    NON_COMMERCIAL_TAGS.map(async (tag) => {
+      const params = new URLSearchParams({
+        tag,
+        order: 'clickcount',
+        reverse: 'true',
+        limit: String(limit),
+        hidebroken: 'true',
+      });
+      if (lang) params.set('language', lang);
+      try {
+        const raw = await requestWithFailover<RawStation[]>(`/json/stations/search?${params.toString()}`);
+        return raw.map(mapStation);
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  const seen = new Map<string, Station>();
+  for (const station of resultsPerTag.flat()) {
+    if (station.lastCheckOk && isNonCommercial(station) && !seen.has(station.stationuuid)) {
+      seen.set(station.stationuuid, station);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => b.clickCount - a.clickCount).slice(0, limit);
 }
 
 export async function getStationByUuid(uuid: string): Promise<Station | null> {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ScreenBackground from '../components/ScreenBackground';
 import TopBar from '../components/TopBar';
 import StationRow from '../components/StationRow';
 import LanguageFilter from '../components/LanguageFilter';
@@ -28,7 +29,7 @@ export default function SettingsScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenBackground style={styles.container}>
       <TopBar
         leftIcon="⌂"
         onLeftPress={() => navigation.navigate('Home')}
@@ -68,14 +69,13 @@ export default function SettingsScreen({ navigation }: Props) {
         )}
         ListEmptyComponent={<Text style={styles.empty}>No favorites yet — star a station from Home.</Text>}
       />
-    </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   section: {
     paddingHorizontal: 20,

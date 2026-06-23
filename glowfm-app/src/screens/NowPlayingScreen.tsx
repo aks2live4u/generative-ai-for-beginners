@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import ScreenBackground from '../components/ScreenBackground';
 import TopBar from '../components/TopBar';
 import FrequencyDial from '../components/FrequencyDial';
 import Equalizer from '../components/Equalizer';
@@ -38,7 +39,7 @@ export default function NowPlayingScreen({ navigation }: Props) {
   const genre = currentStation?.tags.split(',')[0]?.trim() || 'Radio';
 
   return (
-    <View style={styles.container}>
+    <ScreenBackground style={styles.container}>
       <TopBar
         leftIcon="⌂"
         onLeftPress={() => navigation.navigate('Home')}
@@ -78,14 +79,13 @@ export default function NowPlayingScreen({ navigation }: Props) {
       />
 
       {toast && <Toast message={toast.message} onDismiss={dismissToast} />}
-    </View>
+    </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   dialSection: {
     alignItems: 'center',
