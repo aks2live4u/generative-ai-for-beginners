@@ -34,7 +34,11 @@ export default function StationRow({ station, isFavorite, isActive, onPress, onT
         </View>
       </View>
       <Pressable
-        onPress={onToggleFavorite}
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggleFavorite();
+        }}
+        hitSlop={8}
         style={styles.favButton}
         accessibilityRole="button"
         accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}

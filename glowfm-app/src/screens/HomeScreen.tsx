@@ -33,6 +33,7 @@ export default function HomeScreen({ navigation }: Props) {
   }, [refreshStations]);
 
   const list = favorites.length > 0 ? favorites : stations.slice(0, 10);
+  const listTitle = favorites.length > 0 ? 'Favorite Stations' : 'Top Stations';
   const dialStation = currentStation ?? list[0] ?? null;
 
   const handleSelectStation = async (station: typeof stations[number]) => {
@@ -52,7 +53,7 @@ export default function HomeScreen({ navigation }: Props) {
       <TopBar
         leftIcon="⌂"
         onLeftPress={() => navigation.navigate('Home')}
-        rightIcon="☆"
+        rightIcon="⚙"
         onRightPress={() => navigation.navigate('Settings')}
       />
 
@@ -65,7 +66,7 @@ export default function HomeScreen({ navigation }: Props) {
         <Equalizer active={playbackState === 'playing'} />
       </View>
 
-      <Text style={styles.sectionTitle}>Favorite Stations</Text>
+      <Text style={styles.sectionTitle}>{listTitle}</Text>
       <FlatList
         data={list}
         keyExtractor={(item) => item.stationuuid}

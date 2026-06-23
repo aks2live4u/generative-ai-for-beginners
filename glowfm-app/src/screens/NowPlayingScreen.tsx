@@ -43,7 +43,7 @@ export default function NowPlayingScreen({ navigation }: Props) {
       <TopBar
         leftIcon="⌂"
         onLeftPress={() => navigation.navigate('Home')}
-        rightIcon="☆"
+        rightIcon="⚙"
         onRightPress={() => navigation.navigate('Settings')}
       />
 
