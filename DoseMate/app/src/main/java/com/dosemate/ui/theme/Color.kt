@@ -7,6 +7,12 @@ val TealPrimary = Color(0xFF0F9B8E)
 val TealLight = Color(0xFF5EEAD4)
 val MintBackground = Color(0xFFE8FBF7)
 
+// Bottle-green-to-black backdrop — deep, moody base so the frosted glass cards pop.
+val BottleGreenTop = Color(0xFF123D2E)
+val BottleGreenMid = Color(0xFF0A2118)
+val NearBlack = Color(0xFF050806)
+val PureBlack = Color(0xFF000000)
+
 val GlassWhiteStrong = Color(0xCCFFFFFF)
 val GlassWhiteSoft = Color(0x80FFFFFF)
 val GlassBorder = Color(0x66FFFFFF)
@@ -22,13 +28,13 @@ val StatusPending = Color(0xFFF59E0B)
 // Dark theme variants — same teal brand hue, inverted for legibility on dark surfaces.
 val TealDeepDark = Color(0xFF49E0D2)
 val TealPrimaryDark = Color(0xFF2DD4C4)
-val DarkBgTop = Color(0xFF051F1C)
-val DarkBgBottom = Color(0xFF0E3833)
+val DarkBgTop = Color(0xFF0E2A20)
+val DarkBgBottom = Color(0xFF000000)
 
-val GlassDarkStrong = Color(0xE616302D)
-val GlassDarkSoft = Color(0xB316302D)
-val GlassBorderDark = Color(0x40FFFFFF)
-val GlassHighlightDark = Color(0x73FFFFFF)
+val GlassDarkStrong = Color(0xE61F2B22)
+val GlassDarkSoft = Color(0xB31A2419)
+val GlassBorderDark = Color(0x59FFFFFF)
+val GlassHighlightDark = Color(0x8CFFFFFF)
 
 val TextPrimaryDark = Color(0xFFE9FBF8)
 val TextSecondaryDark = Color(0xFFA9CFC9)
