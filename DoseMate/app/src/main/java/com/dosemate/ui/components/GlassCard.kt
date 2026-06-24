@@ -32,10 +32,10 @@ fun GlassCard(
     Column(
         modifier = modifier
             .shadow(
-                elevation = 18.dp,
+                elevation = 28.dp,
                 shape = shape,
-                ambientColor = Color(0x33064E48),
-                spotColor = Color(0x40064E48)
+                ambientColor = Color(0x40064E48),
+                spotColor = Color(0x59064E48)
             )
             .clip(shape)
             .background(
@@ -43,7 +43,13 @@ fun GlassCard(
                     colors = listOf(colors.glassStrong, colors.glassSoft)
                 )
             )
-            .border(1.dp, colors.glassBorder, shape)
+            .border(
+                width = 1.4.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(colors.glassHighlight, colors.glassBorder, colors.glassBorder.copy(alpha = colors.glassBorder.alpha * 0.4f))
+                ),
+                shape = shape
+            )
             .padding(contentPadding)
     ) {
         content()

@@ -14,6 +14,7 @@ import java.time.LocalDate
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val medicineId = intent.getLongExtra(AlarmScheduler.EXTRA_MEDICINE_ID, -1L)
+        val slotIndex = intent.getIntExtra(AlarmScheduler.EXTRA_SLOT_INDEX, 0)
         if (medicineId == -1L) return
 
         val pendingResult = goAsync()
@@ -34,7 +35,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
                     NotificationHelper.showReminder(context, logId, medicine.medicineId, medicine.name, medicine.dosage)
                     AlarmScheduler.scheduleMissedCheck(context, logId, medicine.medicineId, now, medicine.missedAfterMinutes)
-                    AlarmScheduler.scheduleNext(context, medicine)
+                    AlarmScheduler.scheduleNextForSlot(context, medicine, slotIndex)
                 }
             } finally {
                 pendingResult.finish()

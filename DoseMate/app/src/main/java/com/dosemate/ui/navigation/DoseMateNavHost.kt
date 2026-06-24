@@ -17,10 +17,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.dosemate.ui.screens.AddMedicineScreen
 import com.dosemate.ui.screens.AnalyticsScreen
 import com.dosemate.ui.screens.DashboardScreen
@@ -34,17 +36,18 @@ private object Routes {
     const val PERMISSIONS = "permissions"
     const val DASHBOARD = "dashboard"
     const val ADD_MEDICINE = "add_medicine"
+    const val ADD_MEDICINE_ROUTE = "add_medicine?medicineId={medicineId}"
     const val HISTORY = "history"
     const val ANALYTICS = "analytics"
 }
 
-private data class BottomTab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class BottomTab(val route: String, val navigateRoute: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 private val bottomTabs = listOf(
-    BottomTab(Routes.DASHBOARD, "Home", Icons.Filled.Home),
-    BottomTab(Routes.ADD_MEDICINE, "Add", Icons.Filled.Add),
-    BottomTab(Routes.HISTORY, "History", Icons.Filled.History),
-    BottomTab(Routes.ANALYTICS, "Analytics", Icons.Filled.BarChart)
+    BottomTab(Routes.DASHBOARD, Routes.DASHBOARD, "Home", Icons.Filled.Home),
+    BottomTab(Routes.ADD_MEDICINE_ROUTE, "${Routes.ADD_MEDICINE}?medicineId=-1", "Add", Icons.Filled.Add),
+    BottomTab(Routes.HISTORY, Routes.HISTORY, "History", Icons.Filled.History),
+    BottomTab(Routes.ANALYTICS, Routes.ANALYTICS, "Analytics", Icons.Filled.BarChart)
 )
 
 @Composable
@@ -67,7 +70,7 @@ fun DoseMateNavHost() {
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
                             onClick = {
-                                navController.navigate(tab.route) {
+                                navController.navigate(tab.navigateRoute) {
                                     popUpTo(Routes.DASHBOARD)
                                     launchSingleTop = true
                                 }
@@ -97,13 +100,18 @@ fun DoseMateNavHost() {
             }
             composable(Routes.DASHBOARD) {
                 DashboardScreen(
-                    onAddMedicine = { navController.navigate(Routes.ADD_MEDICINE) },
-                    onViewHistory = { navController.navigate(Routes.HISTORY) },
-                    onViewAnalytics = { navController.navigate(Routes.ANALYTICS) }
+                    onEditMedicine = { id -> navController.navigate("${Routes.ADD_MEDICINE}?medicineId=$id") }
                 )
             }
-            composable(Routes.ADD_MEDICINE) {
-                AddMedicineScreen(onSaved = { navController.popBackStack(Routes.DASHBOARD, inclusive = false) })
+            composable(
+                route = Routes.ADD_MEDICINE_ROUTE,
+                arguments = listOf(navArgument("medicineId") { type = NavType.LongType; defaultValue = -1L })
+            ) { backStack ->
+                val id = backStack.arguments?.getLong("medicineId") ?: -1L
+                AddMedicineScreen(
+                    medicineId = if (id == -1L) null else id,
+                    onSaved = { navController.popBackStack(Routes.DASHBOARD, inclusive = false) }
+                )
             }
             composable(Routes.HISTORY) { HistoryScreen() }
             composable(Routes.ANALYTICS) { AnalyticsScreen() }

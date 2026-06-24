@@ -52,6 +52,27 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(logId.toInt())
     }
 
+    fun showLowStock(context: Context, medicineId: Long, medicineName: String, daysLeft: Int) {
+        val contentIntent = PendingIntent.getActivity(
+            context, medicineId.toInt(),
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val daysText = if (daysLeft <= 0) "today" else "in about $daysLeft day${if (daysLeft == 1) "" else "s"}"
+        val notification = NotificationCompat.Builder(context, DoseMateApp.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("$medicineName is running low")
+            .setContentText("You'll run out $daysText. Time to restock.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        NotificationManagerCompat.from(context).notify((LOW_STOCK_NOTIFICATION_OFFSET + medicineId).toInt(), notification)
+    }
+
+    private const val LOW_STOCK_NOTIFICATION_OFFSET = 5_000_000
+
     const val ACTION_TAKEN = "com.dosemate.action.TAKEN"
     const val ACTION_SNOOZE = "com.dosemate.action.SNOOZE"
     const val ACTION_SKIP = "com.dosemate.action.SKIP"

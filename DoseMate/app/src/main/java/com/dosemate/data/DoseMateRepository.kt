@@ -20,6 +20,15 @@ class DoseMateRepository(context: Context) {
 
     suspend fun deleteMedicine(medicine: Medicine) = medicineDao.delete(medicine)
 
+    /** Deducts [amount] units of stock for a medicine, if it tracks quantity. Returns the updated medicine. */
+    suspend fun decrementStock(medicineId: Long, amount: Int): Medicine? {
+        val medicine = medicineDao.getById(medicineId) ?: return null
+        val current = medicine.quantityAvailable ?: return medicine
+        val updated = medicine.copy(quantityAvailable = (current - amount).coerceAtLeast(0))
+        medicineDao.update(updated)
+        return updated
+    }
+
     fun observeLogsForDay(epochDay: Long): Flow<List<MedicineLog>> = logDao.observeLogsForDay(epochDay)
 
     fun observeLogsBetween(startEpochDay: Long, endEpochDay: Long): Flow<List<MedicineLog>> =

@@ -7,12 +7,14 @@ import android.content.Intent
 import android.os.Build
 import com.dosemate.data.Frequency
 import com.dosemate.data.Medicine
+import com.dosemate.data.timesOfDay
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
 private const val MISSED_REQUEST_CODE_OFFSET = 1_000_000
+private const val SLOTS_PER_MEDICINE = 16
 
 object AlarmScheduler {
 
@@ -23,14 +25,13 @@ object AlarmScheduler {
         } else true
     }
 
-    /** Computes the next trigger date/time (epoch millis) for a medicine, or null if its schedule has ended. */
-    fun nextOccurrenceMillis(medicine: Medicine, after: LocalDateTime = LocalDateTime.now()): Long? {
+    /** Computes the next trigger date/time (epoch millis) for a specific dose-time slot of a medicine, or null if its schedule has ended. */
+    fun nextOccurrenceMillisForSlot(medicine: Medicine, slotHour: Int, slotMinute: Int, after: LocalDateTime = LocalDateTime.now()): Long? {
         val zone = ZoneId.systemDefault()
         val endDate = medicine.endDateEpochDay?.let { LocalDate.ofEpochDay(it) }
         val startDate = LocalDate.ofEpochDay(medicine.startDateEpochDay)
 
-        fun candidateAt(date: LocalDate): LocalDateTime =
-            date.atTime(medicine.reminderHour, medicine.reminderMinute)
+        fun candidateAt(date: LocalDate): LocalDateTime = date.atTime(slotHour, slotMinute)
 
         val next: LocalDateTime? = when (medicine.frequency) {
             Frequency.DAILY -> {
@@ -74,7 +75,7 @@ object AlarmScheduler {
 
             Frequency.EVERY_X_HOURS -> {
                 val intervalHours = medicine.everyXHours.coerceAtLeast(1)
-                var candidate = startDate.atTime(medicine.reminderHour, medicine.reminderMinute)
+                var candidate = startDate.atTime(slotHour, slotMinute)
                 while (!candidate.isAfter(after)) {
                     candidate = candidate.plusHours(intervalHours.toLong())
                 }
@@ -90,16 +91,39 @@ object AlarmScheduler {
         return next.atZone(zone).toInstant().toEpochMilli()
     }
 
+    /** Back-compat single-slot lookup, used by analytics/preview code that only cares about the first dose time. */
+    fun nextOccurrenceMillis(medicine: Medicine, after: LocalDateTime = LocalDateTime.now()): Long? {
+        val (h, m) = medicine.timesOfDay().first()
+        return nextOccurrenceMillisForSlot(medicine, h, m, after)
+    }
+
+    private fun slotRequestCode(medicineId: Long, slot: Int) = (medicineId.toInt() * SLOTS_PER_MEDICINE) + slot
+
     fun scheduleNext(context: Context, medicine: Medicine) {
         if (!medicine.isActive) return
-        val triggerAt = nextOccurrenceMillis(medicine) ?: return
+        if (medicine.frequency == Frequency.SOS) return
+        medicine.timesOfDay().forEachIndexed { index, (h, m) ->
+            scheduleSlot(context, medicine, index, h, m)
+        }
+    }
+
+    fun scheduleNextForSlot(context: Context, medicine: Medicine, slotIndex: Int) {
+        if (!medicine.isActive) return
+        val times = medicine.timesOfDay()
+        val slot = times.getOrNull(slotIndex) ?: return
+        scheduleSlot(context, medicine, slotIndex, slot.first, slot.second)
+    }
+
+    private fun scheduleSlot(context: Context, medicine: Medicine, slotIndex: Int, hour: Int, minute: Int) {
+        val triggerAt = nextOccurrenceMillisForSlot(medicine, hour, minute) ?: return
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             putExtra(EXTRA_MEDICINE_ID, medicine.medicineId)
+            putExtra(EXTRA_SLOT_INDEX, slotIndex)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            medicine.medicineId.toInt(),
+            slotRequestCode(medicine.medicineId, slotIndex),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -108,14 +132,16 @@ object AlarmScheduler {
 
     fun cancel(context: Context, medicine: Medicine) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
-        val intent = Intent(context, ReminderReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            medicine.medicineId.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager.cancel(pendingIntent)
+        for (slotIndex in 0 until SLOTS_PER_MEDICINE) {
+            val intent = Intent(context, ReminderReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                slotRequestCode(medicine.medicineId, slotIndex),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+        }
     }
 
     fun scheduleMissedCheck(context: Context, logId: Long, medicineId: Long, scheduledMillis: Long, missedAfterMinutes: Int) {
@@ -137,4 +163,5 @@ object AlarmScheduler {
 
     const val EXTRA_MEDICINE_ID = "extra_medicine_id"
     const val EXTRA_LOG_ID = "extra_log_id"
+    const val EXTRA_SLOT_INDEX = "extra_slot_index"
 }

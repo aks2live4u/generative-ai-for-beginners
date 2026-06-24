@@ -11,28 +11,57 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dosemate.data.Frequency
+import com.dosemate.data.Medicine
+import com.dosemate.data.timesOfDay
 import com.dosemate.ui.components.GlassCard
 import com.dosemate.ui.theme.GlassBackdrop
 import com.dosemate.ui.theme.LocalDoseMateColors
-import com.dosemate.ui.theme.TealDeep
 import com.dosemate.viewmodel.AddMedicineViewModel
+import java.time.LocalDate
 
 private val dosagePresets = listOf("1 Tablet", "2 Tablets", "5 ml", "Custom")
 private val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 @Composable
-fun AddMedicineScreen(onSaved: () -> Unit) {
+fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
     val viewModel: AddMedicineViewModel = viewModel()
+    val accent = LocalDoseMateColors.current.accent
 
     var name by remember { mutableStateOf("") }
     var dosagePreset by remember { mutableStateOf(dosagePresets.first()) }
     var customDosage by remember { mutableStateOf("") }
-    var hour by remember { mutableIntStateOf(9) }
-    var minute by remember { mutableIntStateOf(0) }
+    var times by remember { mutableStateOf(listOf(9 to 0)) }
+    var newTimeHour by remember { mutableIntStateOf(9) }
+    var newTimeMinute by remember { mutableIntStateOf(0) }
     var frequency by remember { mutableStateOf(Frequency.DAILY) }
     var selectedDays by remember { mutableStateOf(setOf<Int>()) }
     var everyXHours by remember { mutableIntStateOf(8) }
     var missedAfterMinutes by remember { mutableIntStateOf(60) }
+    var startDate by remember { mutableStateOf(LocalDate.now()) }
+    var quantityText by remember { mutableStateOf("") }
+    var dosesPerIntake by remember { mutableIntStateOf(1) }
+    var loaded by remember { mutableStateOf(medicineId == null) }
+
+    LaunchedEffect(medicineId) {
+        if (medicineId != null) {
+            viewModel.loadMedicine(medicineId)?.let { m: Medicine ->
+                name = m.name
+                dosagePreset = if (dosagePresets.contains(m.dosage)) m.dosage else "Custom"
+                customDosage = m.dosage
+                times = m.timesOfDay()
+                frequency = m.frequency
+                selectedDays = m.specificDaysCsv.split(",").filter { it.isNotBlank() }.map { it.toInt() }.toSet()
+                everyXHours = if (m.everyXHours > 0) m.everyXHours else 8
+                missedAfterMinutes = m.missedAfterMinutes
+                startDate = LocalDate.ofEpochDay(m.startDateEpochDay)
+                quantityText = m.quantityAvailable?.toString() ?: ""
+                dosesPerIntake = m.dosesPerIntake
+            }
+            loaded = true
+        }
+    }
+
+    if (!loaded) return
 
     GlassBackdrop {
         LazyColumn(
@@ -40,7 +69,12 @@ fun AddMedicineScreen(onSaved: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("Add Medicine", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = LocalDoseMateColors.current.headerText)
+                Text(
+                    if (medicineId != null) "Edit Medicine" else "Add Medicine",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LocalDoseMateColors.current.headerText
+                )
             }
 
             item {
@@ -124,14 +158,38 @@ fun AddMedicineScreen(onSaved: () -> Unit) {
                 }
             }
 
-            if (frequency != Frequency.SOS) {
+            if (frequency != Frequency.SOS && frequency != Frequency.EVERY_X_HOURS) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Text("Reminder Time", fontWeight = FontWeight.SemiBold)
+                        Text("Dose Times", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Add every time of day you take this medicine.", fontSize = 12.sp)
+                        Spacer(Modifier.height(8.dp))
+                        times.forEachIndexed { index, (h, m) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Text(String.format("%02d:%02d", h, m), fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                                if (times.size > 1) {
+                                    IconButton(onClick = { times = times.filterIndexed { i, _ -> i != index } }) {
+                                        Text("✕", fontSize = 16.sp)
+                                    }
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            NumberStepper(value = hour, range = 0..23, onChange = { hour = it }, label = "Hour")
-                            NumberStepper(value = minute, range = 0..59, onChange = { minute = it }, label = "Minute")
+                            NumberStepper(value = newTimeHour, range = 0..23, onChange = { newTimeHour = it }, label = "Hour")
+                            NumberStepper(value = newTimeMinute, range = 0..59, onChange = { newTimeMinute = it }, label = "Minute")
+                            Spacer(Modifier.weight(1f))
+                            OutlinedButton(onClick = {
+                                if (times.none { it.first == newTimeHour && it.second == newTimeMinute }) {
+                                    times = (times + (newTimeHour to newTimeMinute)).sortedWith(compareBy({ it.first }, { it.second }))
+                                }
+                            }) {
+                                Text("+ Add time", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -145,28 +203,80 @@ fun AddMedicineScreen(onSaved: () -> Unit) {
                 }
             }
 
+            if (frequency == Frequency.EVERY_X_HOURS) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Text("First Dose Time", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            NumberStepper(value = times.first().first, range = 0..23, onChange = { times = listOf(it to times.first().second) }, label = "Hour")
+                            NumberStepper(value = times.first().second, range = 0..59, onChange = { times = listOf(times.first().first to it) }, label = "Minute")
+                        }
+                    }
+                }
+            }
+
+            if (frequency != Frequency.SOS) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Text("Started On", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            NumberStepper(value = startDate.year, range = 2020..2035, onChange = { startDate = startDate.withYear(it) }, label = "Year")
+                            NumberStepper(value = startDate.monthValue, range = 1..12, onChange = {
+                                startDate = LocalDate.of(startDate.year, 1, 1).plusMonths((it - 1).toLong()).withDayOfMonth(minOf(startDate.dayOfMonth, LocalDate.of(startDate.year, it, 1).lengthOfMonth()))
+                            }, label = "Month")
+                            NumberStepper(value = startDate.dayOfMonth, range = 1..startDate.lengthOfMonth(), onChange = { startDate = startDate.withDayOfMonth(it) }, label = "Day")
+                        }
+                    }
+                }
+            }
+
+            item {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Stock Tracking (optional)", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Get a low-stock alert about 3 days before you run out.", fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = quantityText,
+                        onValueChange = { input -> if (input.all { it.isDigit() }) quantityText = input },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Tablets/doses available, e.g. 30") },
+                        label = { Text("Quantity available") }
+                    )
+                    if (frequency != Frequency.SOS) {
+                        Spacer(Modifier.height(10.dp))
+                        NumberStepper(value = dosesPerIntake, range = 1..10, onChange = { dosesPerIntake = it }, label = "Units per dose")
+                    }
+                }
+            }
+
             item {
                 Button(
                     onClick = {
                         val dosage = if (dosagePreset == "Custom") customDosage else dosagePreset
                         if (name.isNotBlank() && dosage.isNotBlank()) {
                             viewModel.saveMedicine(
+                                editingMedicineId = medicineId,
                                 name = name,
                                 dosage = dosage,
-                                reminderHour = hour,
-                                reminderMinute = minute,
+                                times = times,
                                 frequency = frequency,
                                 specificDays = selectedDays,
                                 everyXHours = everyXHours,
+                                startDateEpochDay = startDate.toEpochDay(),
                                 colorHex = "#0F9B8E",
                                 icon = "💊",
                                 missedAfterMinutes = missedAfterMinutes,
+                                quantityAvailable = quantityText.toIntOrNull(),
+                                dosesPerIntake = dosesPerIntake,
                                 onSaved = onSaved
                             )
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TealDeep)
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
                 ) {
                     Text("Save", fontSize = 16.sp)
                 }
@@ -177,11 +287,12 @@ fun AddMedicineScreen(onSaved: () -> Unit) {
 
 @Composable
 private fun FrequencyOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    val accent = LocalDoseMateColors.current.accent
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        RadioButton(selected = selected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = TealDeep))
+        RadioButton(selected = selected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = accent))
         Text(label, fontSize = 14.sp)
     }
 }
