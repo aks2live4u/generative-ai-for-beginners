@@ -84,31 +84,26 @@ fun DashboardScreen(
                     Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = headerColor)
                 }
             }
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 20.dp)
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            item {
                 Text(
                     if (state.isToday) "Today's Medicines" else "Medicines",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = headerColor
                 )
-            }
 
-            item {
                 WeekStrip(
                     selectedDate = state.selectedDate,
                     onPreviousWeek = viewModel::goToPreviousWeek,
                     onNextWeek = viewModel::goToNextWeek,
                     onSelectDate = viewModel::selectDate
                 )
-            }
 
-            if (!state.isToday) {
-                item {
+                if (!state.isToday) {
                     Text(
                         "Viewing ${state.selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))} — log any doses you missed.",
                         fontSize = 12.sp,
@@ -116,7 +111,13 @@ fun DashboardScreen(
                     )
                 }
             }
+            Spacer(Modifier.height(16.dp))
 
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 20.dp)
+            ) {
             if (state.lowStockMedicines.isNotEmpty()) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -283,7 +284,7 @@ private fun WeekStrip(
                                 date.dayOfMonth.toString(),
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                                color = colors.headerText.copy(alpha = dayAlpha)
+                                color = if (isSelected) androidx.compose.ui.graphics.Color.White else colors.headerText.copy(alpha = dayAlpha)
                             )
                         }
                     }

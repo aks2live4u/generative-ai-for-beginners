@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 
 /** Theme-aware colors for the lifted-glass UI, swapped between light and dark mode. */
 data class DoseMateColors(
-    val backgroundGradient: List<Color>,
+    val background: Color,
     val glassStrong: Color,
     val glassSoft: Color,
     val glassBorder: Color,
@@ -18,12 +18,12 @@ data class DoseMateColors(
 )
 
 val LightDoseMateColors = DoseMateColors(
-    backgroundGradient = listOf(TealPrimary, TealDeep, NearBlack, PureBlack),
+    background = MintBackground,
     glassStrong = GlassWhiteStrong,
     glassSoft = GlassWhiteSoft,
     glassBorder = GlassBorder,
     glassHighlight = GlassHighlightLight,
-    headerText = Color.White,
+    headerText = TextPrimary,
     iconSurface = Color.White,
     accent = TealDeep,
     textPrimary = TextPrimary,
@@ -31,7 +31,7 @@ val LightDoseMateColors = DoseMateColors(
 )
 
 val DarkDoseMateColors = DoseMateColors(
-    backgroundGradient = listOf(TealDeep, DarkBgTop, NearBlack, DarkBgBottom),
+    background = DarkBgTop,
     glassStrong = GlassDarkStrong,
     glassSoft = GlassDarkSoft,
     glassBorder = GlassBorderDark,
