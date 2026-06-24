@@ -58,11 +58,18 @@ fun HistoryScreen() {
                 item { GlassCard(modifier = Modifier.fillMaxWidth()) { Text("No history in this range yet.") } }
             }
 
+            val today = LocalDate.now().toEpochDay()
+            val yesterday = today - 1
             val grouped = logs.groupBy { it.dateEpochDay }.toSortedMap(compareByDescending { it })
             grouped.forEach { (day, dayLogs) ->
                 item {
+                    val label = when (day) {
+                        today -> "Today"
+                        yesterday -> "Yesterday"
+                        else -> DateTimeFormatter.ofPattern("MMMM d").format(LocalDate.ofEpochDay(day))
+                    }
                     Text(
-                        DateTimeFormatter.ofPattern("MMMM d").format(LocalDate.ofEpochDay(day)),
+                        "$label (${dayLogs.size} ${if (dayLogs.size == 1) "entry" else "entries"})",
                         fontWeight = FontWeight.SemiBold,
                         color = headerColor,
                         fontSize = 14.sp

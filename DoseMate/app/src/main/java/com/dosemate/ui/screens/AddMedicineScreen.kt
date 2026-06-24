@@ -189,7 +189,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                                     NumberStepper(value = h, range = 0..23, onChange = { newHour ->
                                         times = times.toMutableList().also { it[index] = newHour to m }
                                     }, label = "Hour")
-                                    NumberStepper(value = m, range = 0..59, step = 5, onChange = { newMinute ->
+                                    NumberStepper(value = m, range = 0..59, step = 1, onChange = { newMinute ->
                                         times = times.toMutableList().also { it[index] = h to newMinute }
                                     }, label = "Minute")
                                 }

@@ -14,8 +14,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.dosemate.data.OnboardingPrefs
 import com.dosemate.ui.screens.AddMedicineScreen
 import com.dosemate.ui.screens.AnalyticsScreen
 import com.dosemate.ui.screens.DashboardScreen
@@ -57,6 +60,8 @@ fun DoseMateNavHost() {
     val currentRoute = backStackEntry?.destination?.hierarchy?.firstOrNull()?.route
     val showBottomBar = bottomTabs.any { it.route == currentRoute }
     val colors = LocalDoseMateColors.current
+    val context = LocalContext.current
+    val startDestination = remember { if (OnboardingPrefs.isSetupComplete(context)) Routes.DASHBOARD else Routes.WELCOME }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -85,7 +90,7 @@ fun DoseMateNavHost() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.WELCOME,
+            startDestination = startDestination,
             modifier = Modifier.padding(padding)
         ) {
             composable(Routes.WELCOME) {
@@ -93,6 +98,7 @@ fun DoseMateNavHost() {
             }
             composable(Routes.PERMISSIONS) {
                 PermissionsScreen(onContinue = {
+                    OnboardingPrefs.setSetupComplete(context)
                     navController.navigate(Routes.DASHBOARD) {
                         popUpTo(Routes.WELCOME) { inclusive = true }
                     }

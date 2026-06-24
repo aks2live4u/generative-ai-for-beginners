@@ -14,7 +14,12 @@ object NotificationHelper {
     fun showReminder(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String) {
         val contentIntent = PendingIntent.getActivity(
             context, medicineId.toInt(),
-            Intent(context, MainActivity::class.java),
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(AlarmScheduler.EXTRA_LOG_ID, logId)
+                putExtra(EXTRA_MEDICINE_NAME, medicineName)
+                putExtra(EXTRA_DOSAGE, dosage)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dosemate.data.LogStatus
 import com.dosemate.data.Medicine
+import com.dosemate.scheduling.NotificationDeepLink
 import com.dosemate.ui.components.GlassCard
 import com.dosemate.ui.components.StatusPill
 import com.dosemate.ui.theme.GlassBackdrop
@@ -41,6 +41,7 @@ import java.util.Locale
 private const val BUCKET_MORNING = "Morning"
 private const val BUCKET_AFTERNOON = "Afternoon"
 private const val BUCKET_NIGHT = "Night"
+private const val BUCKET_SOS = "As Needed"
 private val timeOfDayOrder = listOf(BUCKET_MORNING, BUCKET_AFTERNOON, BUCKET_NIGHT)
 
 private fun timeOfDayBucket(hour: Int): String = when {
@@ -55,8 +56,12 @@ fun DashboardScreen(
 ) {
     val viewModel: DashboardViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
+    val collapsedSections by viewModel.collapsedSections.collectAsState()
     var medicineToDelete by remember { mutableStateOf<Medicine?>(null) }
-    val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
+
+    val pendingLogId by NotificationDeepLink.pendingLogId
+    val pendingMedicineName by NotificationDeepLink.pendingMedicineName
+    val pendingDosage by NotificationDeepLink.pendingDosage
 
     GlassBackdrop {
         val headerColor = LocalDoseMateColors.current.headerText
@@ -64,6 +69,19 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("💊", fontSize = 26.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "DoseMate",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = headerColor
+                    )
+                }
+            }
+
             item {
                 Text(
                     if (state.isToday) "Today's Medicines" else "Medicines",
@@ -117,16 +135,16 @@ fun DashboardScreen(
                 val bucketSlots = slotGroups[bucket].orEmpty()
                 if (bucketSlots.isNotEmpty()) {
                     item(key = "header_$bucket") {
-                        val expanded = expandedSections[bucket] ?: true
+                        val expanded = bucket !in collapsedSections
                         TimeOfDaySectionHeader(
                             bucket = bucket,
                             count = bucketSlots.size,
                             pendingCount = bucketSlots.count { it.log == null || it.log.status == LogStatus.PENDING },
                             expanded = expanded,
-                            onToggle = { expandedSections[bucket] = !expanded }
+                            onToggle = { viewModel.toggleSection(bucket) }
                         )
                     }
-                    if (expandedSections[bucket] != false) {
+                    if (bucket !in collapsedSections) {
                         items(bucketSlots, key = { "slot_${it.medicine.medicineId}_${it.slotHour}_${it.slotMinute}" }) { slot ->
                             DoseSlotCard(
                                 slot,
@@ -140,16 +158,50 @@ fun DashboardScreen(
                 }
             }
 
-            items(state.sosEntries) { entry ->
-                SosEntryCard(
-                    entry,
-                    onLog = { viewModel.logSosDose(entry.medicine) },
-                    onSkip = { viewModel.logSosSkipped(entry.medicine) },
-                    onEdit = { onEditMedicine(entry.medicine.medicineId) },
-                    onDelete = { medicineToDelete = entry.medicine }
-                )
+            if (state.sosEntries.isNotEmpty()) {
+                item(key = "header_$BUCKET_SOS") {
+                    val expanded = BUCKET_SOS !in collapsedSections
+                    TimeOfDaySectionHeader(
+                        bucket = BUCKET_SOS,
+                        count = state.sosEntries.size,
+                        pendingCount = state.sosEntries.count { it.cooldownUntilMillis == null || it.cooldownUntilMillis <= System.currentTimeMillis() },
+                        expanded = expanded,
+                        onToggle = { viewModel.toggleSection(BUCKET_SOS) }
+                    )
+                }
+                if (BUCKET_SOS !in collapsedSections) {
+                    items(state.sosEntries, key = { "sos_${it.medicine.medicineId}" }) { entry ->
+                        SosEntryCard(
+                            entry,
+                            onLog = { viewModel.logSosDose(entry.medicine) },
+                            onSkip = { viewModel.logSosSkipped(entry.medicine) },
+                            onEdit = { onEditMedicine(entry.medicine.medicineId) },
+                            onDelete = { medicineToDelete = entry.medicine }
+                        )
+                    }
+                }
             }
         }
+    }
+
+    if (pendingLogId != null) {
+        AlertDialog(
+            onDismissRequest = { NotificationDeepLink.clear() },
+            title = { Text("Log ${pendingMedicineName ?: "medicine"}?") },
+            text = { Text(pendingDosage?.let { "$it · from your reminder" } ?: "From your reminder") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.logByIdTaken(pendingLogId!!)
+                    NotificationDeepLink.clear()
+                }) { Text("Mark as Taken") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.logByIdSkipped(pendingLogId!!)
+                    NotificationDeepLink.clear()
+                }) { Text("Skip") }
+            }
+        )
     }
 
     medicineToDelete?.let { medicine ->
@@ -242,7 +294,8 @@ private fun TimeOfDaySectionHeader(
     val icon = when (bucket) {
         BUCKET_MORNING -> "🌅"
         BUCKET_AFTERNOON -> "☀️"
-        else -> "🌙"
+        BUCKET_NIGHT -> "🌙"
+        else -> "💊"
     }
     val statusText = if (pendingCount == 0) "All done" else "$pendingCount pending"
 

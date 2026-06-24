@@ -13,6 +13,7 @@ import com.dosemate.scheduling.AlarmScheduler
 import com.dosemate.scheduling.NotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -25,6 +26,8 @@ import java.time.ZoneId
 
 private val SOS_COOLDOWN_MILLIS = Duration.ofHours(8).toMillis()
 private const val LOW_STOCK_DAYS_THRESHOLD = 3
+private const val SECTIONS_PREFS_NAME = "dosemate_dashboard"
+private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
 
 data class DoseSlot(
     val medicine: Medicine,
@@ -51,6 +54,22 @@ data class DashboardUiState(
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DoseMateRepository(application)
     private val zone = ZoneId.systemDefault()
+    private val sectionPrefs = application.getSharedPreferences(SECTIONS_PREFS_NAME, android.content.Context.MODE_PRIVATE)
+
+    private val _collapsedSections = MutableStateFlow(
+        sectionPrefs.getStringSet(KEY_COLLAPSED_SECTIONS, emptySet()).orEmpty().toSet()
+    )
+    val collapsedSections: StateFlow<Set<String>> = _collapsedSections
+
+    fun toggleSection(name: String) {
+        val updated = if (name in _collapsedSections.value) {
+            _collapsedSections.value - name
+        } else {
+            _collapsedSections.value + name
+        }
+        _collapsedSections.value = updated
+        sectionPrefs.edit().putStringSet(KEY_COLLAPSED_SECTIONS, updated).apply()
+    }
 
     private val selectedDate = MutableStateFlow(LocalDate.now())
 
@@ -188,6 +207,28 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     dateEpochDay = selectedDate.value.toEpochDay()
                 )
             )
+        }
+    }
+
+    /** Marks a specific log (by id) as taken — used when the user taps a reminder notification directly. */
+    fun logByIdTaken(logId: Long) {
+        viewModelScope.launch {
+            val log = repository.getLog(logId) ?: return@launch
+            val now = System.currentTimeMillis()
+            val delay = ((now - log.scheduledEpochMillis) / 60_000L).toInt().coerceAtLeast(0)
+            repository.updateLog(log.copy(status = LogStatus.TAKEN, actualTakenEpochMillis = now, delayMinutes = delay))
+            NotificationHelper.cancel(getApplication(), logId)
+            val medicine = repository.getMedicine(log.medicineId)
+            if (medicine != null) applyStockUsage(medicine)
+        }
+    }
+
+    /** Marks a specific log (by id) as skipped — used when the user taps a reminder notification directly. */
+    fun logByIdSkipped(logId: Long) {
+        viewModelScope.launch {
+            val log = repository.getLog(logId) ?: return@launch
+            repository.updateLog(log.copy(status = LogStatus.SKIPPED))
+            NotificationHelper.cancel(getApplication(), logId)
         }
     }
 

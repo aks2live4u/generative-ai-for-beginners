@@ -15,7 +15,7 @@ enum class HistoryFilter { TODAY, WEEK, MONTH }
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DoseMateRepository(application)
-    val filter = MutableStateFlow(HistoryFilter.WEEK)
+    val filter = MutableStateFlow(HistoryFilter.TODAY)
 
     val logs = combine(repository.observeAllLogs(), filter) { logs, currentFilter ->
         val today = LocalDate.now().toEpochDay()
