@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.dosemate.data.ThemePrefs
 import com.dosemate.scheduling.AlarmScheduler
 import com.dosemate.scheduling.NotificationDeepLink
 import com.dosemate.scheduling.NotificationHelper
@@ -15,6 +16,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        ThemePrefs.init(this)
         consumeNotificationIntent(intent)
         setContent {
             DoseMateTheme {

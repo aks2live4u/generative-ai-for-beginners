@@ -13,12 +13,13 @@ import androidx.core.app.NotificationManagerCompat
 import com.dosemate.DoseMateApp
 import com.dosemate.MainActivity
 import com.dosemate.R
+import com.dosemate.data.ReminderSoundPrefs
 
 object NotificationHelper {
 
-    private fun channelIdFor(medicineId: Long, soundUri: String?): String {
+    private fun channelIdFor(soundUri: String?): String {
         if (soundUri == null) return DoseMateApp.CHANNEL_ID
-        return "medicine_reminders_${medicineId}_${soundUri.hashCode()}"
+        return "medicine_reminders_${soundUri.hashCode()}"
     }
 
     private fun ensureChannel(context: Context, channelId: String, soundUri: String?) {
@@ -37,8 +38,9 @@ object NotificationHelper {
         manager.createNotificationChannel(channel)
     }
 
-    fun showReminder(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String, soundUri: String? = null) {
-        val channelId = channelIdFor(medicineId, soundUri)
+    fun showReminder(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String) {
+        val soundUri = ReminderSoundPrefs.getSoundUri(context)
+        val channelId = channelIdFor(soundUri)
         ensureChannel(context, channelId, soundUri)
 
         val contentIntent = PendingIntent.getActivity(
@@ -59,7 +61,6 @@ object NotificationHelper {
                 putExtra(AlarmScheduler.EXTRA_MEDICINE_ID, medicineId)
                 putExtra(EXTRA_MEDICINE_NAME, medicineName)
                 putExtra(EXTRA_DOSAGE, dosage)
-                putExtra(EXTRA_SOUND_URI, soundUri)
             }
             return PendingIntent.getBroadcast(
                 context, requestCode, intent,
@@ -113,5 +114,4 @@ object NotificationHelper {
     const val ACTION_SKIP = "com.dosemate.action.SKIP"
     const val EXTRA_MEDICINE_NAME = "extra_medicine_name"
     const val EXTRA_DOSAGE = "extra_dosage"
-    const val EXTRA_SOUND_URI = "extra_sound_uri"
 }

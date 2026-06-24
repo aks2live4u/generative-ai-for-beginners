@@ -28,7 +28,7 @@ data class Medicine(
     val timesCsv: String = "",
     val quantityAvailable: Int? = null,
     val dosesPerIntake: Int = 1,
-    /** Content URI of a custom ringtone for this medicine's reminders, or null for the app default. */
+    /** Unused: reminder sound is now a single global setting (see ReminderSoundPrefs). Kept for schema compatibility. */
     val reminderSoundUri: String? = null
 )
 

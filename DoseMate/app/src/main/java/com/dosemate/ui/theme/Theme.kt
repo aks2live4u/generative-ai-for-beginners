@@ -1,7 +1,6 @@
 package com.dosemate.ui.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -10,12 +9,15 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.dosemate.data.ThemeMode
+import com.dosemate.data.ThemePrefs
 
 private fun colorScheme(colors: DoseMateColors, isDark: Boolean) = if (isDark) {
     darkColorScheme(
@@ -50,7 +52,8 @@ private fun typography(colors: DoseMateColors) = Typography(
 
 @Composable
 fun DoseMateTheme(content: @Composable () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+    val mode by ThemePrefs.current
+    val isDark = mode == ThemeMode.DARK
     val colors = if (isDark) DarkDoseMateColors else LightDoseMateColors
 
     CompositionLocalProvider(LocalDoseMateColors provides colors) {

@@ -19,7 +19,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val medicineId = intent.getLongExtra(AlarmScheduler.EXTRA_MEDICINE_ID, -1L)
         val medicineName = intent.getStringExtra(NotificationHelper.EXTRA_MEDICINE_NAME) ?: ""
         val dosage = intent.getStringExtra(NotificationHelper.EXTRA_DOSAGE) ?: ""
-        val soundUri = intent.getStringExtra(NotificationHelper.EXTRA_SOUND_URI)
         if (logId == -1L) return
 
         val pendingResult = goAsync()
@@ -49,13 +48,13 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                     NotificationHelper.ACTION_SNOOZE -> {
                         NotificationHelper.cancel(context, logId)
-                        scheduleSnoozeReshow(context, logId, medicineId, medicineName, dosage, soundUri)
+                        scheduleSnoozeReshow(context, logId, medicineId, medicineName, dosage)
                     }
 
                     ACTION_SHOW_SNOOZED -> {
                         val log = repository.getLog(logId)
                         if (log != null && log.status == LogStatus.PENDING) {
-                            NotificationHelper.showReminder(context, logId, medicineId, medicineName, dosage, soundUri)
+                            NotificationHelper.showReminder(context, logId, medicineId, medicineName, dosage)
                         }
                     }
                 }
@@ -65,7 +64,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun scheduleSnoozeReshow(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String, soundUri: String?) {
+    private fun scheduleSnoozeReshow(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val intent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = ACTION_SHOW_SNOOZED
@@ -73,7 +72,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
             putExtra(AlarmScheduler.EXTRA_MEDICINE_ID, medicineId)
             putExtra(NotificationHelper.EXTRA_MEDICINE_NAME, medicineName)
             putExtra(NotificationHelper.EXTRA_DOSAGE, dosage)
-            putExtra(NotificationHelper.EXTRA_SOUND_URI, soundUri)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context, (4_000_000 + logId).toInt(), intent,

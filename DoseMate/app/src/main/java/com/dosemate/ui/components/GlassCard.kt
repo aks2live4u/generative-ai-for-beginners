@@ -42,11 +42,7 @@ fun GlassCard(
                 spotColor = Color(0x59064E48)
             )
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(colors.glassStrong, colors.glassSoft)
-                )
-            )
+            .background(colors.glassSoft)
             .border(
                 width = 1.4.dp,
                 brush = Brush.linearGradient(

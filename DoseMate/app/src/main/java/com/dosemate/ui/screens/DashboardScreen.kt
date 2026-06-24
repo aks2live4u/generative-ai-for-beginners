@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -52,7 +54,8 @@ private fun timeOfDayBucket(hour: Int): String = when {
 
 @Composable
 fun DashboardScreen(
-    onEditMedicine: (Long) -> Unit
+    onEditMedicine: (Long) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val viewModel: DashboardViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
@@ -65,19 +68,27 @@ fun DashboardScreen(
 
     GlassBackdrop {
         val headerColor = LocalDoseMateColors.current.headerText
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "DoseMate",
-                    fontSize = 18.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = headerColor
                 )
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = headerColor)
+                }
             }
-
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 20.dp)
+            ) {
             item {
                 Text(
                     if (state.isToday) "Today's Medicines" else "Medicines",
@@ -180,6 +191,7 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
             }
         }
     }
