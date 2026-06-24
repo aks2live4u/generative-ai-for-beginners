@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,6 +38,17 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+private const val BUCKET_MORNING = "Morning"
+private const val BUCKET_AFTERNOON = "Afternoon"
+private const val BUCKET_NIGHT = "Night"
+private val timeOfDayOrder = listOf(BUCKET_MORNING, BUCKET_AFTERNOON, BUCKET_NIGHT)
+
+private fun timeOfDayBucket(hour: Int): String = when {
+    hour < 12 -> BUCKET_MORNING
+    hour < 17 -> BUCKET_AFTERNOON
+    else -> BUCKET_NIGHT
+}
+
 @Composable
 fun DashboardScreen(
     onEditMedicine: (Long) -> Unit
@@ -44,6 +56,7 @@ fun DashboardScreen(
     val viewModel: DashboardViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
     var medicineToDelete by remember { mutableStateOf<Medicine?>(null) }
+    val expandedSections = remember { mutableStateMapOf<String, Boolean>() }
 
     GlassBackdrop {
         val headerColor = LocalDoseMateColors.current.headerText
@@ -99,20 +112,39 @@ fun DashboardScreen(
                 }
             }
 
-            items(state.slots) { slot ->
-                DoseSlotCard(
-                    slot,
-                    onTaken = { viewModel.logSlotTaken(slot) },
-                    onSkip = { viewModel.logSlotSkipped(slot) },
-                    onEdit = { onEditMedicine(slot.medicine.medicineId) },
-                    onDelete = { medicineToDelete = slot.medicine }
-                )
+            val slotGroups = state.slots.groupBy { timeOfDayBucket(it.slotHour) }
+            timeOfDayOrder.forEach { bucket ->
+                val bucketSlots = slotGroups[bucket].orEmpty()
+                if (bucketSlots.isNotEmpty()) {
+                    item(key = "header_$bucket") {
+                        val expanded = expandedSections[bucket] ?: true
+                        TimeOfDaySectionHeader(
+                            bucket = bucket,
+                            count = bucketSlots.size,
+                            pendingCount = bucketSlots.count { it.log == null || it.log.status == LogStatus.PENDING },
+                            expanded = expanded,
+                            onToggle = { expandedSections[bucket] = !expanded }
+                        )
+                    }
+                    if (expandedSections[bucket] != false) {
+                        items(bucketSlots, key = { "slot_${it.medicine.medicineId}_${it.slotHour}_${it.slotMinute}" }) { slot ->
+                            DoseSlotCard(
+                                slot,
+                                onTaken = { viewModel.logSlotTaken(slot) },
+                                onSkip = { viewModel.logSlotSkipped(slot) },
+                                onEdit = { onEditMedicine(slot.medicine.medicineId) },
+                                onDelete = { medicineToDelete = slot.medicine }
+                            )
+                        }
+                    }
+                }
             }
 
             items(state.sosEntries) { entry ->
                 SosEntryCard(
                     entry,
                     onLog = { viewModel.logSosDose(entry.medicine) },
+                    onSkip = { viewModel.logSosSkipped(entry.medicine) },
                     onEdit = { onEditMedicine(entry.medicine.medicineId) },
                     onDelete = { medicineToDelete = entry.medicine }
                 )
@@ -160,17 +192,20 @@ private fun WeekStrip(
                     val date = weekStart.plusDays(i.toLong())
                     val isSelected = date == selectedDate
                     val isToday = date == today
+                    val isFuture = date.isAfter(today)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable { onSelectDate(date) }
+                            .clickable(enabled = !isFuture) { onSelectDate(date) }
                             .background(if (isSelected) colors.accent.copy(alpha = 0.25f) else androidx.compose.ui.graphics.Color.Transparent)
                             .padding(horizontal = 6.dp, vertical = 6.dp)
                     ) {
+                        val dayAlpha = if (isFuture) 0.35f else 1f
                         Text(
                             date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(2),
-                            fontSize = 10.sp
+                            fontSize = 10.sp,
+                            color = colors.textSecondary.copy(alpha = dayAlpha)
                         )
                         Spacer(Modifier.height(2.dp))
                         Box(
@@ -183,13 +218,43 @@ private fun WeekStrip(
                             Text(
                                 date.dayOfMonth.toString(),
                                 fontSize = 13.sp,
-                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                                color = colors.headerText.copy(alpha = dayAlpha)
                             )
                         }
                     }
                 }
             }
             IconButton(onClick = onNextWeek) { Text("›", fontSize = 20.sp, color = colors.headerText) }
+        }
+    }
+}
+
+@Composable
+private fun TimeOfDaySectionHeader(
+    bucket: String,
+    count: Int,
+    pendingCount: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    val colors = LocalDoseMateColors.current
+    val icon = when (bucket) {
+        BUCKET_MORNING -> "🌅"
+        BUCKET_AFTERNOON -> "☀️"
+        else -> "🌙"
+    }
+    val statusText = if (pendingCount == 0) "All done" else "$pendingCount pending"
+
+    GlassCard(modifier = Modifier.fillMaxWidth().clickable { onToggle() }, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(icon, fontSize = 18.sp)
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(bucket, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = colors.headerText)
+                Text("$count medicine${if (count == 1) "" else "s"} · $statusText", fontSize = 11.sp, color = colors.textSecondary)
+            }
+            Text(if (expanded) "︿" else "﹀", fontSize = 16.sp, color = colors.headerText)
         }
     }
 }
@@ -247,6 +312,7 @@ private fun DoseSlotCard(
 private fun SosEntryCard(
     entry: SosEntry,
     onLog: () -> Unit,
+    onSkip: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -255,6 +321,7 @@ private fun SosEntryCard(
     val now = System.currentTimeMillis()
     val cooldownActive = entry.cooldownUntilMillis != null && entry.cooldownUntilMillis > now
     val remainingMinutes = if (cooldownActive) ((entry.cooldownUntilMillis!! - now) / 60_000L).toInt() else 0
+    val skippedToday = entry.logsToday.any { it.status == LogStatus.SKIPPED }
 
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -275,15 +342,30 @@ private fun SosEntryCard(
         }
 
         Spacer(Modifier.height(12.dp))
-        if (cooldownActive) {
-            Text(
-                "Logged. Available again in ${remainingMinutes / 60}h ${remainingMinutes % 60}m.",
-                fontSize = 12.sp,
-                color = LocalDoseMateColors.current.textSecondary
-            )
-        } else {
-            Button(onClick = onLog, colors = ButtonDefaults.buttonColors(containerColor = accent)) {
-                Text("✓ Log dose now", fontSize = 13.sp)
+        when {
+            cooldownActive -> {
+                Text(
+                    "Logged. Available again in ${remainingMinutes / 60}h ${remainingMinutes % 60}m.",
+                    fontSize = 12.sp,
+                    color = LocalDoseMateColors.current.textSecondary
+                )
+            }
+            skippedToday -> {
+                Text(
+                    "Marked as skipped today.",
+                    fontSize = 12.sp,
+                    color = LocalDoseMateColors.current.textSecondary
+                )
+            }
+            else -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = onLog, colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                        Text("✓ Log dose now", fontSize = 13.sp)
+                    }
+                    OutlinedButton(onClick = onSkip) {
+                        Text("Skip", fontSize = 13.sp)
+                    }
+                }
             }
         }
     }

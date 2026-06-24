@@ -74,8 +74,24 @@ object AdherenceCalculator {
         val resolved = logs.filter { it.status != LogStatus.PENDING }
         val missed = resolved.count { it.status == LogStatus.MISSED }
         val avgDelay = takenAverageDelay(resolved)
-        val adherence = if (resolved.isEmpty()) 100 else resolved.count { it.status == LogStatus.TAKEN } * 100 / resolved.size
-        return MedicineStats(medicineName, avgDelay, missed, adherence)
+        val adherence = if (resolved.isEmpty()) -1 else resolved.count { it.status == LogStatus.TAKEN } * 100 / resolved.size
+        val takenTimeLabel = usualTakenTimeLabel(resolved)
+        return MedicineStats(medicineName, avgDelay, missed, adherence, takenTimeLabel)
+    }
+
+    /** Average clock time at which doses were actually taken, e.g. "9:05 AM". Null if never taken. */
+    fun usualTakenTimeLabel(logs: List<MedicineLog>): String? {
+        val takenTimes = logs.filter { it.status == LogStatus.TAKEN }
+            .mapNotNull { it.actualTakenEpochMillis }
+        if (takenTimes.isEmpty()) return null
+        val zone = java.time.ZoneId.systemDefault()
+        val minutesOfDay = takenTimes.map {
+            val zoned = java.time.Instant.ofEpochMilli(it).atZone(zone)
+            zoned.hour * 60 + zoned.minute
+        }
+        val avgMinutes = minutesOfDay.sum() / minutesOfDay.size
+        val time = java.time.LocalTime.of(avgMinutes / 60, avgMinutes % 60)
+        return time.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
     }
 
     fun weekdayVsWeekendAdherence(logs: List<MedicineLog>): Pair<Int, Int> {

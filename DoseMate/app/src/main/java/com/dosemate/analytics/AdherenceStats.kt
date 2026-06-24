@@ -15,5 +15,6 @@ data class MedicineStats(
     val medicineName: String,
     val averageDelayMinutes: Int,
     val missedCount: Int,
-    val consistencyScore: Int
+    val consistencyScore: Int,
+    val usualTakenTimeLabel: String?
 )

@@ -100,10 +100,17 @@ private fun MedicineStatRow(stats: MedicineStats) {
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Text(stats.medicineName, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         Spacer(Modifier.height(6.dp))
+        Text(
+            stats.usualTakenTimeLabel?.let { "Usually taken around $it" } ?: "No doses logged yet",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Avg delay: ${stats.averageDelayMinutes} min", fontSize = 12.sp)
             Text("Missed: ${stats.missedCount}", fontSize = 12.sp, color = StatusMissed)
-            Text("Consistency: ${stats.consistencyScore}%", fontSize = 12.sp)
+            val consistencyText = if (stats.consistencyScore < 0) "No data" else "${stats.consistencyScore}%"
+            Text("Consistency: $consistencyText", fontSize = 12.sp)
         }
     }
 }

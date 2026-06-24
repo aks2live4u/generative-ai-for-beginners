@@ -107,8 +107,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     )
 
     fun goToPreviousWeek() { selectedDate.value = selectedDate.value.minusWeeks(1) }
-    fun goToNextWeek() { selectedDate.value = selectedDate.value.plusWeeks(1) }
-    fun selectDate(date: LocalDate) { selectedDate.value = date }
+    fun goToNextWeek() {
+        val next = selectedDate.value.plusWeeks(1)
+        selectedDate.value = if (next.isAfter(LocalDate.now())) LocalDate.now() else next
+    }
+    fun selectDate(date: LocalDate) {
+        if (!date.isAfter(LocalDate.now())) selectedDate.value = date
+    }
     fun goToToday() { selectedDate.value = LocalDate.now() }
 
     fun logSlotTaken(slot: DoseSlot) {
@@ -168,6 +173,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             )
             applyStockUsage(medicine)
+        }
+    }
+
+    /** Marks an as-needed (SOS) medicine as deliberately not taken today, independent of the cooldown. */
+    fun logSosSkipped(medicine: Medicine) {
+        viewModelScope.launch {
+            repository.insertLog(
+                MedicineLog(
+                    medicineId = medicine.medicineId,
+                    medicineName = medicine.name,
+                    scheduledEpochMillis = System.currentTimeMillis(),
+                    status = LogStatus.SKIPPED,
+                    dateEpochDay = selectedDate.value.toEpochDay()
+                )
+            )
         }
     }
 

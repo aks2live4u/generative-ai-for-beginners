@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,6 +22,16 @@ import java.time.LocalDate
 
 private val dosagePresets = listOf("1 Tablet", "2 Tablets", "5 ml", "Custom")
 private val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+private val defaultSlotTimes = listOf(9 to 0, 14 to 0, 21 to 0, 7 to 0, 12 to 0, 18 to 0)
+
+private fun resizeTimes(current: List<Pair<Int, Int>>, count: Int): List<Pair<Int, Int>> {
+    if (count <= current.size) return current.take(count)
+    val result = current.toMutableList()
+    while (result.size < count) {
+        result += defaultSlotTimes.getOrElse(result.size) { 9 to 0 }
+    }
+    return result
+}
 
 @Composable
 fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
@@ -31,8 +42,6 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
     var dosagePreset by remember { mutableStateOf(dosagePresets.first()) }
     var customDosage by remember { mutableStateOf("") }
     var times by remember { mutableStateOf(listOf(9 to 0)) }
-    var newTimeHour by remember { mutableIntStateOf(9) }
-    var newTimeMinute by remember { mutableIntStateOf(0) }
     var frequency by remember { mutableStateOf(Frequency.DAILY) }
     var selectedDays by remember { mutableStateOf(setOf<Int>()) }
     var everyXHours by remember { mutableIntStateOf(8) }
@@ -161,34 +170,29 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
             if (frequency != Frequency.SOS && frequency != Frequency.EVERY_X_HOURS) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
-                        Text("Dose Times", fontWeight = FontWeight.SemiBold)
+                        Text("Doses Per Day", fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
-                        Text("Add every time of day you take this medicine.", fontSize = 12.sp)
+                        Text("How many times a day do you take this medicine?", fontSize = 12.sp)
                         Spacer(Modifier.height(8.dp))
+                        NumberStepper(
+                            value = times.size,
+                            range = 1..6,
+                            onChange = { times = resizeTimes(times, it) },
+                            label = "Times a day"
+                        )
+                        Spacer(Modifier.height(12.dp))
                         times.forEachIndexed { index, (h, m) ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                            ) {
-                                Text(String.format("%02d:%02d", h, m), fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                                if (times.size > 1) {
-                                    IconButton(onClick = { times = times.filterIndexed { i, _ -> i != index } }) {
-                                        Text("✕", fontSize = 16.sp)
-                                    }
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                                Text("Dose ${index + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    NumberStepper(value = h, range = 0..23, onChange = { newHour ->
+                                        times = times.toMutableList().also { it[index] = newHour to m }
+                                    }, label = "Hour")
+                                    NumberStepper(value = m, range = 0..59, step = 5, onChange = { newMinute ->
+                                        times = times.toMutableList().also { it[index] = h to newMinute }
+                                    }, label = "Minute")
                                 }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            NumberStepper(value = newTimeHour, range = 0..23, onChange = { newTimeHour = it }, label = "Hour")
-                            NumberStepper(value = newTimeMinute, range = 0..59, onChange = { newTimeMinute = it }, label = "Minute")
-                            Spacer(Modifier.weight(1f))
-                            OutlinedButton(onClick = {
-                                if (times.none { it.first == newTimeHour && it.second == newTimeMinute }) {
-                                    times = (times + (newTimeHour to newTimeMinute)).sortedWith(compareBy({ it.first }, { it.second }))
-                                }
-                            }) {
-                                Text("+ Add time", fontSize = 12.sp)
                             }
                         }
                     }
@@ -303,7 +307,13 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
         Text(label, fontSize = 11.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onChange((value - step).coerceIn(range)) }) { Text("–", fontSize = 18.sp) }
-            Text(value.toString(), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp))
+            Text(
+                String.format("%02d", value),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(40.dp)
+            )
             IconButton(onClick = { onChange((value + step).coerceIn(range)) }) { Text("+", fontSize = 18.sp) }
         }
     }
