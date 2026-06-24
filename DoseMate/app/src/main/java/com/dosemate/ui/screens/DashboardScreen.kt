@@ -70,16 +70,12 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("💊", fontSize = 26.sp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "DoseMate",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = headerColor
-                    )
-                }
+                Text(
+                    "DoseMate",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = headerColor
+                )
             }
 
             item {
@@ -164,7 +160,11 @@ fun DashboardScreen(
                     TimeOfDaySectionHeader(
                         bucket = BUCKET_SOS,
                         count = state.sosEntries.size,
-                        pendingCount = state.sosEntries.count { it.cooldownUntilMillis == null || it.cooldownUntilMillis <= System.currentTimeMillis() },
+                        pendingCount = state.sosEntries.count { entry ->
+                            val skippedToday = entry.logsToday.any { it.status == LogStatus.SKIPPED }
+                            val cooldownActive = entry.cooldownUntilMillis != null && entry.cooldownUntilMillis > System.currentTimeMillis()
+                            !skippedToday && !cooldownActive
+                        },
                         expanded = expanded,
                         onToggle = { viewModel.toggleSection(BUCKET_SOS) }
                     )
@@ -388,9 +388,20 @@ private fun SosEntryCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(medicine.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 val doseCountText = if (entry.logsToday.isNotEmpty()) " · Logged ${entry.logsToday.size}x today" else ""
-                Text("${medicine.dosage} · As needed$doseCountText", fontSize = 12.sp)
+                Text("${medicine.dosage}$doseCountText", fontSize = 12.sp)
             }
-            Text("As needed", fontSize = 12.sp, color = accent, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "As needed",
+                fontSize = 11.sp,
+                color = accent,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(accent.copy(alpha = 0.16f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+            Spacer(Modifier.width(4.dp))
             CardMenu(onEdit = onEdit, onDelete = onDelete)
         }
 

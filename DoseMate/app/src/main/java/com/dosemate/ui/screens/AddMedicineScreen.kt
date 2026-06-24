@@ -1,11 +1,17 @@
 package com.dosemate.ui.screens
 
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,7 +55,14 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
     var startDate by remember { mutableStateOf(LocalDate.now()) }
     var quantityText by remember { mutableStateOf("") }
     var dosesPerIntake by remember { mutableIntStateOf(1) }
+    var reminderSoundUri by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(medicineId == null) }
+
+    val context = LocalContext.current
+    val ringtonePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        reminderSoundUri = uri?.toString()
+    }
 
     LaunchedEffect(medicineId) {
         if (medicineId != null) {
@@ -65,6 +78,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                 startDate = LocalDate.ofEpochDay(m.startDateEpochDay)
                 quantityText = m.quantityAvailable?.toString() ?: ""
                 dosesPerIntake = m.dosesPerIntake
+                reminderSoundUri = m.reminderSoundUri
             }
             loaded = true
         }
@@ -257,6 +271,39 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
             }
 
             item {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Reminder Sound", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (reminderSoundUri != null) "Custom ringtone selected" else "Using the app default sound",
+                        fontSize = 12.sp,
+                        color = LocalDoseMateColors.current.textSecondary
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick = {
+                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                val current = reminderSoundUri?.let { Uri.parse(it) }
+                                    ?: RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, current)
+                            }
+                            ringtonePickerLauncher.launch(intent)
+                        }) {
+                            Text("Choose Sound", fontSize = 13.sp)
+                        }
+                        if (reminderSoundUri != null) {
+                            OutlinedButton(onClick = { reminderSoundUri = null }) {
+                                Text("Reset to Default", fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
                 Button(
                     onClick = {
                         val dosage = if (dosagePreset == "Custom") customDosage else dosagePreset
@@ -275,6 +322,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                                 missedAfterMinutes = missedAfterMinutes,
                                 quantityAvailable = quantityText.toIntOrNull(),
                                 dosesPerIntake = dosesPerIntake,
+                                reminderSoundUri = reminderSoundUri,
                                 onSaved = onSaved
                             )
                         }

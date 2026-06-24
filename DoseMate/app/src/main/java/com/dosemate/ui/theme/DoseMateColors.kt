@@ -18,7 +18,7 @@ data class DoseMateColors(
 )
 
 val LightDoseMateColors = DoseMateColors(
-    backgroundGradient = listOf(BottleGreenTop, BottleGreenMid, NearBlack, PureBlack),
+    backgroundGradient = listOf(TealPrimary, TealDeep, NearBlack, PureBlack),
     glassStrong = GlassWhiteStrong,
     glassSoft = GlassWhiteSoft,
     glassBorder = GlassBorder,
@@ -31,7 +31,7 @@ val LightDoseMateColors = DoseMateColors(
 )
 
 val DarkDoseMateColors = DoseMateColors(
-    backgroundGradient = listOf(DarkBgTop, BottleGreenMid, NearBlack, DarkBgBottom),
+    backgroundGradient = listOf(TealDeep, DarkBgTop, NearBlack, DarkBgBottom),
     glassStrong = GlassDarkStrong,
     glassSoft = GlassDarkSoft,
     glassBorder = GlassBorderDark,

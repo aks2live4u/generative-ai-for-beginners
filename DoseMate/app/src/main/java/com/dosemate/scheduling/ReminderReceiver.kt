@@ -33,7 +33,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     )
                     val logId = repository.insertLog(log)
 
-                    NotificationHelper.showReminder(context, logId, medicine.medicineId, medicine.name, medicine.dosage)
+                    NotificationHelper.showReminder(context, logId, medicine.medicineId, medicine.name, medicine.dosage, medicine.reminderSoundUri)
                     AlarmScheduler.scheduleMissedCheck(context, logId, medicine.medicineId, now, medicine.missedAfterMinutes)
                     AlarmScheduler.scheduleNextForSlot(context, medicine, slotIndex)
                 }

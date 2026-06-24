@@ -28,6 +28,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
         missedAfterMinutes: Int,
         quantityAvailable: Int?,
         dosesPerIntake: Int,
+        reminderSoundUri: String?,
         onSaved: () -> Unit
     ) {
         viewModelScope.launch {
@@ -52,7 +53,8 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                     missedAfterMinutes = missedAfterMinutes,
                     timesCsv = timesCsv,
                     quantityAvailable = quantityAvailable,
-                    dosesPerIntake = dosesPerIntake
+                    dosesPerIntake = dosesPerIntake,
+                    reminderSoundUri = reminderSoundUri
                 )
                 repository.updateMedicine(updated)
                 if (frequency != Frequency.SOS) {
@@ -73,7 +75,8 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                     missedAfterMinutes = missedAfterMinutes,
                     timesCsv = timesCsv,
                     quantityAvailable = quantityAvailable,
-                    dosesPerIntake = dosesPerIntake
+                    dosesPerIntake = dosesPerIntake,
+                    reminderSoundUri = reminderSoundUri
                 )
                 val id = repository.addMedicine(medicine)
                 if (frequency != Frequency.SOS) {

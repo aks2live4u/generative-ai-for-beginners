@@ -27,7 +27,9 @@ data class Medicine(
     val isActive: Boolean = true,
     val timesCsv: String = "",
     val quantityAvailable: Int? = null,
-    val dosesPerIntake: Int = 1
+    val dosesPerIntake: Int = 1,
+    /** Content URI of a custom ringtone for this medicine's reminders, or null for the app default. */
+    val reminderSoundUri: String? = null
 )
 
 /** All configured dose times for the day, parsed from [Medicine.timesCsv] with a fallback to the single reminder time. */

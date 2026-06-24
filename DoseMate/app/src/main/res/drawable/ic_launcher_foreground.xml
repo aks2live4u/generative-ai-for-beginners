@@ -5,9 +5,11 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Pill outline (frosted base) -->
+    <!-- Pill outline (thin border for definition against the white background) -->
     <path
-        android:fillColor="#E6FFFFFF"
+        android:fillColor="#00000000"
+        android:strokeColor="#D9DDDC"
+        android:strokeWidth="1.5"
         android:pathData="M34,38 L74,38 Q84,38 84,54 Q84,70 74,70 L34,70 Q24,70 24,54 Q24,38 34,38 Z" />
 
     <!-- Left half: darker green -->
@@ -15,19 +17,19 @@
         android:fillColor="#0B6E64"
         android:pathData="M34,38 L59,38 L59,70 L34,70 Q24,70 24,54 Q24,38 34,38 Z" />
 
-    <!-- Right half: lighter green -->
+    <!-- Right half: grey, for contrast against the white background -->
     <path
-        android:fillColor="#5EEAD4"
+        android:fillColor="#B5BCBA"
         android:pathData="M59,38 L74,38 Q84,38 84,54 Q84,70 74,70 L59,70 Z" />
 
     <!-- Divider -->
     <path
-        android:fillColor="#E6FFFFFF"
+        android:fillColor="#FFFFFF"
         android:pathData="M58,38 L60,38 L60,70 L58,70 Z" />
 
     <!-- Checkmark -->
     <path
-        android:fillColor="#0F2F2B"
+        android:fillColor="#FFFFFF"
         android:pathData="M64,55 L69,60 L80,47 L82,49 L69,64 L62,57 Z" />
 
 </vector>

@@ -1,8 +1,13 @@
 package com.dosemate.scheduling
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.net.Uri
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dosemate.DoseMateApp
@@ -11,7 +16,31 @@ import com.dosemate.R
 
 object NotificationHelper {
 
-    fun showReminder(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String) {
+    private fun channelIdFor(medicineId: Long, soundUri: String?): String {
+        if (soundUri == null) return DoseMateApp.CHANNEL_ID
+        return "medicine_reminders_${medicineId}_${soundUri.hashCode()}"
+    }
+
+    private fun ensureChannel(context: Context, channelId: String, soundUri: String?) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || soundUri == null) return
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (manager.getNotificationChannel(channelId) != null) return
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val channel = NotificationChannel(channelId, "Medicine Reminders", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Reminders to take your medicines on time"
+            enableVibration(true)
+            setSound(Uri.parse(soundUri), audioAttributes)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    fun showReminder(context: Context, logId: Long, medicineId: Long, medicineName: String, dosage: String, soundUri: String? = null) {
+        val channelId = channelIdFor(medicineId, soundUri)
+        ensureChannel(context, channelId, soundUri)
+
         val contentIntent = PendingIntent.getActivity(
             context, medicineId.toInt(),
             Intent(context, MainActivity::class.java).apply {
@@ -30,6 +59,7 @@ object NotificationHelper {
                 putExtra(AlarmScheduler.EXTRA_MEDICINE_ID, medicineId)
                 putExtra(EXTRA_MEDICINE_NAME, medicineName)
                 putExtra(EXTRA_DOSAGE, dosage)
+                putExtra(EXTRA_SOUND_URI, soundUri)
             }
             return PendingIntent.getBroadcast(
                 context, requestCode, intent,
@@ -37,7 +67,7 @@ object NotificationHelper {
             )
         }
 
-        val notification = NotificationCompat.Builder(context, DoseMateApp.CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time to take $medicineName")
             .setContentText(dosage)
@@ -83,4 +113,5 @@ object NotificationHelper {
     const val ACTION_SKIP = "com.dosemate.action.SKIP"
     const val EXTRA_MEDICINE_NAME = "extra_medicine_name"
     const val EXTRA_DOSAGE = "extra_dosage"
+    const val EXTRA_SOUND_URI = "extra_sound_uri"
 }
