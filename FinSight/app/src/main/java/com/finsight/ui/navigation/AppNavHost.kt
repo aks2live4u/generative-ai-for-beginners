@@ -245,6 +245,7 @@ fun AppNavHost(container: AppContainer, activity: FragmentActivity) {
 
 @Composable
 private fun MainScaffold(container: AppContainer) {
+    val context = LocalContext.current
     var currentTab by remember { mutableStateOf(AppTab.DASHBOARD) }
     val transactions by container.transactionRepository.observeAll().collectAsState(initial = emptyList())
     val subscriptions by container.subscriptionRepository.observeAll().collectAsState(initial = emptyList())
@@ -258,7 +259,8 @@ private fun MainScaffold(container: AppContainer) {
     val settingsState = remember(settingsVersion) {
         SettingsUiState(
             aiFeaturesEnabled = container.geminiSettingsManager.aiFeaturesEnabled,
-            hasApiKey = !container.geminiSettingsManager.apiKey.isNullOrBlank()
+            hasApiKey = !container.geminiSettingsManager.apiKey.isNullOrBlank(),
+            lastCrashLog = com.finsight.CrashHandler.lastCrash(context)
         )
     }
 
@@ -391,6 +393,14 @@ private fun MainScaffold(container: AppContainer) {
                                 is GeminiResult.Failure -> Result.failure(Exception(result.message))
                             }
                         }
+                    },
+                    onCopyCrashLog = { log ->
+                        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("FinSight crash log", log))
+                    },
+                    onClearCrashLog = {
+                        com.finsight.CrashHandler.clear(context)
+                        settingsVersion++
                     }
                 )
             }

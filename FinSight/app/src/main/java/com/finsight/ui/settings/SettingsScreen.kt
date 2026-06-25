@@ -44,7 +44,8 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val aiFeaturesEnabled: Boolean,
-    val hasApiKey: Boolean
+    val hasApiKey: Boolean,
+    val lastCrashLog: String? = null
 )
 
 /**
@@ -58,7 +59,9 @@ fun SettingsScreen(
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
     onToggleAiFeatures: (Boolean) -> Unit,
-    onTestConnection: suspend () -> Result<String>
+    onTestConnection: suspend () -> Result<String>,
+    onCopyCrashLog: (String) -> Unit = {},
+    onClearCrashLog: () -> Unit = {}
 ) {
     var apiKeyInput by remember { mutableStateOf("") }
     var keyVisible by remember { mutableStateOf(false) }
@@ -197,6 +200,41 @@ fun SettingsScreen(
                             is TestState.Success -> StatusRow(icon = Icons.Filled.CheckCircle, tint = MaterialTheme.financeColors.income, text = s.reply)
                             is TestState.Failed -> StatusRow(icon = Icons.Filled.ErrorOutline, tint = MaterialTheme.financeColors.expense, text = s.reason)
                             else -> {}
+                        }
+                    }
+                }
+            }
+
+            if (state.lastCrashLog != null) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = MaterialTheme.financeColors.expense)
+                            Text(
+                                text = "App crashed last time it closed unexpectedly",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(start = 10.dp)
+                            )
+                        }
+                        Text(
+                            text = state.lastCrashLog,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 16.dp)
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            androidx.compose.material3.TextButton(onClick = { onCopyCrashLog(state.lastCrashLog) }) {
+                                Text("Copy to clipboard")
+                            }
+                            androidx.compose.material3.TextButton(onClick = onClearCrashLog) {
+                                Text("Dismiss")
+                            }
                         }
                     }
                 }
