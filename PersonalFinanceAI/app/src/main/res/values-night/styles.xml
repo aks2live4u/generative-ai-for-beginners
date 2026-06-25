@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.PersonalFinanceAI" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>

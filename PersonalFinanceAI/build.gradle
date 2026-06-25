@@ -1,0 +1,10 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+//
+// NOTE: the Android/AGP plugins are declared directly in app/build.gradle (with explicit
+// versions) rather than here. This repo's sandbox has no Android SDK, so the :app module
+// can only be opened/built in Android Studio; keeping AGP out of the root build.gradle lets
+// the pure-Kotlin :core module still build and run its unit tests standalone in CI/sandboxes
+// without needing network access to the Android plugin repository.
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.10' apply false
+}
