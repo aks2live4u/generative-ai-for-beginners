@@ -459,6 +459,18 @@ private const val CHAT_SYSTEM_INSTRUCTION =
         "doesn't contain enough information to answer, say so rather than guessing."
 
 private suspend fun answerWithAiIfEnabled(container: AppContainer, question: String): String {
+    when (val command = com.finsight.core.ai.ChatCommandParser.parse(question)) {
+        is com.finsight.core.ai.ChatCommand.ReclassifyCategory -> {
+            container.transactionRepository.reclassifyCategory(command.from, command.to)
+            return "Done - I've moved every \"${command.from.displayName}\" transaction to \"${command.to.displayName}\"."
+        }
+        is com.finsight.core.ai.ChatCommand.ReclassifyMerchant -> {
+            container.transactionRepository.reclassifyMerchant(command.merchantKey, command.category)
+            return "Done - I've tagged \"${command.merchantKey}\" transactions as \"${command.category.displayName}\" from now on."
+        }
+        null -> Unit
+    }
+
     val taughtRule = com.finsight.core.parser.MerchantRuleParser.parse(question)
     if (taughtRule != null) {
         val taughtPurpose = com.finsight.core.model.Purpose.fromDisplayName(taughtRule.label)

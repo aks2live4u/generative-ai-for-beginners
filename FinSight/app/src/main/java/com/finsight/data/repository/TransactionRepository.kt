@@ -67,6 +67,13 @@ class TransactionRepository(
             .forEach { transactionDao.update(it.copy(category = to.name)) }
     }
 
+    /** Chat-driven reclassify: re-tags every past transaction from [merchantKey] as [category] (e.g. "Swiggy is Food Delivery"), so it actually moves spend buckets instead of just changing the displayed label. */
+    suspend fun reclassifyMerchant(merchantKey: String, category: Category) {
+        transactionDao.getAll()
+            .filter { MerchantMatcher.isSameMerchant(it.merchant, merchantKey) }
+            .forEach { transactionDao.update(it.copy(category = category.name)) }
+    }
+
     /** Retroactively renames every past transaction matching [merchantKey] to [label] (e.g. after teaching a new rule). */
     suspend fun relabelPastTransactions(merchantKey: String, label: String) {
         transactionDao.getAll()
