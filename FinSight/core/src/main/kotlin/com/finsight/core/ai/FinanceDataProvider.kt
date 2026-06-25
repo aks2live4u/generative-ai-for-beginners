@@ -14,4 +14,7 @@ interface FinanceDataProvider {
     fun transactionsForMonth(month: YearMonth): List<Transaction> =
         allTransactions().filter { YearMonth.from(it.date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()) == month }
     fun subscriptions(): List<Subscription>
+
+    /** Personal merchant-to-[com.finsight.core.model.Purpose] overrides taught via chat. Empty by default. */
+    fun purposeRules(): List<MerchantPurposeRule> = emptyList()
 }

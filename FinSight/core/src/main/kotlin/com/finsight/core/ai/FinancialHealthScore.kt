@@ -16,10 +16,18 @@ data class FinancialHealthScore(
     val factors: List<FinancialHealthFactor>
 )
 
+/** Categories whose spend is discretionary/lifestyle rather than a necessity, for [scoreLifestyleInflation]. */
+private val lifestyleCategories = setOf(
+    Category.RESTAURANTS, Category.FOOD_DELIVERY,
+    Category.AMAZON, Category.FLIPKART, Category.MYNTRA, Category.SHOPPING_OTHER,
+    Category.MOVIES, Category.GAMES, Category.OTT
+)
+
 /**
  * Computes a 0-100 financial health score from the last 6 months of transactions, weighting:
- * savings rate (40), spending consistency (20), subscription burden (15), emergency fund
- * coverage (15), debt/EMI ratio (10) — matching the factor list in the product blueprint.
+ * savings rate (25), income stability (15), investment rate (15), spending consistency (10),
+ * lifestyle inflation (10), subscription burden (10), emergency fund coverage (10), debt/EMI
+ * ratio (5) — matching the factor list in the product blueprint.
  */
 object FinancialHealthScoreCalculator {
 
@@ -34,13 +42,16 @@ object FinancialHealthScoreCalculator {
         val avgIncome = monthlyTotals.values.map { it.first }.average().takeIf { !it.isNaN() } ?: 0.0
         val avgExpense = monthlyTotals.values.map { it.second }.average().takeIf { !it.isNaN() } ?: 0.0
 
-        val savingsRateFactor = scoreSavingsRate(avgIncome, avgExpense)
-        val consistencyFactor = scoreSpendingConsistency(monthlyTotals.values.map { it.second })
-        val subscriptionFactor = scoreSubscriptionBurden(subscriptions, avgIncome)
-        val emergencyFundFactor = scoreEmergencyFund(liquidSavingsBalance, avgExpense)
-        val debtFactor = scoreDebtRatio(transactions, monthsToAnalyze, now, avgIncome)
-
-        val factors = listOf(savingsRateFactor, consistencyFactor, subscriptionFactor, emergencyFundFactor, debtFactor)
+        val factors = listOf(
+            scoreSavingsRate(avgIncome, avgExpense),
+            scoreIncomeStability(monthlyTotals.values.map { it.first }),
+            scoreInvestmentRate(transactions, monthsToAnalyze, now, avgIncome),
+            scoreSpendingConsistency(monthlyTotals.values.map { it.second }),
+            scoreLifestyleInflation(transactions, monthsToAnalyze, now),
+            scoreSubscriptionBurden(subscriptions, avgIncome),
+            scoreEmergencyFund(liquidSavingsBalance, avgExpense),
+            scoreDebtRatio(transactions, monthsToAnalyze, now, avgIncome)
+        )
         val total = factors.sumOf { it.score }
 
         return FinancialHealthScore(
@@ -76,64 +87,134 @@ object FinancialHealthScoreCalculator {
     }
 
     private fun scoreSavingsRate(avgIncome: Double, avgExpense: Double): FinancialHealthFactor {
-        if (avgIncome <= 0) return FinancialHealthFactor("Savings Rate", 0, 40, "No income detected")
+        if (avgIncome <= 0) return FinancialHealthFactor("Savings Rate", 0, 25, "No income detected")
         val rate = ((avgIncome - avgExpense) / avgIncome * 100).coerceIn(-100.0, 100.0)
         val score = when {
-            rate >= 30 -> 40
-            rate >= 20 -> 32
-            rate >= 10 -> 24
-            rate >= 0 -> 14
+            rate >= 30 -> 25
+            rate >= 20 -> 20
+            rate >= 10 -> 14
+            rate >= 0 -> 8
             else -> 0
         }
-        return FinancialHealthFactor("Savings Rate", score, 40, "Saving ${"%.0f".format(rate)}% of income")
+        return FinancialHealthFactor("Savings Rate", score, 25, "Saving ${"%.0f".format(rate)}% of income")
+    }
+
+    private fun scoreIncomeStability(monthlyIncomes: List<Double>): FinancialHealthFactor {
+        if (monthlyIncomes.size < 2) return FinancialHealthFactor("Income Stability", 15, 15, "Not enough history")
+        val mean = monthlyIncomes.average()
+        if (mean == 0.0) return FinancialHealthFactor("Income Stability", 3, 15, "No income recorded")
+        val variance = monthlyIncomes.sumOf { (it - mean) * (it - mean) } / monthlyIncomes.size
+        val coefficientOfVariation = Math.sqrt(variance) / mean
+        val score = when {
+            coefficientOfVariation <= 0.10 -> 15
+            coefficientOfVariation <= 0.25 -> 11
+            coefficientOfVariation <= 0.40 -> 7
+            else -> 3
+        }
+        return FinancialHealthFactor("Income Stability", score, 15, "Month-to-month income variation ${"%.0f".format(coefficientOfVariation * 100)}%")
+    }
+
+    private fun scoreInvestmentRate(
+        transactions: List<Transaction>,
+        monthsToAnalyze: Int,
+        now: LocalDate,
+        avgIncome: Double
+    ): FinancialHealthFactor {
+        if (avgIncome <= 0) return FinancialHealthFactor("Investment Rate", 0, 15, "No income to compare against")
+        val currentMonth = YearMonth.from(now)
+        val cutoff = currentMonth.minusMonths((monthsToAnalyze - 1).toLong())
+        val investmentTotal = transactions
+            .filter { it.category == Category.INVESTMENT_OUTFLOW }
+            .filter { YearMonth.from(it.date.atZone(ZoneId.systemDefault()).toLocalDate()) >= cutoff }
+            .sumOf { it.amount }
+        val avgMonthlyInvestment = investmentTotal / monthsToAnalyze
+        val rate = avgMonthlyInvestment / avgIncome
+        val score = when {
+            rate >= 0.20 -> 15
+            rate >= 0.10 -> 11
+            rate >= 0.05 -> 7
+            rate > 0 -> 3
+            else -> 0
+        }
+        return FinancialHealthFactor("Investment Rate", score, 15, "Investing ${"%.1f".format(rate * 100)}% of income")
     }
 
     private fun scoreSpendingConsistency(monthlyExpenses: List<Double>): FinancialHealthFactor {
-        if (monthlyExpenses.size < 2) return FinancialHealthFactor("Spending Consistency", 20, 20, "Not enough history")
+        if (monthlyExpenses.size < 2) return FinancialHealthFactor("Spending Consistency", 10, 10, "Not enough history")
         val mean = monthlyExpenses.average()
-        if (mean == 0.0) return FinancialHealthFactor("Spending Consistency", 20, 20, "No spending recorded")
+        if (mean == 0.0) return FinancialHealthFactor("Spending Consistency", 10, 10, "No spending recorded")
         val variance = monthlyExpenses.sumOf { (it - mean) * (it - mean) } / monthlyExpenses.size
         val stdDev = Math.sqrt(variance)
         val coefficientOfVariation = stdDev / mean
         val score = when {
-            coefficientOfVariation <= 0.10 -> 20
-            coefficientOfVariation <= 0.25 -> 15
-            coefficientOfVariation <= 0.40 -> 10
-            else -> 5
+            coefficientOfVariation <= 0.10 -> 10
+            coefficientOfVariation <= 0.25 -> 7
+            coefficientOfVariation <= 0.40 -> 4
+            else -> 2
         }
-        return FinancialHealthFactor("Spending Consistency", score, 20, "Month-to-month variation ${"%.0f".format(coefficientOfVariation * 100)}%")
+        return FinancialHealthFactor("Spending Consistency", score, 10, "Month-to-month variation ${"%.0f".format(coefficientOfVariation * 100)}%")
+    }
+
+    private fun scoreLifestyleInflation(transactions: List<Transaction>, monthsToAnalyze: Int, now: LocalDate): FinancialHealthFactor {
+        val currentMonth = YearMonth.from(now)
+        val months = (0 until monthsToAnalyze).map { currentMonth.minusMonths(it.toLong()) }
+        val lifestyleByMonth = months.associateWith { 0.0 }.toMutableMap()
+        for (tx in transactions) {
+            if (tx.category !in lifestyleCategories) continue
+            val month = YearMonth.from(tx.date.atZone(ZoneId.systemDefault()).toLocalDate())
+            if (month !in lifestyleByMonth) continue
+            lifestyleByMonth[month] = lifestyleByMonth[month]!! + tx.amount
+        }
+        val sortedMonths = months.sorted()
+        val half = sortedMonths.size / 2
+        if (half == 0) return FinancialHealthFactor("Lifestyle Inflation", 10, 10, "Not enough history")
+        val olderHalf = sortedMonths.take(half).map { lifestyleByMonth[it]!! }
+        val recentHalf = sortedMonths.drop(half).map { lifestyleByMonth[it]!! }
+        val olderAvg = olderHalf.average()
+        val recentAvg = recentHalf.average()
+        if (olderAvg <= 0.0) {
+            return FinancialHealthFactor("Lifestyle Inflation", 10, 10, "No lifestyle spend history to compare")
+        }
+        val growth = (recentAvg - olderAvg) / olderAvg
+        val score = when {
+            growth <= 0 -> 10
+            growth <= 0.10 -> 7
+            growth <= 0.25 -> 4
+            else -> 0
+        }
+        return FinancialHealthFactor("Lifestyle Inflation", score, 10, "Lifestyle spend ${"%.0f".format(growth * 100)}% vs earlier months")
     }
 
     private fun scoreSubscriptionBurden(subscriptions: List<Subscription>, avgIncome: Double): FinancialHealthFactor {
         val totalMonthlySubscriptionCost = subscriptions.sumOf { it.monthlyCost }
-        if (avgIncome <= 0) return FinancialHealthFactor("Subscription Burden", 7, 15, "No income to compare against")
+        if (avgIncome <= 0) return FinancialHealthFactor("Subscription Burden", 5, 10, "No income to compare against")
         val burdenRatio = totalMonthlySubscriptionCost / avgIncome
         val score = when {
-            burdenRatio <= 0.02 -> 15
-            burdenRatio <= 0.05 -> 11
-            burdenRatio <= 0.10 -> 7
-            else -> 2
+            burdenRatio <= 0.02 -> 10
+            burdenRatio <= 0.05 -> 7
+            burdenRatio <= 0.10 -> 4
+            else -> 1
         }
-        return FinancialHealthFactor("Subscription Burden", score, 15, "${"%.1f".format(burdenRatio * 100)}% of income on subscriptions")
+        return FinancialHealthFactor("Subscription Burden", score, 10, "${"%.1f".format(burdenRatio * 100)}% of income on subscriptions")
     }
 
     private fun scoreEmergencyFund(liquidSavingsBalance: Double, avgExpense: Double): FinancialHealthFactor {
-        if (avgExpense <= 0) return FinancialHealthFactor("Emergency Fund", 15, 15, "No expense history")
+        if (avgExpense <= 0) return FinancialHealthFactor("Emergency Fund", 10, 10, "No expense history")
         // liquidSavingsBalance is always 0 for now - FinSight doesn't track a separate savings/bank
         // balance yet, only transactions - so this factor always lands in the lowest tier. Say so
         // explicitly rather than showing a generic "0.0 months covered" that reads like a real
         // (bad) measurement.
         if (liquidSavingsBalance <= 0) {
-            return FinancialHealthFactor("Emergency Fund", 2, 15, "Not tracked yet - FinSight doesn't record a savings balance")
+            return FinancialHealthFactor("Emergency Fund", 1, 10, "Not tracked yet - FinSight doesn't record a savings balance")
         }
         val monthsCovered = liquidSavingsBalance / avgExpense
         val score = when {
-            monthsCovered >= 6 -> 15
-            monthsCovered >= 3 -> 11
-            monthsCovered >= 1 -> 6
-            else -> 2
+            monthsCovered >= 6 -> 10
+            monthsCovered >= 3 -> 7
+            monthsCovered >= 1 -> 4
+            else -> 1
         }
-        return FinancialHealthFactor("Emergency Fund", score, 15, "${"%.1f".format(monthsCovered)} months of expenses covered")
+        return FinancialHealthFactor("Emergency Fund", score, 10, "${"%.1f".format(monthsCovered)} months of expenses covered")
     }
 
     private fun scoreDebtRatio(
@@ -142,7 +223,7 @@ object FinancialHealthScoreCalculator {
         now: LocalDate,
         avgIncome: Double
     ): FinancialHealthFactor {
-        if (avgIncome <= 0) return FinancialHealthFactor("Debt Ratio", 5, 10, "No income to compare against")
+        if (avgIncome <= 0) return FinancialHealthFactor("Debt Ratio", 2, 5, "No income to compare against")
         val emiCategories = setOf(
             com.finsight.core.model.Category.EMI,
             com.finsight.core.model.Category.CREDIT_CARD_BILL
@@ -156,12 +237,12 @@ object FinancialHealthScoreCalculator {
         val avgMonthlyEmi = emiTotal / monthsToAnalyze
         val debtRatio = avgMonthlyEmi / avgIncome
         val score = when {
-            debtRatio <= 0.10 -> 10
-            debtRatio <= 0.25 -> 7
-            debtRatio <= 0.40 -> 4
+            debtRatio <= 0.10 -> 5
+            debtRatio <= 0.25 -> 3
+            debtRatio <= 0.40 -> 1
             else -> 0
         }
-        return FinancialHealthFactor("Debt Ratio", score, 10, "${"%.1f".format(debtRatio * 100)}% of income to EMIs/credit bills")
+        return FinancialHealthFactor("Debt Ratio", score, 5, "${"%.1f".format(debtRatio * 100)}% of income to EMIs/credit bills")
     }
 
     private fun interpret(score: Int): String = when {

@@ -1,7 +1,9 @@
 package com.finsight.core.ai.llm
 
+import com.finsight.core.ai.ExpenseForecaster
 import com.finsight.core.ai.FinanceDataProvider
 import com.finsight.core.ai.FinancialHealthScore
+import com.finsight.core.ai.PurposeTagger
 import com.finsight.core.ai.SavingsOpportunity
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
@@ -46,6 +48,25 @@ object FinanceContextBuilder {
                 subscriptions.forEach {
                     appendLine("- ${it.serviceName}: Rs.${"%.0f".format(it.monthlyCost)}/month (renews ${it.renewalDate})")
                 }
+            }
+            val purposeBreakdown = PurposeTagger.purposeBreakdown(thisMonth, data.purposeRules())
+            if (purposeBreakdown.isNotEmpty()) {
+                appendLine("Spending by purpose this month (need/want/investment/family/growth/lifestyle/debt):")
+                purposeBreakdown.entries.sortedByDescending { it.value }.forEach { (purpose, amount) ->
+                    appendLine("- ${purpose.displayName}: Rs.${"%.0f".format(amount)}")
+                }
+            }
+            val expenseForecast = ExpenseForecaster.forecastNextMonth(txs, now)
+            if (expenseForecast != null) {
+                appendLine(
+                    "Next month's expense forecast (mean +/- 1 std dev over last ${expenseForecast.monthsUsed} month(s)): " +
+                        "Rs.${"%.0f".format(expenseForecast.expected)} (range Rs.${"%.0f".format(expenseForecast.low)} - Rs.${"%.0f".format(expenseForecast.high)})"
+                )
+            }
+            val incomeForecast = ExpenseForecaster.forecastNextMonthIncome(txs, now)
+            if (incomeForecast != null && expenseForecast != null) {
+                val projectedBalance = incomeForecast.expected - expenseForecast.expected
+                appendLine("Projected end-of-next-month balance: Rs.${"%.0f".format(projectedBalance)}")
             }
             appendLine("Recent transactions (most recent first):")
             txs.sortedByDescending { it.date }.take(maxTransactions).forEach { tx -> appendLine("- ${transactionLine(tx)}") }

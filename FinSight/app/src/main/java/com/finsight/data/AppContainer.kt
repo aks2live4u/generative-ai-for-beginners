@@ -22,10 +22,12 @@ import com.finsight.sms.SmsHistoryScanner
 class AppContainer(context: Context) {
     private val database = AppDatabase.getInstance(context)
 
-    val transactionRepository = TransactionRepository(database.transactionDao(), database.merchantDao())
+    val merchantRuleManager = MerchantRuleManager(context)
+    val purposeRuleManager = PurposeRuleManager(context)
+    val transactionRepository = TransactionRepository(database.transactionDao(), database.merchantDao(), merchantRuleManager)
     val subscriptionRepository = SubscriptionRepository(database.subscriptionDao())
     val goalRepository = GoalRepository(database.goalDao())
-    val financeDataProvider = RoomFinanceDataProvider(transactionRepository, subscriptionRepository)
+    val financeDataProvider = RoomFinanceDataProvider(transactionRepository, subscriptionRepository, purposeRuleManager)
 
     val pinManager = PinManager(context)
     val onboardingPrefs = OnboardingPrefs(context)

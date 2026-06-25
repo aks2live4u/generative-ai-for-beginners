@@ -13,18 +13,11 @@ import java.time.Instant
  */
 object SmsTransactionParser {
 
-    private val otpKeywords = listOf("otp", "one time password", "do not share")
-
     fun parse(rawText: String, receivedAt: Instant): ParseResult {
         val lower = rawText.lowercase()
-        if (otpKeywords.any { lower.contains(it) }) {
-            return ParseResult.NotFinancial("OTP message")
-        }
-        if (MoneyTextExtractor.isPromotionalOrScam(rawText)) {
-            return ParseResult.NotFinancial("Promotional/scam message")
-        }
-        if (MoneyTextExtractor.isMandateRegistration(rawText)) {
-            return ParseResult.NotFinancial("Standing instruction/mandate registration, not an actual transaction")
+        val classification = MessageClassifier.classify(rawText)
+        if (classification.type != MessageType.TRANSACTION) {
+            return ParseResult.NotFinancial(classification.reason)
         }
 
         val amount = MoneyTextExtractor.extractAmount(rawText)

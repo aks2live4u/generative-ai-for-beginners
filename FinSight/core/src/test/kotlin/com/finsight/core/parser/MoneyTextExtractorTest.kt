@@ -56,4 +56,15 @@ class MoneyTextExtractorTest {
         val text = "Rs.1,250.00 spent on your HDFC Bank Credit Card XX5678 at Amazon on 20-05-24"
         assertEquals(false, MoneyTextExtractor.isMandateRegistration(text))
     }
+
+    @Test
+    fun `flags an upcoming bill reminder as a payment reminder, not a transaction`() {
+        assertEquals(true, MoneyTextExtractor.isPaymentReminder("Your standing instruction for Rs 3,500 is due tomorrow"))
+    }
+
+    @Test
+    fun `does not flag a completed debit as a payment reminder`() {
+        val text = "Rs.1,250.00 spent on your HDFC Bank Credit Card XX5678 at Amazon on 20-05-24"
+        assertEquals(false, MoneyTextExtractor.isPaymentReminder(text))
+    }
 }

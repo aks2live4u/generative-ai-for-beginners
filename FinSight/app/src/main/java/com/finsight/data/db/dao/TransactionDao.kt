@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.finsight.data.db.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -15,6 +16,9 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(transactions: List<TransactionEntity>)
 
+    @Update
+    suspend fun update(transaction: TransactionEntity)
+
     @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC")
     fun observeAll(): Flow<List<TransactionEntity>>
 
@@ -22,8 +26,8 @@ interface TransactionDao {
     suspend fun getAll(): List<TransactionEntity>
 
     @Query(
-        "SELECT COUNT(*) FROM transactions WHERE merchant = :merchant AND amountMinor = :amountMinor " +
+        "SELECT * FROM transactions WHERE amountMinor = :amountMinor " +
             "AND dateEpochMillis BETWEEN :startMillis AND :endMillis"
     )
-    suspend fun countPossibleDuplicates(merchant: String, amountMinor: Long, startMillis: Long, endMillis: Long): Int
+    suspend fun getCandidateDuplicates(amountMinor: Long, startMillis: Long, endMillis: Long): List<TransactionEntity>
 }

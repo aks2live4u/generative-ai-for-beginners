@@ -21,11 +21,9 @@ object EmailTransactionParser {
 
     fun parse(senderEmail: String, subject: String, bodySnippet: String, receivedAt: Instant): ParseResult {
         val combinedText = "$subject $bodySnippet"
-        if (MoneyTextExtractor.isPromotionalOrScam(combinedText)) {
-            return ParseResult.NotFinancial("Promotional/scam message")
-        }
-        if (MoneyTextExtractor.isMandateRegistration(combinedText)) {
-            return ParseResult.NotFinancial("Standing instruction/mandate registration, not an actual transaction")
+        val classification = MessageClassifier.classify(combinedText)
+        if (classification.type == MessageType.SPAM || classification.type == MessageType.REMINDER) {
+            return ParseResult.NotFinancial(classification.reason)
         }
 
         val amount = MoneyTextExtractor.extractAmount(combinedText)

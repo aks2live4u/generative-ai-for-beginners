@@ -25,6 +25,19 @@ class ChatAssistantEngineTest {
     }
 
     @Test
+    fun `answers needs vs wants breakdown`() {
+        val data = FakeFinanceDataProvider(
+            listOf(
+                tx(500.0, Category.GROCERIES, TransactionType.EXPENSE, now),
+                tx(199.0, Category.OTT, TransactionType.EXPENSE, now)
+            )
+        )
+        val answer = ChatAssistantEngine.answer("Needs vs wants this month?", data, now)
+        assertTrue(answer.contains("Need"))
+        assertTrue(answer.contains("Lifestyle"))
+    }
+
+    @Test
     fun `answers what subscriptions am I paying for`() {
         val data = FakeFinanceDataProvider(
             emptyList(),

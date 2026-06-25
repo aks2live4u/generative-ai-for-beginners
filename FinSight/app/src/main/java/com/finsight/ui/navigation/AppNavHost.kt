@@ -262,6 +262,21 @@ private fun MainScaffold(container: AppContainer) {
         )
     }
 
+    // Re-discover recurring payments (EMI/SIP/insurance/subscriptions/rent) whenever the
+    // transaction list changes, with zero manual setup. Subscription.serviceName is the Room
+    // primary key, so upsert() naturally keeps one row per merchant instead of growing duplicates.
+    LaunchedEffect(transactions) {
+        com.finsight.core.ai.RecurringPaymentDetector.detect(transactions).forEach { detection ->
+            container.subscriptionRepository.upsert(
+                com.finsight.core.model.Subscription(
+                    serviceName = detection.merchantLabel,
+                    renewalDate = detection.nextExpectedDate,
+                    monthlyCost = detection.monthlyCost
+                )
+            )
+        }
+    }
+
     Scaffold(
         bottomBar = { FinanceBottomNavBar(currentTab = currentTab, onTabSelected = { currentTab = it }) }
     ) { paddingValues ->
@@ -416,6 +431,19 @@ private const val CHAT_SYSTEM_INSTRUCTION =
         "doesn't contain enough information to answer, say so rather than guessing."
 
 private suspend fun answerWithAiIfEnabled(container: AppContainer, question: String): String {
+    val taughtRule = com.finsight.core.parser.MerchantRuleParser.parse(question)
+    if (taughtRule != null) {
+        val taughtPurpose = com.finsight.core.model.Purpose.fromDisplayName(taughtRule.label)
+        if (taughtPurpose != null) {
+            container.purposeRuleManager.addRule(taughtRule.merchantKey, taughtPurpose)
+            return "Got it - I'll tag \"${taughtRule.merchantKey}\" as ${taughtPurpose.displayName.lowercase()} spending from now on."
+        }
+        container.merchantRuleManager.addRule(taughtRule.merchantKey, taughtRule.label)
+        container.transactionRepository.relabelPastTransactions(taughtRule.merchantKey, taughtRule.label)
+        return "Got it - I'll label \"${taughtRule.merchantKey}\" as \"${taughtRule.label}\" from now on, " +
+            "and I've updated your past transactions too."
+    }
+
     val settings = container.geminiSettingsManager
     val apiKey = settings.apiKey
     if (!settings.isConfigured() || apiKey.isNullOrBlank()) {

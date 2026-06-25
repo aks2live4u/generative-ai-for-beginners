@@ -2,11 +2,13 @@ package com.finsight.core.ai
 
 import com.finsight.core.categorize.CategoryEngine
 import com.finsight.core.model.Category
+import com.finsight.core.model.Purpose
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 
 /**
@@ -22,6 +24,8 @@ object ChatAssistantEngine {
     fun answer(question: String, data: FinanceDataProvider, now: LocalDate = LocalDate.now()): String {
         val lower = question.lowercase()
         return when {
+            "need" in lower && "want" in lower -> answerPurposeBreakdown(data, now)
+            purposeKeywords.keys.any { it in lower } -> answerPurposeSpend(data, lower, now)
             "subscription" in lower -> answerSubscriptions(data)
             "predict" in lower -> answerPrediction(data, now)
             "biggest" in lower || "largest" in lower || "top expense" in lower -> answerBiggestExpenses(data, lower, now)
@@ -73,15 +77,15 @@ object ChatAssistantEngine {
     }
 
     private fun answerPrediction(data: FinanceDataProvider, now: LocalDate): String {
-        val last3Months = (1..3).map { now.minusMonths(it.toLong()) }
-            .map { java.time.YearMonth.from(it) }
-        val totals = last3Months.mapNotNull { month ->
-            val total = data.transactionsForMonth(month).filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
-            if (total > 0) total else null
-        }
-        if (totals.isEmpty()) return "I don't have enough history yet to predict next month's expenses."
-        val avg = totals.average()
-        return "Based on your last ${totals.size} month(s), I predict you'll spend around Rs.${"%.0f".format(avg)} next month."
+        val forecast = ExpenseForecaster.forecastNextMonth(data.allTransactions(), now) ?: return "I don't have enough history yet to predict next month's expenses."
+        val rangeLine = "Based on your last ${forecast.monthsUsed} month(s), I predict you'll spend around " +
+            "Rs.${"%.0f".format(forecast.expected)} next month (likely between Rs.${"%.0f".format(forecast.low)} and Rs.${"%.0f".format(forecast.high)})."
+
+        val incomeForecast = ExpenseForecaster.forecastNextMonthIncome(data.allTransactions(), now)
+        if (incomeForecast == null) return rangeLine
+        val projectedBalance = incomeForecast.expected - forecast.expected
+        return "$rangeLine With expected income around Rs.${"%.0f".format(incomeForecast.expected)}, " +
+            "you'd end next month with roughly Rs.${"%.0f".format(projectedBalance)} left over."
     }
 
     private fun answerBiggestExpenses(data: FinanceDataProvider, question: String, now: LocalDate): String {
@@ -143,6 +147,38 @@ object ChatAssistantEngine {
         val lines = emis.sortedByDescending { it.date }.take(10)
             .joinToString("\n") { "- ${it.merchant}: Rs.${"%.0f".format(it.amount)}" }
         return "EMI payments for ${range.label} (Rs.${"%.0f".format(total)} total). Ask \"EMI this year\" or \"EMI all time\" for a different period:\n$lines"
+    }
+
+    private val purposeKeywords: Map<String, Purpose> = mapOf(
+        "needs" to Purpose.NEED,
+        "wants" to Purpose.WANT,
+        "lifestyle" to Purpose.LIFESTYLE,
+        "growth spend" to Purpose.GROWTH,
+        "family spend" to Purpose.FAMILY,
+        "debt" to Purpose.DEBT
+    )
+
+    private fun answerPurposeBreakdown(data: FinanceDataProvider, now: LocalDate): String {
+        val month = YearMonth.from(now)
+        val txs = data.transactionsForMonth(month)
+        val breakdown = PurposeTagger.purposeBreakdown(txs, data.purposeRules())
+        if (breakdown.isEmpty()) return "I don't have enough spending this month to break down into needs vs wants."
+        val total = breakdown.values.sum()
+        val lines = breakdown.entries.sortedByDescending { it.value }.joinToString("\n") { (purpose, amount) ->
+            "- ${purpose.displayName}: Rs.${"%.0f".format(amount)} (${"%.0f".format(amount / total * 100)}%)"
+        }
+        return "This month's spending by purpose:\n$lines"
+    }
+
+    private fun answerPurposeSpend(data: FinanceDataProvider, question: String, now: LocalDate): String {
+        val purpose = purposeKeywords.entries.find { it.key in question }?.value ?: return answerFallback()
+        val month = YearMonth.from(now)
+        val txs = data.transactionsForMonth(month)
+        val overrides = data.purposeRules()
+        val amount = txs.filter { it.type == TransactionType.EXPENSE && PurposeTagger.purposeFor(it, overrides) == purpose }
+            .sumOf { it.amount }
+        if (amount == 0.0) return "I couldn't find any ${purpose.displayName.lowercase()} spending this month."
+        return "You spent Rs.${"%.0f".format(amount)} on ${purpose.displayName.lowercase()} this month."
     }
 
     private val groupKeywords: Map<String, com.finsight.core.model.CategoryGroup> = mapOf(

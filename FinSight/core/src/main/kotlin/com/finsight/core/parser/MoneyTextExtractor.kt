@@ -81,6 +81,28 @@ object MoneyTextExtractor {
         return activationVerbs.any { lower.contains(it) } || mandateRegistrationKeywords.any { lower.contains(it) }
     }
 
+    // Bank reminders for an *upcoming* payment (EMI/SI/bill due tomorrow, auto-debit scheduled)
+    // mention an amount and often a debit-adjacent word ("due", "debited on") without describing
+    // a transaction that has already happened. Distinct from isMandateRegistration (which is about
+    // a one-time mandate *setup* notice) - this covers recurring "don't forget to keep balance
+    // ready" nudges that arrive every billing cycle.
+    private val paymentReminderKeywords = listOf(
+        "is due tomorrow", "is due on", "will be due", "due date is", "scheduled for debit",
+        "will be debited on", "auto-debit will be initiated", "auto debit will be initiated",
+        "upcoming due", "payment is due", "kindly maintain sufficient balance",
+        "ensure sufficient balance", "please maintain balance", "will be presented for payment",
+        "reminder:", "payment reminder"
+    )
+
+    /**
+     * True when [text] is reminding the user about a payment that hasn't happened yet (EMI/SI/bill
+     * due soon), rather than confirming one that already did. See [paymentReminderKeywords].
+     */
+    fun isPaymentReminder(text: String): Boolean {
+        val lower = text.lowercase()
+        return paymentReminderKeywords.any { lower.contains(it) }
+    }
+
     /**
      * Extracts the currency amount that best represents the actual transaction, or null if no
      * amount is present. Prefers the first match that isn't immediately preceded by a
