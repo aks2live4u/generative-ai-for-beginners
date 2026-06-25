@@ -47,6 +47,7 @@ import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.state.buildDashboardState
 import com.finsight.ui.state.buildInsightsState
 import com.finsight.ui.state.buildTransactionsState
+import com.finsight.ui.transactions.TransactionFilter
 import com.finsight.ui.transactions.TransactionsScreen
 import kotlinx.coroutines.launch
 
@@ -245,6 +246,7 @@ private fun MainScaffold(container: AppContainer) {
     val subscriptions by container.subscriptionRepository.observeAll().collectAsState(initial = emptyList())
     var transactionsSearchQuery by remember { mutableStateOf("") }
     var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
+    var selectedFilter by remember { mutableStateOf(TransactionFilter.ALL) }
     val chatMessages = remember { mutableStateOf(listOf<ChatMessage>()) }
     var chatInput by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
@@ -262,10 +264,17 @@ private fun MainScaffold(container: AppContainer) {
                     onPeriodSelected = { selectedPeriod = it }
                 )
                 AppTab.TRANSACTIONS -> TransactionsScreen(
-                    state = buildTransactionsState(transactions, subscriptions, transactionsSearchQuery, period = selectedPeriod),
+                    state = buildTransactionsState(
+                        transactions,
+                        subscriptions,
+                        transactionsSearchQuery,
+                        period = selectedPeriod,
+                        filter = selectedFilter
+                    ),
                     onSearchQueryChange = { transactionsSearchQuery = it },
                     onTransactionClick = {},
-                    onPeriodSelected = { selectedPeriod = it }
+                    onPeriodSelected = { selectedPeriod = it },
+                    onFilterSelected = { selectedFilter = it }
                 )
                 AppTab.INSIGHTS -> InsightsScreen(
                     state = buildInsightsState(transactions, subscriptions),

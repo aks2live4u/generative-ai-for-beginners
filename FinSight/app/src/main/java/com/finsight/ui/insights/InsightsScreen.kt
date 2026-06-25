@@ -16,6 +16,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,9 +40,11 @@ import androidx.compose.ui.unit.dp
 import com.finsight.core.ai.FinancialHealthFactor
 import com.finsight.core.ai.FinancialHealthScore
 import com.finsight.core.ai.SavingsOpportunity
+import com.finsight.core.ai.SavingsOpportunityType
 import com.finsight.ui.components.PrimaryButton
 import com.finsight.ui.components.ScoreRing
 import com.finsight.ui.components.formatRupees
+import com.finsight.ui.theme.CategoryAccents
 import com.finsight.ui.theme.financeColors
 import kotlinx.coroutines.launch
 
@@ -189,17 +195,27 @@ private fun FinancialHealthScoreCard(score: FinancialHealthScore) {
     }
 }
 
+/**
+ * Buckets a factor's score/maxScore ratio into a qualitative label. The thresholds (0.75/0.4)
+ * line up with the score tiers in FinancialHealthScoreCalculator, where the top two tiers of
+ * every factor clear 0.75 and the bottom "needs attention" tier sits below 0.4.
+ */
 @Composable
 private fun FactorRow(factor: FinancialHealthFactor) {
-    val good = factor.score >= factor.maxScore / 2
+    val ratio = if (factor.maxScore > 0) factor.score.toDouble() / factor.maxScore else 0.0
+    val (label, dotColor, icon) = when {
+        ratio >= 0.75 -> Triple("Good", MaterialTheme.financeColors.income, Icons.Filled.CheckCircle)
+        ratio >= 0.4 -> Triple("Average", CategoryAccents.Orange, Icons.Filled.ErrorOutline)
+        else -> Triple("Needs Attention", MaterialTheme.financeColors.expense, Icons.Filled.ErrorOutline)
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = if (good) Icons.Filled.CheckCircle else Icons.Filled.ErrorOutline,
+            imageVector = icon,
             contentDescription = null,
-            tint = if (good) MaterialTheme.financeColors.income else MaterialTheme.financeColors.expense,
+            tint = dotColor,
             modifier = Modifier.size(18.dp)
         )
         Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
@@ -215,12 +231,21 @@ private fun FactorRow(factor: FinancialHealthFactor) {
             )
         }
         Text(
-            text = "${factor.score}/${factor.maxScore}",
+            text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            fontWeight = FontWeight.Medium,
+            color = dotColor
         )
     }
 }
+
+@Composable
+private fun iconForOpportunity(type: SavingsOpportunityType): Pair<androidx.compose.ui.graphics.vector.ImageVector, androidx.compose.ui.graphics.Color> =
+    when (type) {
+        SavingsOpportunityType.UNUSED_SUBSCRIPTION -> Icons.Filled.Schedule to CategoryAccents.Orange
+        SavingsOpportunityType.DUPLICATE_SERVICE -> Icons.Filled.Shield to CategoryAccents.Purple
+        SavingsOpportunityType.EXCESS_SPENDING -> Icons.Filled.TrendingUp to MaterialTheme.financeColors.expense
+    }
 
 @Composable
 private fun HiddenExpenseFinderFullCard(opportunities: List<SavingsOpportunity>) {
@@ -243,29 +268,47 @@ private fun HiddenExpenseFinderFullCard(opportunities: List<SavingsOpportunity>)
             )
             Spacer(modifier = Modifier.height(14.dp))
             opportunities.forEach { opportunity ->
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    val (icon, tint) = iconForOpportunity(opportunity.type)
+                    Surface(
+                        shape = CircleShape,
+                        color = tint.copy(alpha = 0.15f),
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Text(
-                            text = opportunity.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = formatRupees(opportunity.estimatedAnnualSavings) + "/yr",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.financeColors.income
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.padding(8.dp)
                         )
                     }
-                    Text(
-                        text = opportunity.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = opportunity.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = formatRupees(opportunity.estimatedAnnualSavings) + "/yr",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.financeColors.income
+                            )
+                        }
+                        Text(
+                            text = opportunity.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

@@ -9,6 +9,7 @@ import com.finsight.core.model.TransactionType
 import com.finsight.ui.dashboard.CategoryBreakdown
 import com.finsight.ui.dashboard.DashboardUiState
 import com.finsight.ui.insights.InsightsUiState
+import com.finsight.ui.transactions.TransactionFilter
 import com.finsight.ui.transactions.TransactionsUiState
 import com.finsight.ui.transactions.UpcomingBill
 import java.time.LocalDate
@@ -40,6 +41,35 @@ private fun categoryBreakdownFor(transactions: List<Transaction>, range: ClosedR
             )
         }
         .sortedByDescending { it.amount }
+}
+
+/**
+ * Picks the category with the largest percentage drop in spend vs. [previousRange] (at least a
+ * 10% drop, to avoid flagging noise) and phrases it as a one-line insight. Returns null when
+ * there's no previous period to compare against (e.g. [TimePeriod.ALL_TIME]) or nothing dropped
+ * meaningfully.
+ */
+private fun buildInsightText(
+    transactions: List<Transaction>,
+    currentRange: ClosedRange<LocalDate>,
+    previousRange: ClosedRange<LocalDate>?,
+    comparisonLabel: String
+): String? {
+    if (previousRange == null) return null
+    val previousBreakdown = categoryBreakdownFor(transactions, previousRange)
+    if (previousBreakdown.isEmpty()) return null
+    val currentByLabel = categoryBreakdownFor(transactions, currentRange).associateBy { it.label }
+    val biggestDrop = previousBreakdown
+        .mapNotNull { prev ->
+            val currentAmount = currentByLabel[prev.label]?.amount ?: 0.0
+            val change = percentChange(currentAmount, prev.amount) ?: return@mapNotNull null
+            prev.label to change
+        }
+        .filter { (_, change) -> change <= -10.0 }
+        .minByOrNull { (_, change) -> change }
+        ?: return null
+    val (label, change) = biggestDrop
+    return "You spent ${"%.0f".format(kotlin.math.abs(change))}% less on $label compared to $comparisonLabel."
 }
 
 fun buildDashboardState(
@@ -74,6 +104,10 @@ fun buildDashboardState(
     val healthScore = FinancialHealthScoreCalculator.calculate(transactions, subscriptions, liquidSavingsBalance = 0.0, now = now)
     val savingsOpportunities = SavingsDetector.detect(transactions, subscriptions, now)
 
+    val savings = incomeThisPeriod - expenseThisPeriod
+    val savingsRatePercent = if (incomeThisPeriod > 0) savings / incomeThisPeriod * 100 else 0.0
+    val insightText = buildInsightText(transactions, currentRange, previousRange, period.comparisonLabel)
+
     return DashboardUiState(
         userName = userName,
         period = period,
@@ -81,6 +115,9 @@ fun buildDashboardState(
         comparisonLabel = period.comparisonLabel,
         income = incomeThisPeriod,
         expense = expenseThisPeriod,
+        savings = savings,
+        savingsRatePercent = savingsRatePercent,
+        insightText = insightText,
         incomeChangePercent = incomeChangePercent,
         expenseChangePercent = expenseChangePercent,
         incomeTrend = incomeTrend,
@@ -97,6 +134,7 @@ fun buildTransactionsState(
     subscriptions: List<Subscription>,
     searchQuery: String,
     period: TimePeriod = TimePeriod.MONTH,
+    filter: TransactionFilter = TransactionFilter.ALL,
     now: LocalDate = LocalDate.now()
 ): TransactionsUiState {
     val currentRange = period.currentRange(now)
@@ -110,7 +148,9 @@ fun buildTransactionsState(
         .maxByOrNull { it.date }
     val nextSalaryDate = lastSalary?.date?.atZone(ZoneId.systemDefault())?.toLocalDate()?.plusMonths(1)
 
-    val transactionsInPeriod = transactions.filter { dateOf(it) in currentRange }
+    val transactionsInPeriod = transactions
+        .filter { dateOf(it) in currentRange }
+        .filter { filter.type == null || it.type == filter.type }
     val filteredTransactions = if (searchQuery.isBlank()) {
         transactionsInPeriod
     } else {
@@ -122,6 +162,7 @@ fun buildTransactionsState(
     return TransactionsUiState(
         period = period,
         periodLabel = period.label,
+        filter = filter,
         spendingBreakdown = categoryBreakdownFor(transactions, currentRange),
         subscriptions = subscriptions,
         upcomingBills = upcomingBills,

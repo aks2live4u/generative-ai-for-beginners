@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -50,7 +51,8 @@ fun TransactionsScreen(
     state: TransactionsUiState,
     onSearchQueryChange: (String) -> Unit,
     onTransactionClick: (Transaction) -> Unit,
-    onPeriodSelected: (TimePeriod) -> Unit = {}
+    onPeriodSelected: (TimePeriod) -> Unit = {},
+    onFilterSelected: (TransactionFilter) -> Unit = {}
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
@@ -71,6 +73,16 @@ fun TransactionsScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 PeriodSelector(selected = state.period, onSelected = onPeriodSelected)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TransactionFilter.entries.forEach { filterOption ->
+                        FilterChip(
+                            selected = filterOption == state.filter,
+                            onClick = { onFilterSelected(filterOption) },
+                            label = { Text(text = filterOption.label, style = MaterialTheme.typography.labelMedium) }
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = state.searchQuery,
