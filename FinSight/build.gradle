@@ -1,10 +1,18 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 //
-// NOTE: the Android/AGP plugins are declared directly in app/build.gradle (with explicit
-// versions) rather than here. This repo's sandbox has no Android SDK, so the :app module
-// can only be opened/built in Android Studio; keeping AGP out of the root build.gradle lets
-// the pure-Kotlin :core module still build and run its unit tests standalone in CI/sandboxes
+// NOTE: the Android/AGP plugin (com.android.application) is declared directly in app/build.gradle
+// (with an explicit version) rather than here. This repo's sandbox has no Android SDK, so the
+// :app module can only be opened/built in Android Studio; keeping AGP out of the root build.gradle
+// lets the pure-Kotlin :core module still build and run its unit tests standalone in CI/sandboxes
 // without needing network access to the Android plugin repository.
+//
+// org.jetbrains.kotlin.android IS declared here (apply false), even though it's also only used by
+// :app, because it's backed by the same kotlin-gradle-plugin artifact as org.jetbrains.kotlin.jvm
+// below - declaring just one of the two ids with a version and leaving the other to redeclare its
+// own version directly in app/build.gradle makes Gradle's plugin resolver treat them as conflicting
+// requests for the same artifact ("already on the classpath with an unknown version"). Declaring
+// both ids here, and applying both without a version in their respective modules, avoids that.
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.9.10' apply false
+    id 'org.jetbrains.kotlin.android' version '1.9.10' apply false
 }
