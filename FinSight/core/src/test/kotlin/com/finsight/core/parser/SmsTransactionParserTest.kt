@@ -96,4 +96,24 @@ class SmsTransactionParserTest {
         )
         assertTrue(result is ParseResult.NotFinancial)
     }
+
+    @Test
+    fun `rejects standing instruction activation notice as not financial`() {
+        val result = SmsTransactionParser.parse(
+            "We have activated Standing Instruction on ICICI Bank Credit Card 6003. Merchant: Google Cloud, " +
+                "Maximum Amount: INR 75000.00, Frequency: As Presented, Start Date: 25/06/2026, " +
+                "End Date: 31/12/2036, Mandate ID: YVyxZWKrOL",
+            now
+        )
+        assertTrue(result is ParseResult.NotFinancial)
+    }
+
+    @Test
+    fun `rejects e-mandate registration notice as not financial`() {
+        val result = SmsTransactionParser.parse(
+            "Your e-mandate for Rs.999.00 has been registered with Netflix on your HDFC Bank account.",
+            now
+        )
+        assertTrue(result is ParseResult.NotFinancial)
+    }
 }

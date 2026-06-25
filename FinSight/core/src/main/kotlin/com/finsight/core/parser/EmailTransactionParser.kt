@@ -24,6 +24,9 @@ object EmailTransactionParser {
         if (MoneyTextExtractor.isPromotionalOrScam(combinedText)) {
             return ParseResult.NotFinancial("Promotional/scam message")
         }
+        if (MoneyTextExtractor.isMandateRegistration(combinedText)) {
+            return ParseResult.NotFinancial("Standing instruction/mandate registration, not an actual transaction")
+        }
 
         val amount = MoneyTextExtractor.extractAmount(combinedText)
             ?: return ParseResult.NotFinancial("No amount found in email")

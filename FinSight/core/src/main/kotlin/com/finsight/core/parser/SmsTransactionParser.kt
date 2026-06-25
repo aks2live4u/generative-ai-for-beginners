@@ -23,6 +23,9 @@ object SmsTransactionParser {
         if (MoneyTextExtractor.isPromotionalOrScam(rawText)) {
             return ParseResult.NotFinancial("Promotional/scam message")
         }
+        if (MoneyTextExtractor.isMandateRegistration(rawText)) {
+            return ParseResult.NotFinancial("Standing instruction/mandate registration, not an actual transaction")
+        }
 
         val amount = MoneyTextExtractor.extractAmount(rawText)
             ?: return ParseResult.NotFinancial("No amount found")

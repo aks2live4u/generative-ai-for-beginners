@@ -57,6 +57,30 @@ object MoneyTextExtractor {
         return promotionalKeywords.any { lower.contains(it) }
     }
 
+    // Banks send these when a standing instruction / e-mandate is *registered* or *activated* on
+    // a card/account (e.g. for autopay on a subscription or cloud bill). The SMS always mentions a
+    // "Maximum Amount" - the future authorization ceiling the merchant is allowed to charge up to -
+    // not an amount that has actually been debited yet. Without this guard, that ceiling gets
+    // picked up by extractAmount() and recorded as a real expense (e.g. a Rs.75,000 standing
+    // instruction registration showing up as a Rs.75,000 debit that never happened).
+    private val mandateRegistrationKeywords = listOf(
+        "standing instruction", "e-mandate", "emandate", "mandate has been", "mandate id",
+        "mandate registered", "mandate activated", "si activated", "si has been activated",
+        "autopay has been set up", "autopay registered"
+    )
+
+    /**
+     * True when [text] is a standing-instruction/e-mandate registration notice rather than an
+     * actual transaction - see [mandateRegistrationKeywords] for why this needs its own guard
+     * distinct from [isPromotionalOrScam].
+     */
+    fun isMandateRegistration(text: String): Boolean {
+        val lower = text.lowercase()
+        if (!(lower.contains("standing instruction") || lower.contains("mandate"))) return false
+        val activationVerbs = listOf("activated", "registered", "set up", "created", "approved")
+        return activationVerbs.any { lower.contains(it) } || mandateRegistrationKeywords.any { lower.contains(it) }
+    }
+
     /**
      * Extracts the currency amount that best represents the actual transaction, or null if no
      * amount is present. Prefers the first match that isn't immediately preceded by a
@@ -115,7 +139,12 @@ object MoneyTextExtractor {
     fun extractMerchant(text: String): String? {
         val patterns = listOf(
             Regex("""(?:vpa)\s+([a-zA-Z0-9._-]+)@""", RegexOption.IGNORE_CASE),
-            Regex("""(?:to|at|in favou?r of)\s+([A-Za-z0-9 .&'_-]{2,40}?)(?:\s+on\b|\s+ref\b|\s+via\b|[.,]|$)""", RegexOption.IGNORE_CASE)
+            Regex("""(?:to|at|in favou?r of)\s+([A-Za-z0-9 .&'_-]{2,40}?)(?:\s+on\b|\s+ref\b|\s+via\b|[.,]|$)""", RegexOption.IGNORE_CASE),
+            // Some bank UPI templates name the payee right before "credited" with no preposition,
+            // e.g. "...debited for Rs 50.00 on 25-Jun-26; HUMANAMAINA NIK credited. UPI:...".
+            // Without this, extractMerchant() returns null for these and the transaction falls
+            // through to "Unknown"/Miscellaneous despite the payee name being right there.
+            Regex("""[;:]\s*([A-Za-z0-9 .&'_-]{2,40}?)\s+credited\b""", RegexOption.IGNORE_CASE)
         )
         for (pattern in patterns) {
             val match = pattern.find(text)

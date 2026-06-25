@@ -28,6 +28,7 @@ object ChatAssistantEngine {
             "where" in lower && ("save" in lower || "overspend" in lower) -> answerSavingsAdvice(data, now)
             "how much can i save" in lower || ("save money" in lower) -> answerSavingsAdvice(data, now)
             "summar" in lower -> answerSummary(data, now)
+            "negative" in lower || "overspending" in lower || "overspent" in lower -> answerNegativeExplanation(data, now)
             // Word-boundary match: "emi" as a plain substring also hits "premium", "anemia",
             // "academic", etc., misrouting unrelated questions to the EMI answer.
             emiWordBoundary.containsMatchIn(lower) -> answerEmiPayments(data, lower, now)
@@ -111,6 +112,27 @@ object ChatAssistantEngine {
         val rate = if (income > 0) (savings / income * 100) else 0.0
         return "This month: income Rs.${"%.0f".format(income)}, expenses Rs.${"%.0f".format(expense)}, " +
             "net savings Rs.${"%.0f".format(savings)} (${"%.0f".format(rate)}% savings rate)."
+    }
+
+    private fun answerNegativeExplanation(data: FinanceDataProvider, now: LocalDate): String {
+        val month = java.time.YearMonth.from(now)
+        val txs = data.transactionsForMonth(month)
+        val income = txs.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val expense = txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val savings = income - expense
+        if (savings >= 0) {
+            return "Good news - you're not in the negative this month. Income Rs.${"%.0f".format(income)} vs " +
+                "expenses Rs.${"%.0f".format(expense)}, leaving Rs.${"%.0f".format(savings)} in savings."
+        }
+        val topCategories = txs.filter { it.type == TransactionType.EXPENSE }
+            .groupBy { it.category.displayName }
+            .map { (category, list) -> category to list.sumOf { it.amount } }
+            .sortedByDescending { it.second }
+            .take(3)
+        val lines = topCategories.joinToString("\n") { (category, amount) -> "- $category: Rs.${"%.0f".format(amount)}" }
+        return "This month your expenses (Rs.${"%.0f".format(expense)}) were higher than your income " +
+            "(Rs.${"%.0f".format(income)}), putting you Rs.${"%.0f".format(-savings)} in the negative. " +
+            "Your biggest expense categories were:\n$lines"
     }
 
     private fun answerEmiPayments(data: FinanceDataProvider, question: String, now: LocalDate): String {

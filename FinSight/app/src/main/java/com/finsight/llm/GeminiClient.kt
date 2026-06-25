@@ -29,7 +29,7 @@ class GeminiClient {
         apiKey: String,
         systemInstruction: String,
         prompt: String,
-        model: String = "gemini-2.0-flash"
+        model: String = "gemini-2.5-flash"
     ): GeminiResult = withContext(Dispatchers.IO) {
         val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
         val requestBody = JSONObject().apply {
