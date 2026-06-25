@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -97,6 +100,20 @@ fun AppNavHost(container: AppContainer, activity: FragmentActivity) {
         composable(Routes.PERMISSIONS_SETUP) {
             var refreshTick by remember { mutableIntStateOf(0) }
 
+            // Notification access is granted via a system Settings screen (no ActivityResult
+            // callback), and returning from any permission dialog/sign-in also resumes this
+            // activity, so re-check all three grants whenever the activity comes back to the
+            // foreground - not just from the launcher callbacks below.
+            DisposableEffect(activity) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        refreshTick++
+                    }
+                }
+                activity.lifecycle.addObserver(observer)
+                onDispose { activity.lifecycle.removeObserver(observer) }
+            }
+
             val smsPermissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { refreshTick++ }
@@ -108,11 +125,18 @@ fun AppNavHost(container: AppContainer, activity: FragmentActivity) {
                 refreshTick++
             }
 
-            val smsGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            val notificationsGranted = NotificationManagerCompat.getEnabledListenerPackages(context)
-                .contains(context.packageName)
-            val gmailGranted = container.gmailAuthManager.getSignedInAccount() != null
+            // Reading refreshTick as a remember() key is what makes these re-evaluate on
+            // recomposition - writing refreshTick alone does nothing if its value is never read.
+            val smsGranted = remember(refreshTick) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            val notificationsGranted = remember(refreshTick) {
+                NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+            }
+            val gmailGranted = remember(refreshTick) {
+                container.gmailAuthManager.getSignedInAccount() != null
+            }
 
             val permissions = listOf(
                 PermissionItem(
