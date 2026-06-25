@@ -65,4 +65,23 @@ class ChatAssistantEngineTest {
         assertTrue(answer.contains("75000"))
         assertTrue(answer.contains("30000"))
     }
+
+    @Test
+    fun `does not misroute premium insurance question to EMI answer`() {
+        val data = FakeFinanceDataProvider(
+            listOf(tx(1200.0, Category.INSURANCE, TransactionType.EXPENSE, now, merchant = "LIC India"))
+        )
+        val answer = ChatAssistantEngine.answer("How much is my premium insurance this month?", data, now)
+        assertTrue(answer.contains("1200"))
+        assertTrue(!answer.contains("EMI payments"))
+    }
+
+    @Test
+    fun `answers actual EMI question correctly`() {
+        val data = FakeFinanceDataProvider(
+            listOf(tx(5000.0, Category.EMI, TransactionType.EXPENSE, now, merchant = "HDFC Loan"))
+        )
+        val answer = ChatAssistantEngine.answer("What's my EMI this month?", data, now)
+        assertTrue(answer.contains("5000"))
+    }
 }

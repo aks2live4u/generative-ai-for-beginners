@@ -17,6 +17,8 @@ import java.time.ZoneId
  */
 object ChatAssistantEngine {
 
+    private val emiWordBoundary = Regex("\\bemi\\b")
+
     fun answer(question: String, data: FinanceDataProvider, now: LocalDate = LocalDate.now()): String {
         val lower = question.lowercase()
         return when {
@@ -26,7 +28,9 @@ object ChatAssistantEngine {
             "where" in lower && ("save" in lower || "overspend" in lower) -> answerSavingsAdvice(data, now)
             "how much can i save" in lower || ("save money" in lower) -> answerSavingsAdvice(data, now)
             "summar" in lower -> answerSummary(data, now)
-            "emi" in lower -> answerEmiPayments(data, lower, now)
+            // Word-boundary match: "emi" as a plain substring also hits "premium", "anemia",
+            // "academic", etc., misrouting unrelated questions to the EMI answer.
+            emiWordBoundary.containsMatchIn(lower) -> answerEmiPayments(data, lower, now)
             else -> answerSpendQuery(data, lower, now)
         }
     }
