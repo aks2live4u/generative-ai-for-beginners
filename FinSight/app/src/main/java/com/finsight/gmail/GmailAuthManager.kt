@@ -14,9 +14,11 @@ import kotlinx.coroutines.withContext
 
 /**
  * Handles Google Sign-In for Gmail's READ-ONLY scope only. The app never requests
- * gmail.modify/gmail.send - see GMAIL_READONLY_SCOPE below. Requires a real OAuth client ID from
- * Google Cloud Console (see README.md "Gmail Setup"); [R.string.gmail_oauth_client_id] is a
- * placeholder until you supply your own.
+ * gmail.modify/gmail.send - see [gmailReadonlyScope] below. Uses native Android Google Sign-In,
+ * which Google validates via this app's package name + signing certificate fingerprint rather
+ * than a client ID embedded in code - you must register an Android OAuth client (matching
+ * package name and SHA-1) and add yourself as an OAuth consent screen test user in Google Cloud
+ * Console before sign-in will succeed. See README.md "Gmail setup" for the exact steps.
  */
 class GmailAuthManager(private val context: Context) {
 

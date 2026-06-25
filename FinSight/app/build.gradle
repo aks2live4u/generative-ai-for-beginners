@@ -14,10 +14,6 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-
-        // Replace with your own OAuth client created in Google Cloud Console.
-        // See README.md "Gmail Setup" section for step-by-step instructions.
-        resValue "string", "gmail_oauth_client_id", "\"REPLACE_WITH_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com\""
     }
 
     buildTypes {

@@ -99,19 +99,21 @@ Gmail scanning is optional and read-only. To enable it:
 
 1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
 2. Enable the **Gmail API**.
-3. Configure an OAuth consent screen (internal/testing is fine for personal
-   use) and request only the `https://www.googleapis.com/auth/gmail.readonly`
-   scope.
+3. Configure an OAuth consent screen and request only the
+   `https://www.googleapis.com/auth/gmail.readonly` scope. While the app is
+   unpublished/unverified (the default for personal use), Google only allows
+   sign-in for accounts explicitly added under **Test users** on this
+   screen — add your own Gmail address here, or the "Grant" button in
+   onboarding will never succeed no matter how many times you tap it.
 4. Create an **OAuth 2.0 Client ID** of type "Android", using your app's
    package name (`com.finsight`) and the SHA-1 fingerprint of your
    signing key (`./gradlew signingReport` will print it for your debug/
    release keystore).
-5. Copy the generated client ID and replace the placeholder in
-   `app/build.gradle`:
 
-   ```groovy
-   resValue "string", "gmail_oauth_client_id", "\"YOUR_CLIENT_ID.apps.googleusercontent.com\""
-   ```
+That's it — no client ID needs to be copied into the app. `GmailAuthManager`
+uses native Android Google Sign-In, which Google verifies via your app's
+package name + signing certificate fingerprint (registered in step 4), not a
+client ID string in code.
 
 If you skip this setup, the Gmail permission step in onboarding can simply
 be skipped — it's marked optional, and SMS/notification scanning work
