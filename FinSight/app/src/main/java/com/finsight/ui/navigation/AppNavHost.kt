@@ -54,6 +54,7 @@ import com.finsight.ui.transactions.TransactionsScreen
 import com.finsight.core.ai.llm.FinanceContextBuilder
 import com.finsight.llm.GeminiResult
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private object Routes {
     const val WELCOME = "welcome"
@@ -268,7 +269,13 @@ private fun MainScaffold(container: AppContainer) {
     // transaction list changes, with zero manual setup. Subscription.serviceName is the Room
     // primary key, so upsert() naturally keeps one row per merchant instead of growing duplicates.
     LaunchedEffect(transactions) {
-        com.finsight.core.ai.RecurringPaymentDetector.detect(transactions).forEach { detection ->
+        // Merchant clustering is O(n^2) in comparisons and can take a real while against a device's
+        // full transaction history, so it must run off the main thread - otherwise it blocks
+        // Compose's UI dispatcher and the app appears frozen (or gets killed as unresponsive).
+        val detections = withContext(kotlinx.coroutines.Dispatchers.Default) {
+            com.finsight.core.ai.RecurringPaymentDetector.detect(transactions)
+        }
+        detections.forEach { detection ->
             container.subscriptionRepository.upsert(
                 com.finsight.core.model.Subscription(
                     serviceName = detection.merchantLabel,

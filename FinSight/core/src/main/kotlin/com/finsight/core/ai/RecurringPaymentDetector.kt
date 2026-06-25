@@ -38,12 +38,23 @@ object RecurringPaymentDetector {
 
     /** Groups transactions by fuzzy merchant match (see [MerchantMatcher]) rather than exact spelling. */
     private fun clusterByMerchant(expenses: List<Transaction>): List<List<Transaction>> {
-        val clusters = mutableListOf<MutableList<Transaction>>()
+        // Each merchant name is normalized once up front rather than on every pairwise comparison -
+        // with a real device's multi-thousand-transaction history this loop is O(n^2) in comparisons,
+        // so re-normalizing (regex split/filter/join) on every single one made it slow enough to
+        // block the UI thread for a long time.
+        val normalizedClusters = mutableListOf<MutableList<Transaction>>()
+        val clusterKeys = mutableListOf<String>()
         for (transaction in expenses) {
-            val cluster = clusters.firstOrNull { MerchantMatcher.isSameMerchant(it.first().merchant, transaction.merchant) }
-            if (cluster != null) cluster.add(transaction) else clusters.add(mutableListOf(transaction))
+            val normalized = MerchantMatcher.normalize(transaction.merchant)
+            val index = clusterKeys.indexOfFirst { MerchantMatcher.isSameNormalizedMerchant(it, normalized) }
+            if (index >= 0) {
+                normalizedClusters[index].add(transaction)
+            } else {
+                normalizedClusters.add(mutableListOf(transaction))
+                clusterKeys.add(normalized)
+            }
         }
-        return clusters
+        return normalizedClusters
     }
 
     private fun detectGroup(group: List<Transaction>, now: LocalDate): RecurringPaymentDetection? {

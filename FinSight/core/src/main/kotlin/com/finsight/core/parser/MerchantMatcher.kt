@@ -15,12 +15,19 @@ object MerchantMatcher {
         "services", "service", "online", "payments", "payment", "order", "orders"
     )
 
+    // Compiled once and reused - normalize() is called O(n^2) times by RecurringPaymentDetector's
+    // merchant clustering, so recompiling these per call (as Regex(...) literals) made that
+    // function slow enough to ANR the UI thread on a real device's multi-thousand-transaction
+    // history (it's only ever invoked on tiny test fixtures otherwise).
+    private val nonAlphaRegex = Regex("[^a-z\\s]")
+    private val whitespaceRegex = Regex("\\s+")
+
     /** Lowercases, strips punctuation/digits/noise business words, and collapses whitespace. */
     fun normalize(name: String): String {
         val cleaned = name
             .lowercase()
-            .replace(Regex("[^a-z\\s]"), " ")
-        val words = cleaned.split(Regex("\\s+"))
+            .replace(nonAlphaRegex, " ")
+        val words = cleaned.split(whitespaceRegex)
             .filter { it.isNotBlank() && it !in noiseWords }
         return words.joinToString("")
     }
@@ -30,9 +37,10 @@ object MerchantMatcher {
      * one normalized form contains the other (e.g. "swiggy" within "swiggyorder"), guarded by a
      * minimum length so short generic words don't match everything.
      */
-    fun isSameMerchant(a: String, b: String): Boolean {
-        val normA = normalize(a)
-        val normB = normalize(b)
+    fun isSameMerchant(a: String, b: String): Boolean = isSameNormalizedMerchant(normalize(a), normalize(b))
+
+    /** Same comparison as [isSameMerchant], but for callers that already normalized both names. */
+    fun isSameNormalizedMerchant(normA: String, normB: String): Boolean {
         if (normA.isBlank() || normB.isBlank()) return false
         if (normA == normB) return true
         val shorter = if (normA.length <= normB.length) normA else normB
