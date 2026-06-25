@@ -68,7 +68,8 @@ fun InsightsScreen(
     onOpenChat: () -> Unit,
     onBackupNow: suspend () -> Boolean,
     aiFeaturesEnabled: Boolean = false,
-    onAskAi: (String) -> Unit = {},
+    onExplainHealthScore: (suspend () -> Result<String>)? = null,
+    onExplainHiddenExpenses: (suspend () -> Result<String>)? = null,
     onRunSmartScan: (suspend () -> Result<String>)? = null
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -86,19 +87,15 @@ fun InsightsScreen(
             Spacer(modifier = Modifier.height(20.dp))
             state.healthScore?.let { score ->
                 FinancialHealthScoreCard(score)
-                if (aiFeaturesEnabled) {
-                    AskAiRow(onClick = {
-                        onAskAi("Explain my financial health score and what's driving it up or down.")
-                    })
+                if (aiFeaturesEnabled && onExplainHealthScore != null) {
+                    ExplainAiSection(onExplainHealthScore)
                 }
                 Spacer(modifier = Modifier.height(20.dp))
             }
             if (state.savingsOpportunities.isNotEmpty()) {
                 HiddenExpenseFinderFullCard(state.savingsOpportunities)
-                if (aiFeaturesEnabled) {
-                    AskAiRow(onClick = {
-                        onAskAi("Explain these hidden expense findings, and tell me if any look wrong or unrealistic.")
-                    })
+                if (aiFeaturesEnabled && onExplainHiddenExpenses != null) {
+                    ExplainAiSection(onExplainHiddenExpenses)
                 }
                 Spacer(modifier = Modifier.height(20.dp))
             }
@@ -117,10 +114,33 @@ fun InsightsScreen(
 }
 
 @Composable
-private fun AskAiRow(onClick: () -> Unit) {
-    Row(modifier = Modifier.padding(top = 4.dp)) {
-        androidx.compose.material3.TextButton(onClick = onClick) {
-            Text("Ask AI to explain")
+private fun ExplainAiSection(onRun: suspend () -> Result<String>) {
+    val scope = rememberCoroutineScope()
+    var isRunning by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Result<String>?>(null) }
+
+    Column(modifier = Modifier.padding(top = 4.dp)) {
+        if (isRunning) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+        } else {
+            androidx.compose.material3.TextButton(onClick = {
+                isRunning = true
+                result = null
+                scope.launch {
+                    result = onRun()
+                    isRunning = false
+                }
+            }) {
+                Text("Ask AI to explain")
+            }
+        }
+        result?.let { r ->
+            Text(
+                text = r.getOrElse { it.message ?: "Failed to get an explanation" },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (r.isSuccess) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.financeColors.expense,
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
     }
 }

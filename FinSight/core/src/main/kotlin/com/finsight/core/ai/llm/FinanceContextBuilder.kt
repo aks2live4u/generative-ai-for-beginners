@@ -1,6 +1,8 @@
 package com.finsight.core.ai.llm
 
 import com.finsight.core.ai.FinanceDataProvider
+import com.finsight.core.ai.FinancialHealthScore
+import com.finsight.core.ai.SavingsOpportunity
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
 import java.time.LocalDate
@@ -62,6 +64,30 @@ object FinanceContextBuilder {
                 appendLine("- ${transactionLine(tx)} | source=${tx.source} | text=\"${LlmRedaction.redact(tx.rawText)}\"")
             }
         }
+
+    /**
+     * Dumps the already-computed [FinancialHealthScore] (overall score plus every factor's
+     * name/score/note) so "Ask AI to explain" reasons about the exact numbers shown on screen
+     * instead of re-deriving them from raw transactions.
+     */
+    fun buildHealthScoreContext(score: FinancialHealthScore): String = buildString {
+        appendLine("Overall financial health score: ${score.score}/100")
+        appendLine("Interpretation shown to user: ${score.interpretation}")
+        appendLine("Factors (score/max - note):")
+        score.factors.forEach { factor ->
+            appendLine("- ${factor.name}: ${factor.score}/${factor.maxScore} - ${factor.note}")
+        }
+    }
+
+    /**
+     * Dumps the already-computed [SavingsOpportunity] list so "Ask AI to explain" reasons about
+     * the exact findings shown on screen instead of re-deriving them from raw transactions.
+     */
+    fun buildSavingsOpportunitiesContext(opportunities: List<SavingsOpportunity>): String = buildString {
+        opportunities.forEach { opp ->
+            appendLine("- [${opp.type}] ${opp.title}: ${opp.description} (est. Rs.${"%.0f".format(opp.estimatedAnnualSavings)}/year)")
+        }
+    }
 
     private fun transactionLine(tx: Transaction): String {
         val date = tx.date.atZone(ZoneId.systemDefault()).toLocalDate()

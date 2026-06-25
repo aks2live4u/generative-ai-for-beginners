@@ -1,6 +1,10 @@
 package com.finsight.core.ai.llm
 
 import com.finsight.core.ai.FakeFinanceDataProvider
+import com.finsight.core.ai.FinancialHealthFactor
+import com.finsight.core.ai.FinancialHealthScore
+import com.finsight.core.ai.SavingsOpportunity
+import com.finsight.core.ai.SavingsOpportunityType
 import com.finsight.core.ai.tx
 import com.finsight.core.model.Category
 import com.finsight.core.model.TransactionType
@@ -43,5 +47,33 @@ class FinanceContextBuilderTest {
         val context = FinanceContextBuilder.buildSmartScanContext(listOf(transaction))
         assertFalse(context.contains("123456789012"))
         assertTrue(context.contains("9012"))
+    }
+
+    @Test
+    fun `health score context includes overall score and every factor note`() {
+        val score = FinancialHealthScore(
+            score = 72,
+            interpretation = "Good",
+            factors = listOf(FinancialHealthFactor("Savings Rate", 30, 40, "Saved 25% of income"))
+        )
+        val context = FinanceContextBuilder.buildHealthScoreContext(score)
+        assertTrue(context.contains("72/100"))
+        assertTrue(context.contains("Savings Rate"))
+        assertTrue(context.contains("Saved 25% of income"))
+    }
+
+    @Test
+    fun `savings opportunities context includes title and estimated savings`() {
+        val opportunities = listOf(
+            SavingsOpportunity(
+                type = SavingsOpportunityType.UNUSED_SUBSCRIPTION,
+                title = "Unused Netflix subscription",
+                description = "No usage detected in 45 days",
+                estimatedAnnualSavings = 1999.0
+            )
+        )
+        val context = FinanceContextBuilder.buildSavingsOpportunitiesContext(opportunities)
+        assertTrue(context.contains("Unused Netflix subscription"))
+        assertTrue(context.contains("1999"))
     }
 }

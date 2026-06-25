@@ -287,32 +287,51 @@ private fun MainScaffold(container: AppContainer) {
                     onPeriodSelected = { selectedPeriod = it },
                     onFilterSelected = { selectedFilter = it }
                 )
-                AppTab.INSIGHTS -> InsightsScreen(
-                    state = buildInsightsState(transactions, subscriptions),
-                    onOpenChat = { currentTab = AppTab.CHAT },
-                    onBackupNow = { container.backupManager.createLocalBackup() != null },
-                    aiFeaturesEnabled = settingsState.aiFeaturesEnabled && settingsState.hasApiKey,
-                    onAskAi = { question ->
-                        chatInput = question
-                        currentTab = AppTab.CHAT
-                    },
-                    onRunSmartScan = {
-                        val apiKey = container.geminiSettingsManager.apiKey
-                        if (apiKey.isNullOrBlank()) {
-                            Result.failure(IllegalStateException("No API key saved"))
-                        } else {
-                            val context = FinanceContextBuilder.buildSmartScanContext(transactions)
-                            when (val result = container.geminiClient.generateContent(
-                                apiKey = apiKey,
-                                systemInstruction = SMART_SCAN_SYSTEM_INSTRUCTION,
-                                prompt = "Transactions:\n$context"
-                            )) {
-                                is GeminiResult.Success -> Result.success(result.text.trim())
-                                is GeminiResult.Failure -> Result.failure(Exception(result.message))
+                AppTab.INSIGHTS -> {
+                    val insightsState = buildInsightsState(transactions, subscriptions)
+                    InsightsScreen(
+                        state = insightsState,
+                        onOpenChat = { currentTab = AppTab.CHAT },
+                        onBackupNow = { container.backupManager.createLocalBackup() != null },
+                        aiFeaturesEnabled = settingsState.aiFeaturesEnabled && settingsState.hasApiKey,
+                        onExplainHealthScore = insightsState.healthScore?.let { score ->
+                            {
+                                askGeminiOrFail(container) { apiKey ->
+                                    val context = FinanceContextBuilder.buildHealthScoreContext(score)
+                                    container.geminiClient.generateContent(
+                                        apiKey = apiKey,
+                                        systemInstruction = EXPLAIN_SYSTEM_INSTRUCTION,
+                                        prompt = "Financial health score breakdown:\n$context\n\n" +
+                                            "Explain this score and what's driving it up or down, in plain language."
+                                    )
+                                }
+                            }
+                        },
+                        onExplainHiddenExpenses = if (insightsState.savingsOpportunities.isNotEmpty()) {
+                            {
+                                askGeminiOrFail(container) { apiKey ->
+                                    val context = FinanceContextBuilder.buildSavingsOpportunitiesContext(insightsState.savingsOpportunities)
+                                    container.geminiClient.generateContent(
+                                        apiKey = apiKey,
+                                        systemInstruction = EXPLAIN_SYSTEM_INSTRUCTION,
+                                        prompt = "Hidden expense findings:\n$context\n\n" +
+                                            "Explain these findings, and flag anything that looks wrong or unrealistic."
+                                    )
+                                }
+                            }
+                        } else null,
+                        onRunSmartScan = {
+                            askGeminiOrFail(container) { apiKey ->
+                                val context = FinanceContextBuilder.buildSmartScanContext(transactions)
+                                container.geminiClient.generateContent(
+                                    apiKey = apiKey,
+                                    systemInstruction = SMART_SCAN_SYSTEM_INSTRUCTION,
+                                    prompt = "Transactions:\n$context"
+                                )
                             }
                         }
-                    }
-                )
+                    )
+                }
                 AppTab.CHAT -> ChatScreen(
                     messages = chatMessages.value,
                     inputText = chatInput,
@@ -361,6 +380,25 @@ private fun MainScaffold(container: AppContainer) {
                 )
             }
         }
+    }
+}
+
+private const val EXPLAIN_SYSTEM_INSTRUCTION =
+    "You are FinSight's personal finance assistant. Explain the already-computed figures given " +
+        "to you in plain, concise language. Don't recompute or second-guess the numbers - just " +
+        "interpret them for a non-technical user, and point out anything that looks off."
+
+private suspend fun askGeminiOrFail(
+    container: AppContainer,
+    call: suspend (apiKey: String) -> GeminiResult
+): Result<String> {
+    val apiKey = container.geminiSettingsManager.apiKey
+    if (apiKey.isNullOrBlank()) {
+        return Result.failure(IllegalStateException("No API key saved"))
+    }
+    return when (val result = call(apiKey)) {
+        is GeminiResult.Success -> Result.success(result.text.trim())
+        is GeminiResult.Failure -> Result.failure(Exception(result.message))
     }
 }
 
