@@ -43,12 +43,16 @@ import com.finsight.ui.onboarding.PermissionKeys
 import com.finsight.ui.onboarding.PermissionsSetupScreen
 import com.finsight.ui.onboarding.SecuritySetupScreen
 import com.finsight.ui.onboarding.WelcomeScreen
+import com.finsight.ui.settings.SettingsScreen
+import com.finsight.ui.settings.SettingsUiState
 import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.state.buildDashboardState
 import com.finsight.ui.state.buildInsightsState
 import com.finsight.ui.state.buildTransactionsState
 import com.finsight.ui.transactions.TransactionFilter
 import com.finsight.ui.transactions.TransactionsScreen
+import com.finsight.core.ai.llm.FinanceContextBuilder
+import com.finsight.llm.GeminiResult
 import kotlinx.coroutines.launch
 
 private object Routes {
@@ -250,6 +254,13 @@ private fun MainScaffold(container: AppContainer) {
     val chatMessages = remember { mutableStateOf(listOf<ChatMessage>()) }
     var chatInput by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
+    var settingsVersion by remember { mutableIntStateOf(0) }
+    val settingsState = remember(settingsVersion) {
+        SettingsUiState(
+            aiFeaturesEnabled = container.geminiSettingsManager.aiFeaturesEnabled,
+            hasApiKey = !container.geminiSettingsManager.apiKey.isNullOrBlank()
+        )
+    }
 
     Scaffold(
         bottomBar = { FinanceBottomNavBar(currentTab = currentTab, onTabSelected = { currentTab = it }) }
@@ -279,7 +290,28 @@ private fun MainScaffold(container: AppContainer) {
                 AppTab.INSIGHTS -> InsightsScreen(
                     state = buildInsightsState(transactions, subscriptions),
                     onOpenChat = { currentTab = AppTab.CHAT },
-                    onBackupNow = { container.backupManager.createLocalBackup() != null }
+                    onBackupNow = { container.backupManager.createLocalBackup() != null },
+                    aiFeaturesEnabled = settingsState.aiFeaturesEnabled && settingsState.hasApiKey,
+                    onAskAi = { question ->
+                        chatInput = question
+                        currentTab = AppTab.CHAT
+                    },
+                    onRunSmartScan = {
+                        val apiKey = container.geminiSettingsManager.apiKey
+                        if (apiKey.isNullOrBlank()) {
+                            Result.failure(IllegalStateException("No API key saved"))
+                        } else {
+                            val context = FinanceContextBuilder.buildSmartScanContext(transactions)
+                            when (val result = container.geminiClient.generateContent(
+                                apiKey = apiKey,
+                                systemInstruction = SMART_SCAN_SYSTEM_INSTRUCTION,
+                                prompt = "Transactions:\n$context"
+                            )) {
+                                is GeminiResult.Success -> Result.success(result.text.trim())
+                                is GeminiResult.Failure -> Result.failure(Exception(result.message))
+                            }
+                        }
+                    }
                 )
                 AppTab.CHAT -> ChatScreen(
                     messages = chatMessages.value,
@@ -291,13 +323,70 @@ private fun MainScaffold(container: AppContainer) {
                             chatMessages.value = chatMessages.value + ChatMessage(question, isUser = true)
                             chatInput = ""
                             coroutineScope.launch {
-                                val answer = com.finsight.core.ai.ChatAssistantEngine.answer(question, container.financeDataProvider)
+                                val answer = answerWithAiIfEnabled(container, question)
                                 chatMessages.value = chatMessages.value + ChatMessage(answer, isUser = false)
+                            }
+                        }
+                    }
+                )
+                AppTab.SETTINGS -> SettingsScreen(
+                    state = settingsState,
+                    onSaveApiKey = { key ->
+                        container.geminiSettingsManager.apiKey = key
+                        settingsVersion++
+                    },
+                    onClearApiKey = {
+                        container.geminiSettingsManager.clearApiKey()
+                        settingsVersion++
+                    },
+                    onToggleAiFeatures = { enabled ->
+                        container.geminiSettingsManager.aiFeaturesEnabled = enabled
+                        settingsVersion++
+                    },
+                    onTestConnection = {
+                        val apiKey = container.geminiSettingsManager.apiKey
+                        if (apiKey.isNullOrBlank()) {
+                            Result.failure(IllegalStateException("No API key saved"))
+                        } else {
+                            when (val result = container.geminiClient.generateContent(
+                                apiKey = apiKey,
+                                systemInstruction = "Reply with a short one-sentence greeting confirming the connection works.",
+                                prompt = "Say hello."
+                            )) {
+                                is GeminiResult.Success -> Result.success(result.text.trim())
+                                is GeminiResult.Failure -> Result.failure(Exception(result.message))
                             }
                         }
                     }
                 )
             }
         }
+    }
+}
+
+private const val SMART_SCAN_SYSTEM_INSTRUCTION =
+    "You are reviewing a personal finance app's imported transactions (from SMS, email and " +
+        "notifications, already deduplicated for exact matches). Look across them and report in " +
+        "plain text, in three short sections: (1) likely cross-source duplicates (same purchase " +
+        "logged twice from different sources/wording), (2) anomalies that look fraud-like (unusual " +
+        "amount/merchant/timing patterns), (3) any insurance policies you can identify from the " +
+        "merchant/category. If a section has nothing to report, say so briefly."
+
+private const val CHAT_SYSTEM_INSTRUCTION =
+    "You are FinSight's personal finance assistant. Answer the user's question using only the " +
+        "financial context provided below. Be concise and specific with numbers. If the context " +
+        "doesn't contain enough information to answer, say so rather than guessing."
+
+private suspend fun answerWithAiIfEnabled(container: AppContainer, question: String): String {
+    val settings = container.geminiSettingsManager
+    val apiKey = settings.apiKey
+    if (!settings.isConfigured() || apiKey.isNullOrBlank()) {
+        return com.finsight.core.ai.ChatAssistantEngine.answer(question, container.financeDataProvider)
+    }
+    val context = FinanceContextBuilder.buildChatContext(container.financeDataProvider)
+    val prompt = "Financial context:\n$context\n\nUser question: $question"
+    return when (val result = container.geminiClient.generateContent(apiKey, CHAT_SYSTEM_INSTRUCTION, prompt)) {
+        is GeminiResult.Success -> result.text.trim()
+        is GeminiResult.Failure -> com.finsight.core.ai.ChatAssistantEngine.answer(question, container.financeDataProvider)
     }
 }

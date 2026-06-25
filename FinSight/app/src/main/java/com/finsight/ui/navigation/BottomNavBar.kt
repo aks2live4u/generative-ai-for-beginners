@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -16,7 +17,8 @@ enum class AppTab(val route: String, val label: String, val icon: ImageVector) {
     DASHBOARD("dashboard", "Home", Icons.Filled.Home),
     TRANSACTIONS("transactions", "Transactions", Icons.Filled.Receipt),
     INSIGHTS("insights", "Insights", Icons.Filled.Insights),
-    CHAT("chat", "Assistant", Icons.Filled.AutoAwesome)
+    CHAT("chat", "Assistant", Icons.Filled.AutoAwesome),
+    SETTINGS("settings", "Settings", Icons.Filled.Settings)
 }
 
 @Composable

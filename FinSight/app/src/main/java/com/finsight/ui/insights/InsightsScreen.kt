@@ -66,7 +66,10 @@ data class InsightsUiState(
 fun InsightsScreen(
     state: InsightsUiState,
     onOpenChat: () -> Unit,
-    onBackupNow: suspend () -> Boolean
+    onBackupNow: suspend () -> Boolean,
+    aiFeaturesEnabled: Boolean = false,
+    onAskAi: (String) -> Unit = {},
+    onRunSmartScan: (suspend () -> Result<String>)? = null
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -83,18 +86,97 @@ fun InsightsScreen(
             Spacer(modifier = Modifier.height(20.dp))
             state.healthScore?.let { score ->
                 FinancialHealthScoreCard(score)
+                if (aiFeaturesEnabled) {
+                    AskAiRow(onClick = {
+                        onAskAi("Explain my financial health score and what's driving it up or down.")
+                    })
+                }
                 Spacer(modifier = Modifier.height(20.dp))
             }
             if (state.savingsOpportunities.isNotEmpty()) {
                 HiddenExpenseFinderFullCard(state.savingsOpportunities)
+                if (aiFeaturesEnabled) {
+                    AskAiRow(onClick = {
+                        onAskAi("Explain these hidden expense findings, and tell me if any look wrong or unrealistic.")
+                    })
+                }
                 Spacer(modifier = Modifier.height(20.dp))
             }
             if (state.paymentMethodBreakdown.isNotEmpty()) {
                 PaymentMethodBreakdownCard(state.paymentMethodBreakdown)
                 Spacer(modifier = Modifier.height(20.dp))
             }
+            if (aiFeaturesEnabled && onRunSmartScan != null) {
+                SmartScanCard(onRunSmartScan)
+                Spacer(modifier = Modifier.height(20.dp))
+            }
             BackupCard(onBackupNow)
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun AskAiRow(onClick: () -> Unit) {
+    Row(modifier = Modifier.padding(top = 4.dp)) {
+        androidx.compose.material3.TextButton(onClick = onClick) {
+            Text("Ask AI to explain")
+        }
+    }
+}
+
+@Composable
+private fun SmartScanCard(onRunSmartScan: suspend () -> Result<String>) {
+    val scope = rememberCoroutineScope()
+    var isRunning by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Result<String>?>(null) }
+
+    Card(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Filled.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Smart Scan (AI)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
+            Text(
+                text = "Sends your imported transactions (with account/card numbers masked) to Gemini to " +
+                    "look for likely cross-source duplicates, fraud-like anomalies, and insurance " +
+                    "policies it can recognize.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp, bottom = 14.dp)
+            )
+            if (isRunning) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp))
+            } else {
+                PrimaryButton(
+                    text = "Run Smart Scan",
+                    onClick = {
+                        isRunning = true
+                        result = null
+                        scope.launch {
+                            result = onRunSmartScan()
+                            isRunning = false
+                        }
+                    }
+                )
+            }
+            result?.let { r ->
+                Text(
+                    text = r.getOrElse { it.message ?: "Smart Scan failed" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (r.isSuccess) MaterialTheme.colorScheme.onBackground else MaterialTheme.financeColors.expense,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+            }
         }
     }
 }

@@ -117,6 +117,41 @@ If you skip this setup, the Gmail permission step in onboarding can simply
 be skipped — it's marked optional, and SMS/notification scanning work
 independently of it.
 
+## AI features (optional, Gemini)
+
+FinSight's chat assistant, financial-health/Hidden-Expense explanations, and
+duplicate/fraud/insurance Smart Scan can optionally be upgraded from the
+built-in rule-based engine to Google's Gemini Flash model. This is **off by
+default** — nothing is sent off-device until you opt in.
+
+1. Get a free Gemini API key at [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. In the app, go to **Settings**, paste the key, and tap **Save API Key**.
+3. Turn on **Enable AI features**. Use **Test Connection** to confirm the key
+   works.
+4. Tap **Remove API Key** at any time to delete the key and turn the feature
+   back off.
+
+Your API key is stored on-device only, encrypted via Android Keystore
+(`EncryptedSharedPreferences`, the same mechanism used for your app PIN) — it
+is never sent anywhere except as the `key` query parameter on calls you've
+explicitly opted into. When enabled:
+
+- The **chat assistant** sends a summary of your transactions (merchant,
+  amount, date, category) and subscriptions to Gemini — never the raw SMS/
+  email text, account numbers, or phone numbers.
+- **Insights "Ask AI to explain"** sends the same kind of summary plus your
+  computed health-score factors / hidden-expense findings, so Gemini can
+  explain them in plain language.
+- **Smart Scan** sends your imported transactions, including the original
+  SMS/email/notification text, so Gemini can spot likely cross-source
+  duplicates, fraud-like anomalies, and insurance policies — but any digit
+  run of 9+ characters (account/card numbers) is masked first, keeping only
+  the last 4 digits.
+
+If you leave AI features off, or any Gemini call fails for any reason
+(network, invalid key, quota), the rule-based engine answers instead — it
+always works fully offline.
+
 ## Google Drive backup (not yet implemented)
 
 Local encrypted backups (manual, from the Insights screen, or automatic,

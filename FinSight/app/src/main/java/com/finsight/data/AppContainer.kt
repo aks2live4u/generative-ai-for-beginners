@@ -9,6 +9,8 @@ import com.finsight.data.repository.SubscriptionRepository
 import com.finsight.data.repository.TransactionRepository
 import com.finsight.gmail.GmailAuthManager
 import com.finsight.gmail.GmailScanner
+import com.finsight.llm.GeminiClient
+import com.finsight.llm.GeminiSettingsManager
 import com.finsight.security.OnboardingPrefs
 import com.finsight.security.PinManager
 import com.finsight.sms.SmsHistoryScanner
@@ -31,4 +33,7 @@ class AppContainer(context: Context) {
     val gmailAuthManager = GmailAuthManager(context)
     val gmailScanner = GmailScanner(transactionRepository)
     val smsHistoryScanner = SmsHistoryScanner(context, transactionRepository)
+
+    val geminiSettingsManager = GeminiSettingsManager(context)
+    val geminiClient = GeminiClient()
 }
