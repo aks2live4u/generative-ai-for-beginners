@@ -43,6 +43,13 @@ object MessageClassifier {
                     "Upcoming payment reminder, not a completed transaction"
                 )
 
+            MoneyTextExtractor.isCardPaymentConfirmation(text) ->
+                MessageClassification(
+                    MessageType.REMINDER,
+                    90,
+                    "Card issuer confirming receipt of a bill payment already recorded as a debit elsewhere, not new income"
+                )
+
             else -> classifyAsTransaction(text)
         }
     }

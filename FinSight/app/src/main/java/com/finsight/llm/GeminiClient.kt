@@ -45,8 +45,12 @@ class GeminiClient {
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.connectTimeout = 20_000
-            connection.readTimeout = 20_000
+            // Smart Scan sends up to ~80-150 transaction lines (with redacted raw SMS/email text)
+            // for the model to cross-reference for duplicates/fraud/insurance - that's enough
+            // reasoning work that the model routinely takes longer than 20s to respond, which was
+            // surfacing to the user as a generic "timeout" on every single run.
+            connection.connectTimeout = 60_000
+            connection.readTimeout = 60_000
             connection.doOutput = true
             connection.outputStream.use { it.write(requestBody.toString().toByteArray(StandardCharsets.UTF_8)) }
 

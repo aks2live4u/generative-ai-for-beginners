@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Receipt
@@ -39,6 +40,7 @@ fun iconForGroup(group: CategoryGroup): ImageVector = when (group) {
     CategoryGroup.HEALTH -> Icons.Filled.LocalHospital
     CategoryGroup.EDUCATION -> Icons.Filled.School
     CategoryGroup.FINANCIAL -> Icons.Filled.CreditCard
+    CategoryGroup.TRANSFERS -> Icons.Filled.LocalAtm
     CategoryGroup.MISCELLANEOUS -> Icons.Filled.Receipt
 }
 
@@ -52,6 +54,7 @@ fun colorForGroup(group: CategoryGroup) = when (group) {
     CategoryGroup.HEALTH -> CategoryAccents.Teal
     CategoryGroup.EDUCATION -> CategoryAccents.Blue
     CategoryGroup.FINANCIAL -> CategoryAccents.Orange
+    CategoryGroup.TRANSFERS -> CategoryAccents.Blue
     CategoryGroup.MISCELLANEOUS -> CategoryAccents.Purple
 }
 

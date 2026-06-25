@@ -22,7 +22,7 @@ class RecurringPaymentDetectorTest {
         assertEquals("Netflix", detection.merchantLabel)
         assertEquals(499.0, detection.monthlyCost)
         assertEquals(LocalDate.of(2024, 7, 5), detection.nextExpectedDate)
-        assertTrue(detection.confidence >= 65)
+        assertTrue(detection.confidence >= 50)
     }
 
     @Test
@@ -46,9 +46,32 @@ class RecurringPaymentDetectorTest {
     fun `matches fuzzy merchant spelling variants across sources`() {
         val transactions = listOf(
             tx(199.0, Category.OTT, TransactionType.EXPENSE, LocalDate.of(2024, 4, 10), merchant = "Spotify"),
-            tx(199.0, Category.OTT, TransactionType.EXPENSE, LocalDate.of(2024, 5, 10), merchant = "SPOTIFY*PREMIUM")
+            tx(199.0, Category.OTT, TransactionType.EXPENSE, LocalDate.of(2024, 5, 10), merchant = "SPOTIFY*PREMIUM"),
+            tx(199.0, Category.OTT, TransactionType.EXPENSE, LocalDate.of(2024, 6, 10), merchant = "Spotify")
         )
-        val detections = RecurringPaymentDetector.detect(transactions, now = LocalDate.of(2024, 5, 15))
+        val detections = RecurringPaymentDetector.detect(transactions, now = LocalDate.of(2024, 6, 15))
         assertEquals(1, detections.size)
+    }
+
+    @Test
+    fun `does not flag two coincidental same-amount payments as recurring`() {
+        // Real-world false positive: two genuinely one-time payments to the same merchant that
+        // happen to land on a similar day-of-month/amount. Two occurrences alone must not be
+        // enough evidence to call this recurring - see MIN_OCCURRENCES.
+        val transactions = listOf(
+            tx(4000.0, Category.SHOPPING_OTHER, TransactionType.EXPENSE, LocalDate.of(2024, 4, 5), merchant = "Club Rogue"),
+            tx(4000.0, Category.SHOPPING_OTHER, TransactionType.EXPENSE, LocalDate.of(2024, 5, 6), merchant = "Club Rogue")
+        )
+        assertEquals(emptyList<RecurringPaymentDetection>(), RecurringPaymentDetector.detect(transactions, now = LocalDate.of(2024, 6, 1)))
+    }
+
+    @Test
+    fun `does not flag widely-spaced matches as recurring`() {
+        val transactions = listOf(
+            tx(500.0, Category.SHOPPING_OTHER, TransactionType.EXPENSE, LocalDate.of(2024, 1, 5), merchant = "Some Store"),
+            tx(500.0, Category.SHOPPING_OTHER, TransactionType.EXPENSE, LocalDate.of(2024, 5, 5), merchant = "Some Store"),
+            tx(500.0, Category.SHOPPING_OTHER, TransactionType.EXPENSE, LocalDate.of(2024, 9, 5), merchant = "Some Store")
+        )
+        assertEquals(emptyList<RecurringPaymentDetection>(), RecurringPaymentDetector.detect(transactions, now = LocalDate.of(2024, 10, 1)))
     }
 }

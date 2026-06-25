@@ -43,8 +43,9 @@ object MoneyTextExtractor {
     private val nonTransactionAmountContext = listOf(
         "avl bal", "available balance", "avl limit", "available limit", "avl lmt",
         "credit limit", "total due", "minimum due", "min due", "total amt due",
-        "outstanding amount", "outstanding balance", "outstanding bal", "previous balance",
-        "current balance", "balance is", "limit is", "bal is"
+        "total amount due", "minimum amount due", "min amount due", "total outstanding",
+        "current outstanding", "outstanding amount", "outstanding balance", "outstanding bal",
+        "previous balance", "current balance", "balance is", "limit is", "bal is"
     )
 
     /**
@@ -101,6 +102,36 @@ object MoneyTextExtractor {
     fun isPaymentReminder(text: String): Boolean {
         val lower = text.lowercase()
         return paymentReminderKeywords.any { lower.contains(it) }
+    }
+
+    // Card issuers send a "thank you, we received your payment" SMS once the user pays their
+    // credit card bill from another account (UPI/netbanking/another bank). That payment is already
+    // recorded as a real debit from wherever it was paid from - this SMS just confirms receipt on
+    // the card side of the same single event. Its wording ("payment received", "payment of Rs X
+    // received") satisfies the generic creditKeywords check, so without this guard it gets recorded
+    // as a *second*, spurious INCOME transaction (merchant is usually unextractable too, since the
+    // SMS names the card, not a payer) - this is the single biggest driver of inflated income totals.
+    private val cardPaymentConfirmationKeywords = listOf(
+        "payment received towards your card", "payment received towards card",
+        "received towards your credit card", "received towards your card",
+        "credited towards your card", "credited towards your credit card",
+        "we have received your card payment", "we have received a payment of",
+        "we have received your payment of", "thank you for paying your credit card",
+        "thank you for your card payment", "thank you for the payment towards your card",
+        "your credit card payment of", "card payment of rs", "payment towards your card ending",
+        "payment towards card ending"
+    )
+
+    /**
+     * True when [text] is a credit-card issuer's confirmation that *it* received the user's bill
+     * payment (an internal transfer the user already initiated and which is recorded elsewhere as
+     * the real debit), rather than fresh money credited to the user. See [cardPaymentConfirmationKeywords].
+     */
+    fun isCardPaymentConfirmation(text: String): Boolean {
+        val lower = text.lowercase()
+        val mentionsCard = lower.contains("credit card") || lower.contains("card ending") || lower.contains("card no")
+        if (!mentionsCard) return false
+        return cardPaymentConfirmationKeywords.any { lower.contains(it) }
     }
 
     /**
@@ -161,7 +192,11 @@ object MoneyTextExtractor {
     fun extractMerchant(text: String): String? {
         val patterns = listOf(
             Regex("""(?:vpa)\s+([a-zA-Z0-9._-]+)@""", RegexOption.IGNORE_CASE),
-            Regex("""(?:to|at|in favou?r of)\s+([A-Za-z0-9 .&'_-]{2,40}?)(?:\s+on\b|\s+ref\b|\s+via\b|[.,]|$)""", RegexOption.IGNORE_CASE),
+            // Negative lookahead stops "...debited to Rs.361 on 25-Jun" from capturing the currency
+            // prefix "Rs" itself as the payee: without it, the lazy capture group below stops at the
+            // "." in "Rs.361" (a valid match for the `[.,]` terminator) and returns "Rs" as the
+            // merchant name instead of treating this as a payee-less transaction.
+            Regex("""\b(?:to|at|in favou?r of)\b\s+(?!(?:rs\.?|inr|₹)\s?[0-9])([A-Za-z0-9 .&'_-]{2,40}?)(?:\s+on\b|\s+ref\b|\s+via\b|[.,]|$)""", RegexOption.IGNORE_CASE),
             // Some bank UPI templates name the payee right before "credited" with no preposition,
             // e.g. "...debited for Rs 50.00 on 25-Jun-26; HUMANAMAINA NIK credited. UPI:...".
             // Without this, extractMerchant() returns null for these and the transaction falls
@@ -172,9 +207,16 @@ object MoneyTextExtractor {
             val match = pattern.find(text)
             if (match != null) {
                 val raw = match.groupValues[1].trim()
-                if (raw.isNotBlank()) return raw
+                if (raw.isNotBlank() && !looksLikeCurrencyAmount(raw)) return raw
             }
         }
         return null
+    }
+
+    /** True when [raw] is just a currency token/amount ("Rs", "Rs.361", "INR") rather than a real payee name. */
+    private fun looksLikeCurrencyAmount(raw: String): Boolean {
+        val lower = raw.lowercase().trim()
+        if (lower in setOf("rs", "rs.", "inr", "₹")) return true
+        return Regex("""^(?:rs\.?|inr|₹)\s?[0-9,.]*$""", RegexOption.IGNORE_CASE).matches(lower)
     }
 }

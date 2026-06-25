@@ -67,4 +67,33 @@ class MoneyTextExtractorTest {
         val text = "Rs.1,250.00 spent on your HDFC Bank Credit Card XX5678 at Amazon on 20-05-24"
         assertEquals(false, MoneyTextExtractor.isPaymentReminder(text))
     }
+
+    @Test
+    fun `does not capture the currency prefix as a merchant when no payee name is present`() {
+        val text = "Rs.361.00 has been debited to Rs.361 towards Mobile Recharge on 25-Jun-26"
+        assertEquals(null, MoneyTextExtractor.extractMerchant(text))
+    }
+
+    @Test
+    fun `flags a credit card payment receipt confirmation, not a normal credit`() {
+        val text = "We have received your payment of Rs.3,64,892.00 towards your Credit Card ending 6766. " +
+            "Thank you for your payment."
+        assertEquals(true, MoneyTextExtractor.isCardPaymentConfirmation(text))
+    }
+
+    @Test
+    fun `does not flag an ordinary UPI credit as a card payment confirmation`() {
+        val text = "Rs.5,000.00 credited to your account via UPI from John Doe on 25-Jun-26"
+        assertEquals(false, MoneyTextExtractor.isCardPaymentConfirmation(text))
+    }
+
+    @Test
+    fun `prefers the actual transaction amount over a leading total amount due figure`() {
+        // Previously "total amount due" wasn't recognized as a balance/due-amount phrase (only the
+        // shorter "total due" was), so when a statement-style message led with this figure, it was
+        // mistaken for the real transaction amount instead of being skipped in favour of the
+        // genuine spend that follows.
+        val text = "Total Amount Due: Rs.5,73,749.00 as per your last statement. Rs.1,500.00 spent at Amazon on 20-Jun-26."
+        assertEquals(1500.0, MoneyTextExtractor.extractAmount(text))
+    }
 }

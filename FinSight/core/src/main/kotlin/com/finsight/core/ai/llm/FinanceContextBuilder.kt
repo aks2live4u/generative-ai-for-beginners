@@ -79,7 +79,7 @@ object FinanceContextBuilder {
      * near-duplicates across sources. [Transaction.rawText] is passed through
      * [LlmRedaction.redact] first so long account/card numbers never leave the device.
      */
-    fun buildSmartScanContext(transactions: List<Transaction>, maxTransactions: Int = 150): String =
+    fun buildSmartScanContext(transactions: List<Transaction>, maxTransactions: Int = 80): String =
         buildString {
             transactions.sortedByDescending { it.date }.take(maxTransactions).forEach { tx ->
                 appendLine("- ${transactionLine(tx)} | source=${tx.source} | text=\"${LlmRedaction.redact(tx.rawText)}\"")

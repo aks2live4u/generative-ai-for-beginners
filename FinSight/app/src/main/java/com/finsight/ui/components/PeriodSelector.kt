@@ -1,8 +1,10 @@
 package com.finsight.ui.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -30,8 +32,11 @@ fun PeriodSelector(
     onSelected: (TimePeriod) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Four chips' natural width can exceed a narrow phone's screen width, which previously
+    // squeezed them all into a left-packed, overlapping cluster with no way to reach "All Time".
+    // A horizontally scrollable row keeps every chip at full, correctly-spaced size instead.
     Row(
-        modifier = modifier,
+        modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TimePeriod.entries.forEach { period ->

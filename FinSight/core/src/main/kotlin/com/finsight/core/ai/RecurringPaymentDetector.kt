@@ -25,9 +25,17 @@ data class RecurringPaymentDetection(
  */
 object RecurringPaymentDetector {
 
-    private const val MIN_OCCURRENCES = 2
+    // Two payments to the same merchant landing on a similar day-of-month and amount is common
+    // coincidence (e.g. two unrelated one-time purchases a month apart), not enough evidence to
+    // tell a user "this is a recurring subscription". Three distinct months is the minimum that
+    // actually distinguishes a recurring pattern from coincidence.
+    private const val MIN_OCCURRENCES = 3
     private const val DAY_OF_MONTH_TOLERANCE = 4
     private const val AMOUNT_TOLERANCE_RATIO = 0.15
+    // If the matched months are spread out with large gaps (e.g. Jan and Sep), the day/amount match
+    // is more likely coincidental than an actual monthly cadence - require consecutive matched
+    // months to be no more than this many months apart.
+    private const val MAX_MONTH_GAP = 2
 
     fun detect(transactions: List<Transaction>, now: LocalDate = LocalDate.now()): List<RecurringPaymentDetection> {
         val expenses = transactions.filter { it.type == TransactionType.EXPENSE }
@@ -60,8 +68,12 @@ object RecurringPaymentDetector {
     private fun detectGroup(group: List<Transaction>, now: LocalDate): RecurringPaymentDetection? {
         val sorted = group.sortedBy { it.date }
         val dates = sorted.map { it.date.atZone(ZoneId.systemDefault()).toLocalDate() }
-        val distinctMonths = dates.map { YearMonth.from(it) }.distinct()
+        val distinctMonths = dates.map { YearMonth.from(it) }.distinct().sorted()
         if (distinctMonths.size < MIN_OCCURRENCES) return null
+        val hasLargeGap = distinctMonths.zipWithNext().any { (a, b) ->
+            java.time.temporal.ChronoUnit.MONTHS.between(a, b) > MAX_MONTH_GAP
+        }
+        if (hasLargeGap) return null
 
         val avgDay = dates.map { it.dayOfMonth }.average()
         val dayConsistent = dates.all { abs(it.dayOfMonth - avgDay) <= DAY_OF_MONTH_TOLERANCE }

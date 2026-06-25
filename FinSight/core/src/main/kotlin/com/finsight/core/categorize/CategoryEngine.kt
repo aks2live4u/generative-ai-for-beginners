@@ -10,6 +10,7 @@ object CategoryEngine {
 
     // Ordered so more specific brand matches are checked before generic group fallbacks.
     private val merchantKeywords: List<Pair<List<String>, Category>> = listOf(
+        listOf("cash withdrawal", "cash wdl", "withdrawn at atm", "atm wdl", "atm cash", "atm") to Category.ATM_WITHDRAWAL,
         listOf("swiggy", "zomato", "eatsure", "dominos", "pizza hut") to Category.FOOD_DELIVERY,
         listOf("uber eats") to Category.FOOD_DELIVERY,
         listOf("bigbasket", "blinkit", "zepto", "grofers", "dunzo", "jiomart") to Category.GROCERIES,
@@ -52,7 +53,7 @@ object CategoryEngine {
     // Keywords short/generic enough to appear as substrings of unrelated words (e.g. "lic" inside
     // "police", "emi" inside "premium", "sip" inside "gossip") are matched on word boundaries only;
     // everything else (multi-word phrases, brand names) keeps the cheaper substring match.
-    private val wordBoundaryOnlyKeywords = setOf("emi", "sip", "nps", "mall")
+    private val wordBoundaryOnlyKeywords = setOf("emi", "sip", "nps", "mall", "atm")
 
     private fun matches(text: String, keyword: String): Boolean {
         return if (keyword in wordBoundaryOnlyKeywords) {

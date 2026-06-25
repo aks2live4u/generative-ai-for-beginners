@@ -56,6 +56,12 @@ enum class Category(val displayName: String, val group: CategoryGroup) {
     CREDIT_CARD_BILL("Credit Card Bill", CategoryGroup.FINANCIAL),
     INVESTMENT_OUTFLOW("Investments", CategoryGroup.FINANCIAL),
 
+    // Cash withdrawn from an ATM is its own category rather than falling into Miscellaneous: the
+    // SMS only ever tells us cash left the account, not what it was spent on (it may have been
+    // handed to a family member, kept as float, or spent in ways no SMS will ever capture) - lumping
+    // it into Miscellaneous spending falsely inflates "unexplained personal spending" totals.
+    ATM_WITHDRAWAL("ATM Withdrawal", CategoryGroup.TRANSFERS),
+
     MISCELLANEOUS("Miscellaneous", CategoryGroup.MISCELLANEOUS);
 
     companion object {
@@ -73,5 +79,9 @@ enum class CategoryGroup {
     HEALTH,
     EDUCATION,
     FINANCIAL,
+    // Cash withdrawals and similar money-movement events that aren't themselves a purchase -
+    // excluded from "personal spending" aggregates the same way INCOME is, since the SMS only
+    // confirms money left the account, not what category it was actually spent in.
+    TRANSFERS,
     MISCELLANEOUS
 }
