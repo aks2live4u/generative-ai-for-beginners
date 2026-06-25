@@ -1,5 +1,6 @@
 package com.finsight.data.repository
 
+import com.finsight.core.model.Category
 import com.finsight.core.model.Transaction
 import com.finsight.core.parser.MerchantMatcher
 import com.finsight.core.parser.MerchantRuleBook
@@ -51,6 +52,19 @@ class TransactionRepository(
         transactionDao.insert(entity)
         bumpMerchant(labeledTransaction)
         return true
+    }
+
+    /** Tap-to-reclassify: applies a user-chosen category to a single transaction (e.g. fixing a wrong "Miscellaneous" guess, or flagging cash as "Given to Family"). */
+    suspend fun reclassify(transactionId: Long, category: Category) {
+        val entity = transactionDao.getById(transactionId) ?: return
+        transactionDao.update(entity.copy(category = category.name))
+    }
+
+    /** Bulk tap-to-reclassify from a category card: re-tags every transaction currently under [from] as [to] (e.g. moving every wrongly-bucketed "Miscellaneous" cash withdrawal to "ATM Withdrawal"). */
+    suspend fun reclassifyCategory(from: Category, to: Category) {
+        transactionDao.getAll()
+            .filter { it.category == from.name }
+            .forEach { transactionDao.update(it.copy(category = to.name)) }
     }
 
     /** Retroactively renames every past transaction matching [merchantKey] to [label] (e.g. after teaching a new rule). */

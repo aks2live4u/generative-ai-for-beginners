@@ -16,6 +16,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -33,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.finsight.core.model.Category
+import com.finsight.ui.components.CategoryPickerDialog
 import com.finsight.ui.components.PeriodSelector
 import com.finsight.ui.components.TrendLineChart
 import com.finsight.ui.components.colorForGroup
@@ -48,8 +54,20 @@ fun DashboardScreen(
     onOpenChat: () -> Unit,
     onOpenInsights: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onPeriodSelected: (TimePeriod) -> Unit = {}
+    onPeriodSelected: (TimePeriod) -> Unit = {},
+    onReclassifyCategory: (Category, Category) -> Unit = { _, _ -> }
 ) {
+    var bulkReclassifyTarget by remember { mutableStateOf<Category?>(null) }
+    bulkReclassifyTarget?.let { category ->
+        CategoryPickerDialog(
+            title = "Move all \"${category.displayName}\" to...",
+            onCategorySelected = { newCategory ->
+                onReclassifyCategory(category, newCategory)
+                bulkReclassifyTarget = null
+            },
+            onDismiss = { bulkReclassifyTarget = null }
+        )
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
@@ -78,7 +96,10 @@ fun DashboardScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                TopCategoriesRow(categories = state.topCategories)
+                TopCategoriesRow(
+                    categories = state.topCategories,
+                    onCategoryClick = { category -> bulkReclassifyTarget = category }
+                )
                 Spacer(modifier = Modifier.height(20.dp))
             }
             AiAssistantPreviewCard(preview = state.latestChatPreview, onClick = onOpenChat)
@@ -339,10 +360,11 @@ private fun LegendDot(color: androidx.compose.ui.graphics.Color, label: String) 
 }
 
 @Composable
-private fun TopCategoriesRow(categories: List<CategoryBreakdown>) {
+private fun TopCategoriesRow(categories: List<CategoryBreakdown>, onCategoryClick: (Category) -> Unit = {}) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(categories) { category ->
             Card(
+                onClick = { onCategoryClick(category.category) },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {

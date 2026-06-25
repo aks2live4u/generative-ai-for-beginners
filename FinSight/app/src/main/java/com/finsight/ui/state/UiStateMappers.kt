@@ -3,6 +3,7 @@ package com.finsight.ui.state
 import com.finsight.core.ai.FinancialHealthScoreCalculator
 import com.finsight.core.ai.SavingsDetector
 import com.finsight.core.model.Category
+import com.finsight.core.model.CategoryGroup
 import com.finsight.core.model.Subscription
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
@@ -35,6 +36,7 @@ private fun categoryBreakdownFor(transactions: List<Transaction>, range: ClosedR
         .map { (category, txs) ->
             val amount = txs.sumOf { it.amount }
             CategoryBreakdown(
+                category = category,
                 label = category.displayName,
                 group = category.group,
                 amount = amount,
@@ -83,10 +85,14 @@ fun buildDashboardState(
     val currentRange = period.currentRange(now)
     val previousRange = period.previousRange(now)
 
-    // Money moved into investments (SIPs, mutual funds, etc.) is saved, not spent - excluded here
-    // so it doesn't double-penalize the savings figures the same way it's excluded from the
-    // health score calculation. It still appears in categoryBreakdownFor below so users can see it.
-    fun isRealExpense(tx: Transaction) = tx.type == TransactionType.EXPENSE && tx.category != Category.INVESTMENT_OUTFLOW
+    // Money moved into investments (SIPs, mutual funds, etc.) is saved, not spent, and money in
+    // CategoryGroup.TRANSFERS (ATM withdrawals, cash given to family) left the account without the
+    // user necessarily spending it themselves - both are excluded here so they don't inflate the
+    // expense/savings figures the same way they're excluded from the health score calculation.
+    // They still appear in categoryBreakdownFor below so users can see exactly where that money went.
+    fun isRealExpense(tx: Transaction) = tx.type == TransactionType.EXPENSE &&
+        tx.category != Category.INVESTMENT_OUTFLOW &&
+        tx.category.group != CategoryGroup.TRANSFERS
 
     val incomeThisPeriod = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in currentRange }.sumOf { it.amount }
     val expenseThisPeriod = transactions.filter { isRealExpense(it) && dateOf(it) in currentRange }.sumOf { it.amount }

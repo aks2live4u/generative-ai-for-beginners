@@ -1,6 +1,7 @@
 package com.finsight.ui.transactions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.finsight.core.model.Category
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
+import com.finsight.ui.components.CategoryPickerDialog
 import com.finsight.ui.components.DonutChart
 import com.finsight.ui.components.DonutSlice
 import com.finsight.ui.components.PeriodSelector
@@ -43,6 +46,10 @@ import com.finsight.ui.components.formatRupees
 import com.finsight.ui.components.mediumDateFormatter
 import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.theme.financeColors
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -51,9 +58,34 @@ fun TransactionsScreen(
     state: TransactionsUiState,
     onSearchQueryChange: (String) -> Unit,
     onTransactionClick: (Transaction) -> Unit,
+    onReclassifyTransaction: (Transaction, Category) -> Unit = { _, _ -> },
+    onReclassifyCategory: (Category, Category) -> Unit = { _, _ -> },
     onPeriodSelected: (TimePeriod) -> Unit = {},
     onFilterSelected: (TransactionFilter) -> Unit = {}
 ) {
+    var reclassifyTarget by remember { mutableStateOf<Transaction?>(null) }
+    var bulkReclassifyTarget by remember { mutableStateOf<Category?>(null) }
+
+    reclassifyTarget?.let { tx ->
+        CategoryPickerDialog(
+            title = "Move \"${tx.merchant}\" to...",
+            onCategorySelected = { category ->
+                onReclassifyTransaction(tx, category)
+                reclassifyTarget = null
+            },
+            onDismiss = { reclassifyTarget = null }
+        )
+    }
+    bulkReclassifyTarget?.let { category ->
+        CategoryPickerDialog(
+            title = "Move all \"${category.displayName}\" to...",
+            onCategorySelected = { newCategory ->
+                onReclassifyCategory(category, newCategory)
+                bulkReclassifyTarget = null
+            },
+            onDismiss = { bulkReclassifyTarget = null }
+        )
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -97,7 +129,11 @@ fun TransactionsScreen(
 
             if (state.spendingBreakdown.isNotEmpty()) {
                 item {
-                    SpendingBreakdownCard(state.spendingBreakdown, state.periodLabel)
+                    SpendingBreakdownCard(
+                        breakdown = state.spendingBreakdown,
+                        periodLabel = state.periodLabel,
+                        onCategoryClick = { category -> bulkReclassifyTarget = category }
+                    )
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }
@@ -134,7 +170,13 @@ fun TransactionsScreen(
                     )
                 }
                 items(txs) { tx ->
-                    TransactionRow(tx = tx, onClick = { onTransactionClick(tx) })
+                    TransactionRow(
+                        tx = tx,
+                        onClick = {
+                            onTransactionClick(tx)
+                            reclassifyTarget = tx
+                        }
+                    )
                 }
             }
             item { Spacer(modifier = Modifier.height(24.dp)) }
@@ -143,7 +185,11 @@ fun TransactionsScreen(
 }
 
 @Composable
-private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.CategoryBreakdown>, periodLabel: String) {
+private fun SpendingBreakdownCard(
+    breakdown: List<com.finsight.ui.dashboard.CategoryBreakdown>,
+    periodLabel: String,
+    onCategoryClick: (Category) -> Unit = {}
+) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -155,6 +201,11 @@ private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.Cate
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
+            Text(
+                text = "Tap a category to reclassify it",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(modifier = Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(120.dp)) {
@@ -165,7 +216,12 @@ private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.Cate
                 }
                 Column(modifier = Modifier.padding(start = 16.dp)) {
                     breakdown.take(5).forEach { item ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(vertical = 3.dp)
+                                .clickable(onClick = { onCategoryClick(item.category) })
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(10.dp)

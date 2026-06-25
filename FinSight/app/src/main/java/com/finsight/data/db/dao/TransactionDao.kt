@@ -25,6 +25,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY dateEpochMillis DESC")
     suspend fun getAll(): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): TransactionEntity?
+
     @Query(
         "SELECT * FROM transactions WHERE amountMinor = :amountMinor " +
             "AND dateEpochMillis BETWEEN :startMillis AND :endMillis"

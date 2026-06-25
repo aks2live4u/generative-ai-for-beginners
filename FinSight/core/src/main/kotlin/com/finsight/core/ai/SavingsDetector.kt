@@ -87,7 +87,9 @@ object SavingsDetector {
 
         val opportunities = mutableListOf<SavingsOpportunity>()
         for ((category, monthTotals) in spendByCategoryAndMonth) {
-            if (category.group == CategoryGroup.INCOME) continue
+            // TRANSFERS (ATM withdrawals, cash given to family) is money leaving the account, not a
+            // spending category with a trend worth flagging as "excess spending".
+            if (category.group == CategoryGroup.INCOME || category.group == CategoryGroup.TRANSFERS) continue
             val current = monthTotals[currentMonth] ?: continue
 
             // Skip categories that aren't recurring (e.g. a single movie outing or a one-off

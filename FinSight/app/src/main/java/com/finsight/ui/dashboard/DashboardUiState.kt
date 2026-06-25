@@ -2,10 +2,12 @@ package com.finsight.ui.dashboard
 
 import com.finsight.core.ai.FinancialHealthScore
 import com.finsight.core.ai.SavingsOpportunity
+import com.finsight.core.model.Category
 import com.finsight.core.model.CategoryGroup
 import com.finsight.ui.state.TimePeriod
 
 data class CategoryBreakdown(
+    val category: Category,
     val label: String,
     val group: CategoryGroup,
     val amount: Double,

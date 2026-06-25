@@ -62,6 +62,12 @@ enum class Category(val displayName: String, val group: CategoryGroup) {
     // it into Miscellaneous spending falsely inflates "unexplained personal spending" totals.
     ATM_WITHDRAWAL("ATM Withdrawal", CategoryGroup.TRANSFERS),
 
+    // Manually applied via tap-to-reclassify when cash (typically an ATM withdrawal) was actually
+    // handed to a family member rather than spent by the user - excluded from personal spending
+    // totals the same way every other TRANSFERS category is, but kept distinct from a plain ATM
+    // withdrawal so it's clear at a glance where that cash went.
+    GIVEN_TO_FAMILY("Given to Family", CategoryGroup.TRANSFERS),
+
     MISCELLANEOUS("Miscellaneous", CategoryGroup.MISCELLANEOUS);
 
     companion object {

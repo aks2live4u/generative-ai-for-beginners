@@ -296,7 +296,10 @@ private fun MainScaffold(container: AppContainer) {
                     onOpenChat = { currentTab = AppTab.CHAT },
                     onOpenInsights = { currentTab = AppTab.INSIGHTS },
                     onOpenNotifications = {},
-                    onPeriodSelected = { selectedPeriod = it }
+                    onPeriodSelected = { selectedPeriod = it },
+                    onReclassifyCategory = { from, to ->
+                        coroutineScope.launch { container.transactionRepository.reclassifyCategory(from, to) }
+                    }
                 )
                 AppTab.TRANSACTIONS -> TransactionsScreen(
                     state = buildTransactionsState(
@@ -308,6 +311,14 @@ private fun MainScaffold(container: AppContainer) {
                     ),
                     onSearchQueryChange = { transactionsSearchQuery = it },
                     onTransactionClick = {},
+                    onReclassifyTransaction = { tx, category ->
+                        coroutineScope.launch {
+                            tx.id?.let { container.transactionRepository.reclassify(it, category) }
+                        }
+                    },
+                    onReclassifyCategory = { from, to ->
+                        coroutineScope.launch { container.transactionRepository.reclassifyCategory(from, to) }
+                    },
                     onPeriodSelected = { selectedPeriod = it },
                     onFilterSelected = { selectedFilter = it }
                 )

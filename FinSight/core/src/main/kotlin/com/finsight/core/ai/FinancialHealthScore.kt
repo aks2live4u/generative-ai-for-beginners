@@ -1,6 +1,7 @@
 package com.finsight.core.ai
 
 import com.finsight.core.model.Category
+import com.finsight.core.model.CategoryGroup
 import com.finsight.core.model.Subscription
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
@@ -76,6 +77,11 @@ object FinancialHealthScoreCalculator {
             // it as an expense here would double-penalize the savings rate for the exact behaviour
             // (investing) the score is supposed to reward.
             if (tx.category == Category.INVESTMENT_OUTFLOW) continue
+            // ATM withdrawals and cash given to family are money leaving the account, not the
+            // user's own spending - the SMS only confirms cash left, not what it was spent on (or
+            // that it wasn't spent by the user at all), so counting it here would falsely tank the
+            // savings rate for money the user never actually spent.
+            if (tx.category.group == CategoryGroup.TRANSFERS) continue
             val (income, expense) = result[month]!!
             result[month] = if (tx.type == TransactionType.INCOME) {
                 (income + tx.amount) to expense

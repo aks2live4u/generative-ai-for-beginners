@@ -41,4 +41,25 @@ class FinancialHealthScoreCalculatorTest {
         val savingsFactor = result.factors.first { it.name == "Savings Rate" }
         assertTrue(savingsFactor.score == 0)
     }
+
+    @Test
+    fun `ATM withdrawals and cash given to family do not count as expenses`() {
+        // A large cash withdrawal that's actually handed to a family member (or just unexplained
+        // cash) must not tank the savings rate the same way INVESTMENT_OUTFLOW is excluded already.
+        val now = LocalDate.of(2024, 6, 15)
+        val transactions = listOf(
+            tx(75000.0, Category.SALARY, TransactionType.INCOME, now),
+            tx(5000.0, Category.GROCERIES, TransactionType.EXPENSE, now),
+            tx(50000.0, Category.ATM_WITHDRAWAL, TransactionType.EXPENSE, now),
+            tx(20000.0, Category.GIVEN_TO_FAMILY, TransactionType.EXPENSE, now)
+        )
+        val result = FinancialHealthScoreCalculator.calculate(
+            transactions = transactions,
+            subscriptions = emptyList(),
+            liquidSavingsBalance = 0.0,
+            now = now
+        )
+        val savingsFactor = result.factors.first { it.name == "Savings Rate" }
+        assertTrue(savingsFactor.note.contains("93%"), "Expected ~93% savings rate ignoring transfers, got: ${savingsFactor.note}")
+    }
 }
