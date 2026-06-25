@@ -9,6 +9,7 @@ import com.finsight.core.model.TransactionType
 import com.finsight.ui.dashboard.CategoryBreakdown
 import com.finsight.ui.dashboard.DashboardUiState
 import com.finsight.ui.insights.InsightsUiState
+import com.finsight.ui.insights.PaymentMethodBreakdown
 import com.finsight.ui.transactions.TransactionFilter
 import com.finsight.ui.transactions.TransactionsUiState
 import com.finsight.ui.transactions.UpcomingBill
@@ -82,21 +83,26 @@ fun buildDashboardState(
     val currentRange = period.currentRange(now)
     val previousRange = period.previousRange(now)
 
+    // Money moved into investments (SIPs, mutual funds, etc.) is saved, not spent - excluded here
+    // so it doesn't double-penalize the savings figures the same way it's excluded from the
+    // health score calculation. It still appears in categoryBreakdownFor below so users can see it.
+    fun isRealExpense(tx: Transaction) = tx.type == TransactionType.EXPENSE && tx.category != Category.INVESTMENT_OUTFLOW
+
     val incomeThisPeriod = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in currentRange }.sumOf { it.amount }
-    val expenseThisPeriod = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in currentRange }.sumOf { it.amount }
+    val expenseThisPeriod = transactions.filter { isRealExpense(it) && dateOf(it) in currentRange }.sumOf { it.amount }
     val incomeChangePercent = previousRange?.let { range ->
         val incomePrevious = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in range }.sumOf { it.amount }
         percentChange(incomeThisPeriod, incomePrevious)
     }
     val expenseChangePercent = previousRange?.let { range ->
-        val expensePrevious = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in range }.sumOf { it.amount }
+        val expensePrevious = transactions.filter { isRealExpense(it) && dateOf(it) in range }.sumOf { it.amount }
         percentChange(expenseThisPeriod, expensePrevious)
     }
 
     val currentMonth = YearMonth.from(now)
     val months = (5 downTo 0).map { currentMonth.minusMonths(it.toLong()) }
     val incomeTrend = months.map { month -> transactions.filter { it.type == TransactionType.INCOME && monthOf(it) == month }.sumOf { it.amount } }
-    val expenseTrend = months.map { month -> transactions.filter { it.type == TransactionType.EXPENSE && monthOf(it) == month }.sumOf { it.amount } }
+    val expenseTrend = months.map { month -> transactions.filter { isRealExpense(it) && monthOf(it) == month }.sumOf { it.amount } }
     val trendMonthLabels = months.map { "${it.month.name.take(3)} ${it.year.toString().takeLast(2)}" }
 
     // No liquid-balance tracking exists yet in this MVP, so the Emergency Fund factor of the
@@ -172,11 +178,29 @@ fun buildTransactionsState(
     )
 }
 
+/** Spend grouped by [com.finsight.core.model.PaymentMethod] (UPI vs. credit card vs. cash, etc.) for the current month. */
+private fun paymentMethodBreakdownFor(transactions: List<Transaction>, range: ClosedRange<LocalDate>): List<PaymentMethodBreakdown> {
+    val expensesInRange = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in range }
+    val total = expensesInRange.sumOf { it.amount }
+    if (total <= 0) return emptyList()
+    return expensesInRange
+        .groupBy { it.paymentMethod }
+        .map { (method, txs) ->
+            val amount = txs.sumOf { it.amount }
+            PaymentMethodBreakdown(method = method, amount = amount, percentOfSpend = amount / total * 100)
+        }
+        .sortedByDescending { it.amount }
+}
+
 fun buildInsightsState(
     transactions: List<Transaction>,
     subscriptions: List<Subscription>,
     now: LocalDate = LocalDate.now()
-): InsightsUiState = InsightsUiState(
-    healthScore = FinancialHealthScoreCalculator.calculate(transactions, subscriptions, liquidSavingsBalance = 0.0, now = now),
-    savingsOpportunities = SavingsDetector.detect(transactions, subscriptions, now)
-)
+): InsightsUiState {
+    val currentRange = TimePeriod.MONTH.currentRange(now)
+    return InsightsUiState(
+        healthScore = FinancialHealthScoreCalculator.calculate(transactions, subscriptions, liquidSavingsBalance = 0.0, now = now),
+        savingsOpportunities = SavingsDetector.detect(transactions, subscriptions, now),
+        paymentMethodBreakdown = paymentMethodBreakdownFor(transactions, currentRange)
+    )
+}

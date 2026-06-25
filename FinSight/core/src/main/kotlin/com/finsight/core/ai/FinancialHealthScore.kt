@@ -1,5 +1,6 @@
 package com.finsight.core.ai
 
+import com.finsight.core.model.Category
 import com.finsight.core.model.Subscription
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
@@ -60,6 +61,10 @@ object FinancialHealthScoreCalculator {
         for (tx in transactions) {
             val month = YearMonth.from(tx.date.atZone(ZoneId.systemDefault()).toLocalDate())
             if (month !in result) continue
+            // Money moved into investments (SIPs, mutual funds, etc.) is saved, not spent - counting
+            // it as an expense here would double-penalize the savings rate for the exact behaviour
+            // (investing) the score is supposed to reward.
+            if (tx.category == Category.INVESTMENT_OUTFLOW) continue
             val (income, expense) = result[month]!!
             result[month] = if (tx.type == TransactionType.INCOME) {
                 (income + tx.amount) to expense
@@ -114,6 +119,13 @@ object FinancialHealthScoreCalculator {
 
     private fun scoreEmergencyFund(liquidSavingsBalance: Double, avgExpense: Double): FinancialHealthFactor {
         if (avgExpense <= 0) return FinancialHealthFactor("Emergency Fund", 15, 15, "No expense history")
+        // liquidSavingsBalance is always 0 for now - FinSight doesn't track a separate savings/bank
+        // balance yet, only transactions - so this factor always lands in the lowest tier. Say so
+        // explicitly rather than showing a generic "0.0 months covered" that reads like a real
+        // (bad) measurement.
+        if (liquidSavingsBalance <= 0) {
+            return FinancialHealthFactor("Emergency Fund", 2, 15, "Not tracked yet - FinSight doesn't record a savings balance")
+        }
         val monthsCovered = liquidSavingsBalance / avgExpense
         val score = when {
             monthsCovered >= 6 -> 15

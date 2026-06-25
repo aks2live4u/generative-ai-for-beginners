@@ -35,6 +35,18 @@ object MoneyTextExtractor {
         "get upto", "get up to", "free gift", "act now", "this offer expires", "offer expires"
     )
 
+    // Bank SMS/email templates routinely mention a second amount alongside the actual transaction
+    // value - available balance, credit limit, minimum/total due - and that figure is often far
+    // larger than what was actually debited/credited. A naive "first amount in the text" extraction
+    // picks these up and reports wildly inflated numbers. Any amount whose immediately preceding
+    // text matches one of these phrases is skipped in favour of the next (or first) candidate.
+    private val nonTransactionAmountContext = listOf(
+        "avl bal", "available balance", "avl limit", "available limit", "avl lmt",
+        "credit limit", "total due", "minimum due", "min due", "total amt due",
+        "outstanding amount", "outstanding balance", "outstanding bal", "previous balance",
+        "current balance", "balance is", "limit is", "bal is"
+    )
+
     /**
      * True when [text] reads like marketing/scam content rather than a real transaction alert.
      * Used as a guardrail so promotional SMS ("you can get a personal loan offer of Rs 4,00,000")
@@ -45,10 +57,22 @@ object MoneyTextExtractor {
         return promotionalKeywords.any { lower.contains(it) }
     }
 
-    /** Extracts the first currency amount found in [text], or null if none present. */
+    /**
+     * Extracts the currency amount that best represents the actual transaction, or null if no
+     * amount is present. Prefers the first match that isn't immediately preceded by a
+     * balance/limit/due-amount phrase (see [nonTransactionAmountContext]); falls back to the very
+     * first amount in the text when every candidate is disqualified (or there's only one).
+     */
     fun extractAmount(text: String): Double? {
-        val match = amountRegex.find(text) ?: return null
-        val numeric = match.groupValues[1].replace(",", "")
+        val matches = amountRegex.findAll(text).toList()
+        if (matches.isEmpty()) return null
+        val lower = text.lowercase()
+        val chosen = matches.firstOrNull { match ->
+            val windowStart = (match.range.first - 25).coerceAtLeast(0)
+            val precedingText = lower.substring(windowStart, match.range.first)
+            nonTransactionAmountContext.none { precedingText.contains(it) }
+        } ?: matches.first()
+        val numeric = chosen.groupValues[1].replace(",", "")
         return numeric.toDoubleOrNull()
     }
 

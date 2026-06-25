@@ -31,9 +31,37 @@ object ChatAssistantEngine {
             // Word-boundary match: "emi" as a plain substring also hits "premium", "anemia",
             // "academic", etc., misrouting unrelated questions to the EMI answer.
             emiWordBoundary.containsMatchIn(lower) -> answerEmiPayments(data, lower, now)
-            else -> answerSpendQuery(data, lower, now)
+            looksLikeFinanceQuestion(lower) -> answerSpendQuery(data, lower, now)
+            else -> answerFallback()
         }
     }
+
+    // Generic chit-chat ("hi", "shutup", "why are you saying that") used to silently fall through
+    // to answerSpendQuery, which always recomputed and repeated a spend total - making the
+    // assistant look broken/repetitive for anything it didn't recognize. Only route to the spend
+    // query when the question actually contains a money/spending signal, a known category/group
+    // name, a known merchant, or an explicit time-period phrase.
+    private val financeSignalKeywords = listOf(
+        "spend", "spent", "spending", "cost", "costs", "expense", "expenses", "income", "earn",
+        "money", "amount", "transaction", "bill", "bills", "paid", "pay", "budget", "balance",
+        "saving", "savings", "rs.", "rs ", "inr", "₹", "total", "afford", "much did i", "how much"
+    )
+
+    private fun looksLikeFinanceQuestion(question: String): Boolean {
+        if (financeSignalKeywords.any { question.contains(it) }) return true
+        if (groupKeywords.keys.any { question.contains(it) }) return true
+        if (Category.entries.any { question.contains(it.displayName.lowercase()) }) return true
+        if (findMerchantKeywordInQuestion(question) != null) return true
+        val periodPhrases = listOf(
+            "all time", "overall", "ever", "today", "this week", "last week",
+            "last month", "this month", "last year", "this year"
+        )
+        return periodPhrases.any { question.contains(it) }
+    }
+
+    private fun answerFallback(): String =
+        "I can help with your finances - try asking things like \"How much did I spend on food this month?\", " +
+            "\"What are my subscriptions?\", \"Where can I save money?\", or \"Predict next month's expenses.\""
 
     private fun answerSubscriptions(data: FinanceDataProvider): String {
         val subs = data.subscriptions()

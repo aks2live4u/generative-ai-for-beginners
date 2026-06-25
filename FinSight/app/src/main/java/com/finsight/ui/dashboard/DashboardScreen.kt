@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -99,7 +100,10 @@ private fun GreetingHeader(userName: String, onOpenNotifications: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        // IconButton has a fixed 48dp touch target; centering it against this two-line Column
+        // pulls it visually below the title instead of level with it. Top-align and offset it
+        // upward by the IconButton's own inset so the icon's glyph lines up with the title text.
+        verticalAlignment = Alignment.Top
     ) {
         Column {
             Text(
@@ -113,7 +117,10 @@ private fun GreetingHeader(userName: String, onOpenNotifications: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        IconButton(onClick = onOpenNotifications) {
+        IconButton(
+            onClick = onOpenNotifications,
+            modifier = Modifier.offset(y = (-12).dp)
+        ) {
             Icon(
                 imageVector = Icons.Filled.NotificationsNone,
                 contentDescription = "Notifications",

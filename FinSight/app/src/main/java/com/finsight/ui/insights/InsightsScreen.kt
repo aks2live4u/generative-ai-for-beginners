@@ -37,10 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.LinearProgressIndicator
 import com.finsight.core.ai.FinancialHealthFactor
 import com.finsight.core.ai.FinancialHealthScore
 import com.finsight.core.ai.SavingsOpportunity
 import com.finsight.core.ai.SavingsOpportunityType
+import com.finsight.core.model.PaymentMethod
 import com.finsight.ui.components.PrimaryButton
 import com.finsight.ui.components.ScoreRing
 import com.finsight.ui.components.formatRupees
@@ -48,9 +50,16 @@ import com.finsight.ui.theme.CategoryAccents
 import com.finsight.ui.theme.financeColors
 import kotlinx.coroutines.launch
 
+data class PaymentMethodBreakdown(
+    val method: com.finsight.core.model.PaymentMethod,
+    val amount: Double,
+    val percentOfSpend: Double
+)
+
 data class InsightsUiState(
     val healthScore: FinancialHealthScore? = null,
-    val savingsOpportunities: List<SavingsOpportunity> = emptyList()
+    val savingsOpportunities: List<SavingsOpportunity> = emptyList(),
+    val paymentMethodBreakdown: List<PaymentMethodBreakdown> = emptyList()
 )
 
 @Composable
@@ -78,6 +87,10 @@ fun InsightsScreen(
             }
             if (state.savingsOpportunities.isNotEmpty()) {
                 HiddenExpenseFinderFullCard(state.savingsOpportunities)
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+            if (state.paymentMethodBreakdown.isNotEmpty()) {
+                PaymentMethodBreakdownCard(state.paymentMethodBreakdown)
                 Spacer(modifier = Modifier.height(20.dp))
             }
             BackupCard(onBackupNow)
@@ -189,6 +202,12 @@ private fun FinancialHealthScoreCard(score: FinancialHealthScore) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Text(
+                text = "Based on your last 6 months of income and expenses. Each factor below shows what it's measuring and against what.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
             Spacer(modifier = Modifier.height(20.dp))
             score.factors.forEach { factor -> FactorRow(factor) }
         }
@@ -236,6 +255,60 @@ private fun FactorRow(factor: FinancialHealthFactor) {
             fontWeight = FontWeight.Medium,
             color = dotColor
         )
+    }
+}
+
+private fun labelForPaymentMethod(method: PaymentMethod): String = when (method) {
+    PaymentMethod.UPI -> "UPI"
+    PaymentMethod.DEBIT_CARD -> "Debit Card"
+    PaymentMethod.CREDIT_CARD -> "Credit Card"
+    PaymentMethod.NET_BANKING -> "Net Banking"
+    PaymentMethod.WALLET -> "Wallet"
+    PaymentMethod.CASH -> "Cash"
+    PaymentMethod.UNKNOWN -> "Other / Unidentified"
+}
+
+@Composable
+private fun PaymentMethodBreakdownCard(breakdown: List<PaymentMethodBreakdown>) {
+    Card(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Spending by Payment Method",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            breakdown.forEach { entry ->
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = labelForPaymentMethod(entry.method),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "${formatRupees(entry.amount)} (${"%.0f".format(entry.percentOfSpend)}%)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (entry.percentOfSpend / 100).toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
