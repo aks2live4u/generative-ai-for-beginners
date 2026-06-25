@@ -56,8 +56,12 @@ core/ → domain models, parsers, categorizer, AI engines (pure Kotlin)
 
 ## Building
 
-Open the project root in Android Studio and let it sync, or from the command
-line:
+Open the project root in Android Studio and let it sync — Android Studio
+will regenerate `gradle/wrapper/gradle-wrapper.jar` automatically if it's
+missing (this repo's sandbox has no network access to `services.gradle.org`,
+so that binary couldn't be committed from here). Alternatively, from a
+machine with normal internet access, run `gradle wrapper --gradle-version
+8.4` once to generate it, then use the wrapper as usual:
 
 ```bash
 ./gradlew :app:assembleDebug
