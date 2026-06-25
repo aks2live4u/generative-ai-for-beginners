@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Read-only data sources. The app never sends SMS/email or accesses bank apps directly. -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
@@ -60,6 +61,23 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- WorkManager on-demand initialization: other AAR manifests (Room, SQLCipher, Play
+             Services Auth) merge into the same androidx-startup provider entry and were dropping
+             the default WorkManagerInitializer, causing "WorkManager is not initialized properly"
+             on launch. We disable the auto-initializer here and provide config via
+             FinSightApp.Configuration.Provider instead, which WorkManager.getInstance() picks up
+             lazily on first call regardless of manifest merge order. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
     </application>
 
