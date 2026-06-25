@@ -26,7 +26,7 @@ object ChatAssistantEngine {
             "where" in lower && ("save" in lower || "overspend" in lower) -> answerSavingsAdvice(data, now)
             "how much can i save" in lower || ("save money" in lower) -> answerSavingsAdvice(data, now)
             "summar" in lower -> answerSummary(data, now)
-            "emi" in lower -> answerEmiPayments(data)
+            "emi" in lower -> answerEmiPayments(data, lower, now)
             else -> answerSpendQuery(data, lower, now)
         }
     }
@@ -57,9 +57,9 @@ object ChatAssistantEngine {
             .filter { it.type == TransactionType.EXPENSE }
             .sortedByDescending { it.amount }
             .take(5)
-        if (expenses.isEmpty()) return "I couldn't find any expenses in that period."
+        if (expenses.isEmpty()) return "I couldn't find any expenses for ${range.label}."
         val lines = expenses.joinToString("\n") { "- ${it.merchant}: Rs.${"%.0f".format(it.amount)} (${it.category.displayName})" }
-        return "Your biggest expenses:\n$lines"
+        return "Your biggest expenses (${range.label}):\n$lines"
     }
 
     private fun answerSavingsAdvice(data: FinanceDataProvider, now: LocalDate): String {
@@ -81,13 +81,14 @@ object ChatAssistantEngine {
             "net savings Rs.${"%.0f".format(savings)} (${"%.0f".format(rate)}% savings rate)."
     }
 
-    private fun answerEmiPayments(data: FinanceDataProvider): String {
-        val emis = data.allTransactions().filter { it.category == Category.EMI }
-        if (emis.isEmpty()) return "You don't have any EMI payments on record."
+    private fun answerEmiPayments(data: FinanceDataProvider, question: String, now: LocalDate): String {
+        val range = resolvePeriodRange(question, now)
+        val emis = filterByPeriod(data.allTransactions(), range).filter { it.category == Category.EMI }
+        if (emis.isEmpty()) return "You don't have any EMI payments on record for ${range.label}."
         val total = emis.sumOf { it.amount }
         val lines = emis.sortedByDescending { it.date }.take(10)
             .joinToString("\n") { "- ${it.merchant}: Rs.${"%.0f".format(it.amount)}" }
-        return "EMI payments on record (Rs.${"%.0f".format(total)} total):\n$lines"
+        return "EMI payments for ${range.label} (Rs.${"%.0f".format(total)} total). Ask \"EMI this year\" or \"EMI all time\" for a different period:\n$lines"
     }
 
     private val groupKeywords: Map<String, com.finsight.core.model.CategoryGroup> = mapOf(
@@ -121,8 +122,8 @@ object ChatAssistantEngine {
 
         val total = filtered.sumOf { it.amount }
         val label = merchantMatch ?: matchedCategory?.displayName ?: matchedGroup?.name?.lowercase() ?: "in total"
-        if (filtered.isEmpty()) return "I couldn't find any spending on $label for that period."
-        return "You spent Rs.${"%.0f".format(total)} on $label."
+        if (filtered.isEmpty()) return "I couldn't find any spending on $label for ${range.label}."
+        return "You spent Rs.${"%.0f".format(total)} on $label (${range.label})."
     }
 
     private fun findMerchantKeywordInQuestion(question: String): String? {
@@ -130,30 +131,38 @@ object ChatAssistantEngine {
         return knownMerchants.find { question.contains(it) }
     }
 
-    private data class PeriodRange(val start: LocalDate, val end: LocalDate, val explicit: Boolean)
+    private data class PeriodRange(val start: LocalDate, val end: LocalDate, val label: String)
 
     private fun resolvePeriodRange(question: String, now: LocalDate): PeriodRange = when {
-        "today" in question -> PeriodRange(now, now, true)
-        "this week" in question -> PeriodRange(now.with(DayOfWeek.MONDAY), now, true)
+        "all time" in question || "overall" in question || "ever" in question ->
+            PeriodRange(LocalDate.MIN, now, "all time")
+        "today" in question -> PeriodRange(now, now, "today")
+        "this week" in question -> PeriodRange(now.with(DayOfWeek.MONDAY), now, "this week")
         "last week" in question -> {
             val lastWeekMonday = now.with(DayOfWeek.MONDAY).minusWeeks(1)
-            PeriodRange(lastWeekMonday, lastWeekMonday.plusDays(6), true)
+            PeriodRange(lastWeekMonday, lastWeekMonday.plusDays(6), "last week")
         }
         "last month" in question -> {
             val month = java.time.YearMonth.from(now).minusMonths(1)
-            PeriodRange(month.atDay(1), month.atEndOfMonth(), true)
+            PeriodRange(month.atDay(1), month.atEndOfMonth(), "last month")
         }
         "this month" in question -> {
             val month = java.time.YearMonth.from(now)
-            PeriodRange(month.atDay(1), month.atEndOfMonth(), true)
+            PeriodRange(month.atDay(1), month.atEndOfMonth(), "this month")
         }
-        "last year" in question -> PeriodRange(LocalDate.of(now.year - 1, 1, 1), LocalDate.of(now.year - 1, 12, 31), true)
-        "this year" in question -> PeriodRange(LocalDate.of(now.year, 1, 1), now, true)
-        else -> PeriodRange(LocalDate.MIN, now, false)
+        "last year" in question -> PeriodRange(LocalDate.of(now.year - 1, 1, 1), LocalDate.of(now.year - 1, 12, 31), "last year")
+        "this year" in question -> PeriodRange(LocalDate.of(now.year, 1, 1), now, "this year")
+        else -> {
+            // No period keyword mentioned - default to "this month" so totals match the rest of
+            // the app (Dashboard/Insights are always scoped to the current month) instead of
+            // silently summing every transaction ever recorded, which previously made chat
+            // answers (e.g. "EMI payments") wildly larger than the equivalent dashboard figure.
+            val month = java.time.YearMonth.from(now)
+            PeriodRange(month.atDay(1), month.atEndOfMonth(), "this month")
+        }
     }
 
     private fun filterByPeriod(transactions: List<Transaction>, range: PeriodRange): List<Transaction> {
-        if (!range.explicit) return transactions
         return transactions.filter { tx ->
             val date = tx.date.atZone(ZoneId.systemDefault()).toLocalDate()
             !date.isBefore(range.start) && !date.isAfter(range.end)

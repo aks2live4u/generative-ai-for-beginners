@@ -21,6 +21,30 @@ object MoneyTextExtractor {
         "credited", "received", "deposited", "credit of", "refunded", "cashback of"
     )
 
+    // Marketing/scam SMS, push and email templates frequently mention an amount (loan limit,
+    // discount, prize) without describing an actual transaction. These phrases are common across
+    // such messages and rarely appear in genuine bank/merchant transaction alerts, so any match
+    // disqualifies the message before amount/type extraction runs.
+    private val promotionalKeywords = listOf(
+        "loan offer", "personal loan offer", "pre-approved", "pre approved", "instant loan",
+        "get a loan", "eligible for a loan", "apply now", "click here", "click the link",
+        "claim now", "claim your", "congratulations", "you have won", "you've won", "you won",
+        "lucky draw", "lottery", "win cash", "limited period offer", "limited time offer",
+        "exclusive offer", "t&c apply", "t&amp;c apply", "terms and conditions apply",
+        "subscribe now", "unsubscribe", "promo code", "% off", "sale is live", "register now",
+        "get upto", "get up to", "free gift", "act now", "this offer expires", "offer expires"
+    )
+
+    /**
+     * True when [text] reads like marketing/scam content rather than a real transaction alert.
+     * Used as a guardrail so promotional SMS ("you can get a personal loan offer of Rs 4,00,000")
+     * isn't mistaken for an actual credit/debit just because it mentions an amount.
+     */
+    fun isPromotionalOrScam(text: String): Boolean {
+        val lower = text.lowercase()
+        return promotionalKeywords.any { lower.contains(it) }
+    }
+
     /** Extracts the first currency amount found in [text], or null if none present. */
     fun extractAmount(text: String): Double? {
         val match = amountRegex.find(text) ?: return null

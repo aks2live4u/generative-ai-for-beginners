@@ -20,6 +20,9 @@ object SmsTransactionParser {
         if (otpKeywords.any { lower.contains(it) }) {
             return ParseResult.NotFinancial("OTP message")
         }
+        if (MoneyTextExtractor.isPromotionalOrScam(rawText)) {
+            return ParseResult.NotFinancial("Promotional/scam message")
+        }
 
         val amount = MoneyTextExtractor.extractAmount(rawText)
             ?: return ParseResult.NotFinancial("No amount found")

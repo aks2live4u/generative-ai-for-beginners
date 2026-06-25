@@ -8,14 +8,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** A category slice in [DonutChart]: [value] in any consistent unit, rendered proportionally. */
 data class DonutSlice(val label: String, val value: Double, val color: Color)
 
 /**
  * Two-line trend chart (income vs. expense) drawn with Canvas - avoids pulling in a third-party
- * charting library for what's a simple dual polyline over N points.
+ * charting library for what's a simple dual polyline over N points. Reserves margins on the left
+ * and bottom for Rs. value and month-label axes so the chart isn't just an unlabeled squiggle.
  */
 @Composable
 fun TrendLineChart(
@@ -23,19 +28,53 @@ fun TrendLineChart(
     expenseSeries: List<Double>,
     incomeColor: Color,
     expenseColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    monthLabels: List<String> = emptyList()
 ) {
-    Canvas(modifier = modifier.fillMaxWidth().height(140.dp)) {
+    val labelColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+    val density = LocalDensity.current
+    val axisTextSizePx = with(density) { 10.sp.toPx() }
+    val leftMarginPx = with(density) { 44.dp.toPx() }
+    val bottomMarginPx = with(density) { 18.dp.toPx() }
+
+    Canvas(modifier = modifier.fillMaxWidth().height(160.dp)) {
         val maxValue = (incomeSeries + expenseSeries).maxOrNull()?.takeIf { it > 0 } ?: 1.0
         val pointCount = maxOf(incomeSeries.size, expenseSeries.size, 2)
-        val stepX = size.width / (pointCount - 1).coerceAtLeast(1)
+        val chartWidth = size.width - leftMarginPx
+        val chartHeight = size.height - bottomMarginPx
+        val stepX = chartWidth / (pointCount - 1).coerceAtLeast(1)
+
+        fun xFor(index: Int) = leftMarginPx + stepX * index
+        fun yFor(value: Double) = chartHeight - (value / maxValue * chartHeight).toFloat()
+
+        // Y-axis gridlines + Rs. labels at 0%, 50%, 100% of the max value in the series.
+        val axisPaint = android.graphics.Paint().apply {
+            color = labelColor.toArgb()
+            textSize = axisTextSizePx
+            isAntiAlias = true
+        }
+        listOf(0.0, 0.5, 1.0).forEach { fraction ->
+            val y = chartHeight - (fraction * chartHeight).toFloat()
+            drawLine(
+                color = labelColor.copy(alpha = 0.12f),
+                start = Offset(leftMarginPx, y),
+                end = Offset(size.width, y),
+                strokeWidth = 1f
+            )
+            drawContext.canvas.nativeCanvas.drawText(
+                formatRupeesCompact(maxValue * fraction),
+                0f,
+                y + axisTextSizePx / 3,
+                axisPaint
+            )
+        }
 
         fun drawSeries(series: List<Double>, color: Color) {
             if (series.size < 2) return
             val path = androidx.compose.ui.graphics.Path()
             series.forEachIndexed { index, value ->
-                val x = stepX * index
-                val y = size.height - (value / maxValue * size.height).toFloat()
+                val x = xFor(index)
+                val y = yFor(value)
                 if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
             drawPath(path, color = color, style = Stroke(width = 6f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
@@ -43,7 +82,28 @@ fun TrendLineChart(
 
         drawSeries(incomeSeries, incomeColor)
         drawSeries(expenseSeries, expenseColor)
+
+        // X-axis month labels under each point, only when supplied by the caller.
+        if (monthLabels.isNotEmpty()) {
+            val labelPaint = android.graphics.Paint().apply {
+                color = labelColor.toArgb()
+                textSize = axisTextSizePx
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            monthLabels.forEachIndexed { index, label ->
+                if (index < pointCount) {
+                    drawContext.canvas.nativeCanvas.drawText(label, xFor(index), size.height, labelPaint)
+                }
+            }
+        }
     }
+}
+
+private fun formatRupeesCompact(amount: Double): String = when {
+    amount >= 100000 -> "₹${"%.1f".format(amount / 100000)}L"
+    amount >= 1000 -> "₹${"%.0f".format(amount / 1000)}k"
+    else -> "₹${"%.0f".format(amount)}"
 }
 
 /** Donut/pie chart over [slices], proportional by [DonutSlice.value]. Renders as concentric arcs. */

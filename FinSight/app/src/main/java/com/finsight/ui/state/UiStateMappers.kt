@@ -16,18 +16,19 @@ import java.time.YearMonth
 import java.time.ZoneId
 
 private fun monthOf(tx: Transaction): YearMonth = YearMonth.from(tx.date.atZone(ZoneId.systemDefault()).toLocalDate())
+private fun dateOf(tx: Transaction): LocalDate = tx.date.atZone(ZoneId.systemDefault()).toLocalDate()
 
 private fun percentChange(current: Double, previous: Double): Double? {
     if (previous <= 0) return null
     return (current - previous) / previous * 100
 }
 
-/** Top expense categories for [month], sorted by spend descending. */
-private fun categoryBreakdownFor(transactions: List<Transaction>, month: YearMonth): List<CategoryBreakdown> {
-    val expensesThisMonth = transactions.filter { it.type == TransactionType.EXPENSE && monthOf(it) == month }
-    val total = expensesThisMonth.sumOf { it.amount }
+/** Top expense categories within [range], sorted by spend descending. */
+private fun categoryBreakdownFor(transactions: List<Transaction>, range: ClosedRange<LocalDate>): List<CategoryBreakdown> {
+    val expensesInRange = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in range }
+    val total = expensesInRange.sumOf { it.amount }
     if (total <= 0) return emptyList()
-    return expensesThisMonth
+    return expensesInRange
         .groupBy { it.category }
         .map { (category, txs) ->
             val amount = txs.sumOf { it.amount }
@@ -45,19 +46,28 @@ fun buildDashboardState(
     transactions: List<Transaction>,
     subscriptions: List<Subscription>,
     userName: String,
+    period: TimePeriod = TimePeriod.MONTH,
     now: LocalDate = LocalDate.now()
 ): DashboardUiState {
+    val currentRange = period.currentRange(now)
+    val previousRange = period.previousRange(now)
+
+    val incomeThisPeriod = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in currentRange }.sumOf { it.amount }
+    val expenseThisPeriod = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in currentRange }.sumOf { it.amount }
+    val incomeChangePercent = previousRange?.let { range ->
+        val incomePrevious = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in range }.sumOf { it.amount }
+        percentChange(incomeThisPeriod, incomePrevious)
+    }
+    val expenseChangePercent = previousRange?.let { range ->
+        val expensePrevious = transactions.filter { it.type == TransactionType.EXPENSE && dateOf(it) in range }.sumOf { it.amount }
+        percentChange(expenseThisPeriod, expensePrevious)
+    }
+
     val currentMonth = YearMonth.from(now)
-    val previousMonth = currentMonth.minusMonths(1)
-
-    val incomeThisMonth = transactions.filter { it.type == TransactionType.INCOME && monthOf(it) == currentMonth }.sumOf { it.amount }
-    val expenseThisMonth = transactions.filter { it.type == TransactionType.EXPENSE && monthOf(it) == currentMonth }.sumOf { it.amount }
-    val incomeLastMonth = transactions.filter { it.type == TransactionType.INCOME && monthOf(it) == previousMonth }.sumOf { it.amount }
-    val expenseLastMonth = transactions.filter { it.type == TransactionType.EXPENSE && monthOf(it) == previousMonth }.sumOf { it.amount }
-
     val months = (5 downTo 0).map { currentMonth.minusMonths(it.toLong()) }
     val incomeTrend = months.map { month -> transactions.filter { it.type == TransactionType.INCOME && monthOf(it) == month }.sumOf { it.amount } }
     val expenseTrend = months.map { month -> transactions.filter { it.type == TransactionType.EXPENSE && monthOf(it) == month }.sumOf { it.amount } }
+    val trendMonthLabels = months.map { "${it.month.name.take(3)} ${it.year.toString().takeLast(2)}" }
 
     // No liquid-balance tracking exists yet in this MVP, so the Emergency Fund factor of the
     // health score conservatively assumes 0 - it will read low until balance tracking ships.
@@ -66,13 +76,17 @@ fun buildDashboardState(
 
     return DashboardUiState(
         userName = userName,
-        income = incomeThisMonth,
-        expense = expenseThisMonth,
-        incomeChangePercent = percentChange(incomeThisMonth, incomeLastMonth),
-        expenseChangePercent = percentChange(expenseThisMonth, expenseLastMonth),
+        period = period,
+        periodLabel = period.label,
+        comparisonLabel = period.comparisonLabel,
+        income = incomeThisPeriod,
+        expense = expenseThisPeriod,
+        incomeChangePercent = incomeChangePercent,
+        expenseChangePercent = expenseChangePercent,
         incomeTrend = incomeTrend,
         expenseTrend = expenseTrend,
-        topCategories = categoryBreakdownFor(transactions, currentMonth).take(5),
+        trendMonthLabels = trendMonthLabels,
+        topCategories = categoryBreakdownFor(transactions, currentRange).take(5),
         healthScore = healthScore,
         savingsOpportunities = savingsOpportunities
     )
@@ -82,9 +96,10 @@ fun buildTransactionsState(
     transactions: List<Transaction>,
     subscriptions: List<Subscription>,
     searchQuery: String,
+    period: TimePeriod = TimePeriod.MONTH,
     now: LocalDate = LocalDate.now()
 ): TransactionsUiState {
-    val currentMonth = YearMonth.from(now)
+    val currentRange = period.currentRange(now)
     val upcomingBills = subscriptions
         .filter { !it.renewalDate.isBefore(now) && it.renewalDate.isBefore(now.plusDays(30)) }
         .sortedBy { it.renewalDate }
@@ -95,16 +110,19 @@ fun buildTransactionsState(
         .maxByOrNull { it.date }
     val nextSalaryDate = lastSalary?.date?.atZone(ZoneId.systemDefault())?.toLocalDate()?.plusMonths(1)
 
+    val transactionsInPeriod = transactions.filter { dateOf(it) in currentRange }
     val filteredTransactions = if (searchQuery.isBlank()) {
-        transactions
+        transactionsInPeriod
     } else {
-        transactions.filter {
+        transactionsInPeriod.filter {
             it.merchant.contains(searchQuery, ignoreCase = true) || it.category.displayName.contains(searchQuery, ignoreCase = true)
         }
     }
 
     return TransactionsUiState(
-        spendingBreakdown = categoryBreakdownFor(transactions, currentMonth),
+        period = period,
+        periodLabel = period.label,
+        spendingBreakdown = categoryBreakdownFor(transactions, currentRange),
         subscriptions = subscriptions,
         upcomingBills = upcomingBills,
         nextSalaryDate = nextSalaryDate,

@@ -78,4 +78,22 @@ class SmsTransactionParserTest {
         )
         assertTrue(result is ParseResult.NotFinancial)
     }
+
+    @Test
+    fun `rejects loan-offer scam message even though it contains 'received' and an amount`() {
+        val result = SmsTransactionParser.parse(
+            "Service update: we have received your payment and you can get a personal loan offer of Rs.4,00,000.",
+            now
+        )
+        assertTrue(result is ParseResult.NotFinancial)
+    }
+
+    @Test
+    fun `rejects pre-approved loan spam`() {
+        val result = SmsTransactionParser.parse(
+            "Congratulations! You are pre-approved for an instant loan of Rs.50,000. Apply now, click here.",
+            now
+        )
+        assertTrue(result is ParseResult.NotFinancial)
+    }
 }

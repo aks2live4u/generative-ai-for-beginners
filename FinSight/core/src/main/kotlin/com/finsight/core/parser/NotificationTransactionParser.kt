@@ -31,6 +31,10 @@ object NotificationTransactionParser {
             ?: return ParseResult.NotFinancial("Unsupported notification source: $packageName")
 
         val combinedText = "$title $text"
+        if (MoneyTextExtractor.isPromotionalOrScam(combinedText)) {
+            return ParseResult.NotFinancial("Promotional/scam message")
+        }
+
         val amount = MoneyTextExtractor.extractAmount(combinedText)
             ?: return ParseResult.NotFinancial("No amount found in notification")
 

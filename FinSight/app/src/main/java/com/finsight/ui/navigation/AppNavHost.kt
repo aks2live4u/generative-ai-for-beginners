@@ -43,6 +43,7 @@ import com.finsight.ui.onboarding.PermissionKeys
 import com.finsight.ui.onboarding.PermissionsSetupScreen
 import com.finsight.ui.onboarding.SecuritySetupScreen
 import com.finsight.ui.onboarding.WelcomeScreen
+import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.state.buildDashboardState
 import com.finsight.ui.state.buildInsightsState
 import com.finsight.ui.state.buildTransactionsState
@@ -243,6 +244,7 @@ private fun MainScaffold(container: AppContainer) {
     val transactions by container.transactionRepository.observeAll().collectAsState(initial = emptyList())
     val subscriptions by container.subscriptionRepository.observeAll().collectAsState(initial = emptyList())
     var transactionsSearchQuery by remember { mutableStateOf("") }
+    var selectedPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
     val chatMessages = remember { mutableStateOf(listOf<ChatMessage>()) }
     var chatInput by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
@@ -253,15 +255,17 @@ private fun MainScaffold(container: AppContainer) {
         Box(modifier = Modifier.padding(paddingValues)) {
             when (currentTab) {
                 AppTab.DASHBOARD -> DashboardScreen(
-                    state = buildDashboardState(transactions, subscriptions, userName = "there"),
+                    state = buildDashboardState(transactions, subscriptions, userName = "there", period = selectedPeriod),
                     onOpenChat = { currentTab = AppTab.CHAT },
                     onOpenInsights = { currentTab = AppTab.INSIGHTS },
-                    onOpenNotifications = {}
+                    onOpenNotifications = {},
+                    onPeriodSelected = { selectedPeriod = it }
                 )
                 AppTab.TRANSACTIONS -> TransactionsScreen(
-                    state = buildTransactionsState(transactions, subscriptions, transactionsSearchQuery),
+                    state = buildTransactionsState(transactions, subscriptions, transactionsSearchQuery, period = selectedPeriod),
                     onSearchQueryChange = { transactionsSearchQuery = it },
-                    onTransactionClick = {}
+                    onTransactionClick = {},
+                    onPeriodSelected = { selectedPeriod = it }
                 )
                 AppTab.INSIGHTS -> InsightsScreen(
                     state = buildInsightsState(transactions, subscriptions),

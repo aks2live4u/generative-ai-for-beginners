@@ -35,10 +35,12 @@ import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
 import com.finsight.ui.components.DonutChart
 import com.finsight.ui.components.DonutSlice
+import com.finsight.ui.components.PeriodSelector
+import com.finsight.ui.components.MerchantBadge
 import com.finsight.ui.components.colorForGroup
 import com.finsight.ui.components.formatRupees
-import com.finsight.ui.components.iconForGroup
 import com.finsight.ui.components.mediumDateFormatter
+import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.theme.financeColors
 import java.time.LocalDate
 import java.time.ZoneId
@@ -47,7 +49,8 @@ import java.time.ZoneId
 fun TransactionsScreen(
     state: TransactionsUiState,
     onSearchQueryChange: (String) -> Unit,
-    onTransactionClick: (Transaction) -> Unit
+    onTransactionClick: (Transaction) -> Unit,
+    onPeriodSelected: (TimePeriod) -> Unit = {}
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         LazyColumn(
@@ -67,6 +70,8 @@ fun TransactionsScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
+                PeriodSelector(selected = state.period, onSelected = onPeriodSelected)
+                Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearchQueryChange,
@@ -80,7 +85,7 @@ fun TransactionsScreen(
 
             if (state.spendingBreakdown.isNotEmpty()) {
                 item {
-                    SpendingBreakdownCard(state.spendingBreakdown)
+                    SpendingBreakdownCard(state.spendingBreakdown, state.periodLabel)
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }
@@ -126,7 +131,7 @@ fun TransactionsScreen(
 }
 
 @Composable
-private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.CategoryBreakdown>) {
+private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.CategoryBreakdown>, periodLabel: String) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -134,7 +139,7 @@ private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.Cate
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Spending Breakdown",
+                text = "Spending Breakdown ($periodLabel)",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -193,13 +198,34 @@ private fun SubscriptionDetectorCard(subscriptions: List<com.finsight.core.model
             subscriptions.take(4).forEach { sub ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = sub.serviceName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = com.finsight.ui.components.merchantBadgeColor(
+                                sub.serviceName,
+                                MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = com.finsight.ui.components.merchantInitial(sub.serviceName),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                            }
+                        }
+                        Text(
+                            text = sub.serviceName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(start = 10.dp)
+                        )
+                    }
                     Text(
                         text = "${formatRupees(sub.monthlyCost)}/mo",
                         style = MaterialTheme.typography.bodyMedium,
@@ -299,18 +325,7 @@ private fun TransactionRow(tx: Transaction, onClick: () -> Unit) {
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = CircleShape,
-                color = colorForGroup(tx.category.group).copy(alpha = 0.15f),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = iconForGroup(tx.category.group),
-                    contentDescription = null,
-                    tint = colorForGroup(tx.category.group),
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
+            MerchantBadge(merchant = tx.merchant, group = tx.category.group)
             Column(
                 modifier = Modifier
                     .weight(1f)

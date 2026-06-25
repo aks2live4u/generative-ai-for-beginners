@@ -3,6 +3,7 @@ package com.finsight.ui.transactions
 import com.finsight.core.model.Subscription
 import com.finsight.core.model.Transaction
 import com.finsight.ui.dashboard.CategoryBreakdown
+import com.finsight.ui.state.TimePeriod
 
 data class UpcomingBill(
     val name: String,
@@ -11,6 +12,8 @@ data class UpcomingBill(
 )
 
 data class TransactionsUiState(
+    val period: TimePeriod = TimePeriod.MONTH,
+    val periodLabel: String = TimePeriod.MONTH.label,
     val spendingBreakdown: List<CategoryBreakdown> = emptyList(),
     val subscriptions: List<Subscription> = emptyList(),
     val upcomingBills: List<UpcomingBill> = emptyList(),

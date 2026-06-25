@@ -35,14 +35,25 @@ class SavingsDetectorTest {
     }
 
     @Test
-    fun `flags category spend increase over 30 percent month over month`() {
+    fun `flags recurring category spend increase over 30 percent vs trailing 3-month average`() {
         val currentMonth = LocalDate.of(2024, 6, 10)
-        val previousMonth = LocalDate.of(2024, 5, 10)
         val transactions = listOf(
-            tx(1000.0, Category.FOOD_DELIVERY, TransactionType.EXPENSE, previousMonth),
+            tx(1000.0, Category.FOOD_DELIVERY, TransactionType.EXPENSE, LocalDate.of(2024, 3, 10)),
+            tx(1000.0, Category.FOOD_DELIVERY, TransactionType.EXPENSE, LocalDate.of(2024, 4, 10)),
+            tx(1000.0, Category.FOOD_DELIVERY, TransactionType.EXPENSE, LocalDate.of(2024, 5, 10)),
             tx(1500.0, Category.FOOD_DELIVERY, TransactionType.EXPENSE, currentMonth)
         )
         val opportunities = SavingsDetector.detect(transactions, emptyList(), now = currentMonth)
         assertTrue(opportunities.any { it.type == SavingsOpportunityType.EXCESS_SPENDING })
+    }
+
+    @Test
+    fun `does not flag a one-off purchase in a sporadic category`() {
+        val currentMonth = LocalDate.of(2024, 6, 10)
+        val transactions = listOf(
+            tx(1500.0, Category.MOVIES, TransactionType.EXPENSE, currentMonth)
+        )
+        val opportunities = SavingsDetector.detect(transactions, emptyList(), now = currentMonth)
+        assertTrue(opportunities.none { it.type == SavingsOpportunityType.EXCESS_SPENDING })
     }
 }

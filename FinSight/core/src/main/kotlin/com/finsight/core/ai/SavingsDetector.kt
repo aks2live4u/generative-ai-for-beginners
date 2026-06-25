@@ -73,7 +73,9 @@ object SavingsDetector {
 
     private fun detectExcessSpending(transactions: List<Transaction>, now: LocalDate): List<SavingsOpportunity> {
         val currentMonth = YearMonth.from(now)
-        val previousMonth = currentMonth.minusMonths(1)
+        // Compare against a trailing 3-month average rather than just the previous month, so a
+        // single unusually quiet month doesn't make a normal month look like a huge spike.
+        val trailingMonths = (1..3).map { currentMonth.minusMonths(it.toLong()) }
 
         val spendByCategoryAndMonth = transactions
             .filter { it.type == TransactionType.EXPENSE }
@@ -87,15 +89,24 @@ object SavingsDetector {
         for ((category, monthTotals) in spendByCategoryAndMonth) {
             if (category.group == CategoryGroup.INCOME) continue
             val current = monthTotals[currentMonth] ?: continue
-            val previous = monthTotals[previousMonth] ?: continue
-            if (previous <= 0) continue
-            val increase = (current - previous) / previous
+
+            // Skip categories that aren't recurring (e.g. a single movie outing or a one-off
+            // purchase) - they don't have a meaningful "trend" to flag as excess spending.
+            val monthsWithSpend = trailingMonths.count { (monthTotals[it] ?: 0.0) > 0 }
+            if (monthsWithSpend < 2) continue
+
+            val baseline = trailingMonths.sumOf { monthTotals[it] ?: 0.0 } / trailingMonths.size
+            if (baseline <= 0) continue
+            val increase = (current - baseline) / baseline
             if (increase >= EXCESS_SPEND_THRESHOLD) {
+                val monthlyIncreaseAmount = current - baseline
                 opportunities += SavingsOpportunity(
                     type = SavingsOpportunityType.EXCESS_SPENDING,
-                    title = "${category.displayName} spending increased ${"%.0f".format(increase * 100)}%",
-                    description = "You spent Rs.${"%.0f".format(current)} on ${category.displayName} this month, up from Rs.${"%.0f".format(previous)} last month.",
-                    estimatedAnnualSavings = (current - previous) * 12
+                    title = "${category.displayName} spending up ${"%.0f".format(increase * 100)}% this month",
+                    description = "You spent Rs.${"%.0f".format(current)} on ${category.displayName} this month, " +
+                        "vs a Rs.${"%.0f".format(baseline)} average over the prior 3 months. If this continues, " +
+                        "that's about Rs.${"%.0f".format(monthlyIncreaseAmount * 12)} more per year.",
+                    estimatedAnnualSavings = monthlyIncreaseAmount * 12
                 )
             }
         }

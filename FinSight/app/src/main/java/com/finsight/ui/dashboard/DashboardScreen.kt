@@ -31,10 +31,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.finsight.ui.components.PeriodSelector
 import com.finsight.ui.components.TrendLineChart
 import com.finsight.ui.components.colorForGroup
 import com.finsight.ui.components.formatRupees
 import com.finsight.ui.components.iconForGroup
+import com.finsight.ui.state.TimePeriod
 import com.finsight.ui.theme.CategoryAccents
 import com.finsight.ui.theme.financeColors
 
@@ -43,7 +45,8 @@ fun DashboardScreen(
     state: DashboardUiState,
     onOpenChat: () -> Unit,
     onOpenInsights: () -> Unit,
-    onOpenNotifications: () -> Unit
+    onOpenNotifications: () -> Unit,
+    onPeriodSelected: (TimePeriod) -> Unit = {}
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -53,6 +56,8 @@ fun DashboardScreen(
                 .padding(20.dp)
         ) {
             GreetingHeader(userName = state.userName, onOpenNotifications = onOpenNotifications)
+            Spacer(modifier = Modifier.height(16.dp))
+            PeriodSelector(selected = state.period, onSelected = onPeriodSelected)
             Spacer(modifier = Modifier.height(20.dp))
             SnapshotRow(state = state)
             Spacer(modifier = Modifier.height(20.dp))
@@ -60,7 +65,7 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(20.dp))
             if (state.topCategories.isNotEmpty()) {
                 Text(
-                    text = "Top Categories",
+                    text = "Top Categories (${state.periodLabel})",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -118,16 +123,18 @@ private fun SnapshotRow(state: DashboardUiState) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SnapshotCard(
-            label = "Income",
+            label = "Income (${state.periodLabel})",
             amount = state.income,
             changePercent = state.incomeChangePercent,
+            comparisonLabel = state.comparisonLabel,
             amountColor = MaterialTheme.financeColors.income,
             modifier = Modifier.weight(1f)
         )
         SnapshotCard(
-            label = "Expenses",
+            label = "Expenses (${state.periodLabel})",
             amount = state.expense,
             changePercent = state.expenseChangePercent,
+            comparisonLabel = state.comparisonLabel,
             amountColor = MaterialTheme.financeColors.expense,
             modifier = Modifier.weight(1f)
         )
@@ -139,6 +146,7 @@ private fun SnapshotCard(
     label: String,
     amount: Double,
     changePercent: Double?,
+    comparisonLabel: String,
     amountColor: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier
 ) {
@@ -163,7 +171,7 @@ private fun SnapshotCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 val arrow = if (it >= 0) "↑" else "↓"
                 Text(
-                    text = "$arrow ${"%.0f".format(kotlin.math.abs(it))}% vs last month",
+                    text = "$arrow ${"%.0f".format(kotlin.math.abs(it))}% vs $comparisonLabel",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -185,14 +193,42 @@ private fun TrendCard(state: DashboardUiState) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Last 6 months",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LegendDot(color = MaterialTheme.financeColors.income, label = "Income")
+                LegendDot(color = MaterialTheme.financeColors.expense, label = "Expenses")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             TrendLineChart(
                 incomeSeries = state.incomeTrend,
                 expenseSeries = state.expenseTrend,
+                monthLabels = state.trendMonthLabels,
                 incomeColor = MaterialTheme.financeColors.income,
                 expenseColor = MaterialTheme.financeColors.expense
             )
         }
+    }
+}
+
+@Composable
+private fun LegendDot(color: androidx.compose.ui.graphics.Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            shape = CircleShape,
+            color = color,
+            modifier = Modifier.size(8.dp)
+        ) {}
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 6.dp)
+        )
     }
 }
 

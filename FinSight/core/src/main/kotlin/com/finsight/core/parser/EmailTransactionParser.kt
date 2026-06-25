@@ -21,6 +21,10 @@ object EmailTransactionParser {
 
     fun parse(senderEmail: String, subject: String, bodySnippet: String, receivedAt: Instant): ParseResult {
         val combinedText = "$subject $bodySnippet"
+        if (MoneyTextExtractor.isPromotionalOrScam(combinedText)) {
+            return ParseResult.NotFinancial("Promotional/scam message")
+        }
+
         val amount = MoneyTextExtractor.extractAmount(combinedText)
             ?: return ParseResult.NotFinancial("No amount found in email")
 
