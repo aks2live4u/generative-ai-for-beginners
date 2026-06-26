@@ -1,18 +1,28 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 //
-// NOTE: the Android/AGP plugin (com.android.application) is declared directly in app/build.gradle
-// (with an explicit version) rather than here. This repo's sandbox has no Android SDK, so the
-// :app module can only be opened/built in Android Studio; keeping AGP out of the root build.gradle
-// lets the pure-Kotlin :core module still build and run its unit tests standalone in CI/sandboxes
-// without needing network access to the Android plugin repository.
+// org.jetbrains.kotlin.android and com.android.application are both declared here (apply false)
+// even though only :app uses them, for two reasons:
 //
-// org.jetbrains.kotlin.android IS declared here (apply false), even though it's also only used by
-// :app, because it's backed by the same kotlin-gradle-plugin artifact as org.jetbrains.kotlin.jvm
-// below - declaring just one of the two ids with a version and leaving the other to redeclare its
-// own version directly in app/build.gradle makes Gradle's plugin resolver treat them as conflicting
-// requests for the same artifact ("already on the classpath with an unknown version"). Declaring
-// both ids here, and applying both without a version in their respective modules, avoids that.
+// 1. org.jetbrains.kotlin.android is backed by the same kotlin-gradle-plugin artifact as
+//    org.jetbrains.kotlin.jvm below - declaring just one of the two ids with a version and leaving
+//    the other to redeclare its own version directly in app/build.gradle makes Gradle's plugin
+//    resolver treat them as conflicting requests for the same artifact ("already on the classpath
+//    with an unknown version").
+// 2. Resolving org.jetbrains.kotlin.android (even with apply false) without the Android Gradle
+//    Plugin present in the same root-project plugin classloader triggers a known Kotlin Gradle
+//    Plugin/AGP classloader-isolation bug (JetBrains YouTrack KT-31643/KT-57162): KGP tries to
+//    generate a decorated KotlinAndroidTarget class referencing com.android.build.gradle.api.
+//    BaseVariant and fails with "Unable to load class ... BaseVariant" during Android Studio sync,
+//    even though AGP is correctly declared (just only in app/build.gradle, not here).
+//
+// Declaring all three plugins here, and applying them without a version in their respective
+// modules, avoids both problems. Note this means even ":core"-only tasks now need network access
+// to Google's AGP Maven repo to evaluate this script, since the root project's build.gradle is
+// always evaluated regardless of which modules are included - when verifying :core in a sandbox
+// without that access, temporarily comment out the com.android.application line below alongside
+// the existing settings.gradle :app exclusion, then restore both.
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.9.10' apply false
     id 'org.jetbrains.kotlin.android' version '1.9.10' apply false
+    id 'com.android.application' version '8.2.0' apply false
 }
