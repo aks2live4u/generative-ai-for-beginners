@@ -41,7 +41,8 @@ object SmsTransactionParser {
                 type = type,
                 paymentMethod = paymentMethod,
                 source = TransactionSource.SMS,
-                rawText = rawText
+                rawText = rawText,
+                confidence = classification.confidence
             )
         )
     }

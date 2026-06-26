@@ -78,8 +78,13 @@ object FinanceContextBuilder {
      * insurance discovery), which needs the original SMS/email/notification text to reason about
      * near-duplicates across sources. [Transaction.rawText] is passed through
      * [LlmRedaction.redact] first so long account/card numbers never leave the device.
+     *
+     * [maxTransactions] previously defaulted to 80, which for an active user is only about a
+     * week's worth of transactions - Smart Scan was silently only ever looking at the most recent
+     * week, never the user's full history. Raised to 500 (and [com.finsight.llm.GeminiClient]'s
+     * timeout raised alongside it) so a full year or more of typical usage fits in one scan.
      */
-    fun buildSmartScanContext(transactions: List<Transaction>, maxTransactions: Int = 80): String =
+    fun buildSmartScanContext(transactions: List<Transaction>, maxTransactions: Int = 500): String =
         buildString {
             // id=... is included (and unique per row) so the model can name exact rows to merge in its
             // structured ACTIONS block (see SmartScanActionParser) instead of only describing duplicates

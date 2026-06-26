@@ -20,7 +20,8 @@ data class TransactionEntity(
     val paymentMethod: String,
     val source: String,
     val rawText: String,
-    val notes: String? = null
+    val notes: String? = null,
+    val confidence: Int = 99
 )
 
 fun TransactionEntity.toDomain(): Transaction = Transaction(
@@ -33,7 +34,8 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     paymentMethod = PaymentMethod.valueOf(paymentMethod),
     source = TransactionSource.valueOf(source),
     rawText = rawText,
-    notes = notes
+    notes = notes,
+    confidence = confidence
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -46,5 +48,6 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     paymentMethod = paymentMethod.name,
     source = source.name,
     rawText = rawText,
-    notes = notes
+    notes = notes,
+    confidence = confidence
 )

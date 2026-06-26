@@ -49,6 +49,12 @@ object EmailTransactionParser {
 
         val category = CategoryEngine.categorize("$merchant $combinedText $senderEmail")
 
+        // Email is weaker signal than SMS (no fixed bank sender-ID format), so confidence is capped
+        // lower than SMS's even in the best case: both a known transactional sender AND an explicit
+        // direction keyword present is the strongest combination available here; either alone is a
+        // single weaker signal and should surface in the review queue rather than be trusted blindly.
+        val confidence = if (isKnownSender && explicitType != null) 85 else 55
+
         return ParseResult.Success(
             Transaction(
                 amount = amount,
@@ -58,7 +64,8 @@ object EmailTransactionParser {
                 type = type,
                 paymentMethod = com.finsight.core.model.PaymentMethod.UNKNOWN,
                 source = TransactionSource.GMAIL,
-                rawText = combinedText
+                rawText = combinedText,
+                confidence = confidence
             )
         )
     }

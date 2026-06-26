@@ -51,4 +51,10 @@ class MessageClassifierTest {
         val result = MessageClassifier.classify("Hey, are we still on for lunch?")
         assertEquals(MessageType.UNRECOGNIZED, result.type)
     }
+
+    @Test
+    fun `classifies a coupon credit as spam, not income`() {
+        val result = MessageClassifier.classify("Rs 1000 coupon credited to your Zepto account. Use it before it expires!")
+        assertEquals(MessageType.SPAM, result.type)
+    }
 }

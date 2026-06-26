@@ -28,6 +28,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
+    /** Transactions the parser wasn't fully sure about - surfaced in the Review Queue instead of silently affecting totals. */
+    @Query("SELECT * FROM transactions WHERE confidence < :threshold ORDER BY dateEpochMillis DESC")
+    fun observeNeedsReview(threshold: Int): Flow<List<TransactionEntity>>
+
     @Query(
         "SELECT * FROM transactions WHERE amountMinor = :amountMinor " +
             "AND dateEpochMillis BETWEEN :startMillis AND :endMillis"

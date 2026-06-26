@@ -5,6 +5,7 @@ import com.finsight.core.ai.SavingsDetector
 import com.finsight.core.model.Category
 import com.finsight.core.model.CategoryGroup
 import com.finsight.core.model.Subscription
+import com.finsight.core.model.TRANSACTION_REVIEW_THRESHOLD
 import com.finsight.core.model.Transaction
 import com.finsight.core.model.TransactionType
 import com.finsight.ui.dashboard.CategoryBreakdown
@@ -180,7 +181,8 @@ fun buildTransactionsState(
         upcomingBills = upcomingBills,
         nextSalaryDate = nextSalaryDate,
         transactions = filteredTransactions,
-        searchQuery = searchQuery
+        searchQuery = searchQuery,
+        needsReview = transactions.filter { it.confidence < TRANSACTION_REVIEW_THRESHOLD }.sortedByDescending { it.date }
     )
 }
 

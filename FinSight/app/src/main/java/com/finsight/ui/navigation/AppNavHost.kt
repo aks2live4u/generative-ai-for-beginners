@@ -329,7 +329,13 @@ private fun MainScaffold(container: AppContainer) {
                         coroutineScope.launch { container.transactionRepository.reclassifyCategory(from, to) }
                     },
                     onPeriodSelected = { selectedPeriod = it },
-                    onFilterSelected = { selectedFilter = it }
+                    onFilterSelected = { selectedFilter = it },
+                    onConfirmReview = { tx ->
+                        coroutineScope.launch { tx.id?.let { container.transactionRepository.confirmReview(it) } }
+                    },
+                    onRejectReview = { tx ->
+                        coroutineScope.launch { tx.id?.let { container.transactionRepository.rejectReview(it) } }
+                    }
                 )
                 AppTab.INSIGHTS -> {
                     val insightsState = buildInsightsState(transactions, subscriptions)

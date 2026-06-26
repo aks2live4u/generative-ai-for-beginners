@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.finsight.data.db.dao.GoalDao
 import com.finsight.data.db.dao.MerchantDao
 import com.finsight.data.db.dao.SubscriptionDao
@@ -18,7 +20,7 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [TransactionEntity::class, MerchantEntity::class, SubscriptionEntity::class, GoalEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +34,15 @@ abstract class AppDatabase : RoomDatabase() {
 
         @Volatile private var instance: AppDatabase? = null
 
+        // Existing rows default to 99 (already trusted/displayed) rather than retroactively
+        // dumping a user's entire transaction history into the new review queue on upgrade -
+        // confidence scoring only applies going forward to newly-parsed messages.
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN confidence INTEGER NOT NULL DEFAULT 99")
+            }
+        }
+
         /** All financial records live in this single SQLCipher-encrypted, on-device database. */
         fun getInstance(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: build(context).also { instance = it }
@@ -43,6 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
             val factory = SupportFactory(SQLiteDatabase.getBytes(passphrase))
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
                 .openHelperFactory(factory)
+                .addMigrations(MIGRATION_1_2)
                 .build()
         }
     }

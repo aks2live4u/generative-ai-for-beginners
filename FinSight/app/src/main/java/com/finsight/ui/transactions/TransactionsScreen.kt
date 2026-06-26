@@ -61,7 +61,9 @@ fun TransactionsScreen(
     onReclassifyTransaction: (Transaction, Category) -> Unit = { _, _ -> },
     onReclassifyCategory: (Category, Category) -> Unit = { _, _ -> },
     onPeriodSelected: (TimePeriod) -> Unit = {},
-    onFilterSelected: (TransactionFilter) -> Unit = {}
+    onFilterSelected: (TransactionFilter) -> Unit = {},
+    onConfirmReview: (Transaction) -> Unit = {},
+    onRejectReview: (Transaction) -> Unit = {}
 ) {
     var reclassifyTarget by remember { mutableStateOf<Transaction?>(null) }
     var bulkReclassifyTarget by remember { mutableStateOf<Category?>(null) }
@@ -127,6 +129,18 @@ fun TransactionsScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
+            if (state.needsReview.isNotEmpty()) {
+                item {
+                    ReviewQueueCard(
+                        items = state.needsReview,
+                        onConfirm = onConfirmReview,
+                        onRecategorize = { tx -> reclassifyTarget = tx },
+                        onReject = onRejectReview
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+            }
+
             if (state.spendingBreakdown.isNotEmpty()) {
                 item {
                     SpendingBreakdownCard(
@@ -180,6 +194,74 @@ fun TransactionsScreen(
                 }
             }
             item { Spacer(modifier = Modifier.height(24.dp)) }
+        }
+    }
+}
+
+/**
+ * Transactions the parser wasn't fully sure about ([Transaction.confidence] below the review
+ * threshold) - e.g. an ambiguous email, or a notification with no explicit debit/credit keyword.
+ * Shown separately from the normal list so the user decides whether they're real instead of the
+ * app silently folding them into totals.
+ */
+@Composable
+private fun ReviewQueueCard(
+    items: List<Transaction>,
+    onConfirm: (Transaction) -> Unit,
+    onRecategorize: (Transaction) -> Unit,
+    onReject: (Transaction) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Needs Review (${items.size})",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "Not fully sure these are correct - confirm, recategorize, or remove them.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            items.forEach { tx ->
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = tx.merchant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "${tx.rawText.take(80)} - ${tx.confidence}% confident",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = (if (tx.type == TransactionType.INCOME) "+" else "-") + formatRupees(tx.amount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (tx.type == TransactionType.INCOME) MaterialTheme.financeColors.income else MaterialTheme.financeColors.expense
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.TextButton(onClick = { onConfirm(tx) }) { Text("Looks right") }
+                        androidx.compose.material3.TextButton(onClick = { onRecategorize(tx) }) { Text("Recategorize") }
+                        androidx.compose.material3.TextButton(onClick = { onReject(tx) }) { Text("Remove") }
+                    }
+                }
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.finsight.data.repository
 
 import com.finsight.core.model.Category
+import com.finsight.core.model.TRANSACTION_REVIEW_THRESHOLD
 import com.finsight.core.model.Transaction
 import com.finsight.core.parser.MerchantMatcher
 import com.finsight.core.parser.MerchantRuleBook
@@ -35,6 +36,21 @@ class TransactionRepository(
 
     suspend fun getAll(): List<Transaction> = transactionDao.getAll().map { it.toDomain() }
 
+    /** Transactions the parser flagged as not fully certain about (below [REVIEW_THRESHOLD] confidence) - see [Transaction.confidence]. */
+    fun observeNeedsReview(): Flow<List<Transaction>> =
+        transactionDao.observeNeedsReview(TRANSACTION_REVIEW_THRESHOLD).map { list -> list.map { it.toDomain() } }
+
+    /** User confirmed a low-confidence transaction is correct as-is - clears it from the review queue. */
+    suspend fun confirmReview(transactionId: Long) {
+        val entity = transactionDao.getById(transactionId) ?: return
+        transactionDao.update(entity.copy(confidence = 99))
+    }
+
+    /** User rejected a low-confidence transaction outright (e.g. it was actually a promo/false-positive) - removes it. */
+    suspend fun rejectReview(transactionId: Long) {
+        transactionDao.deleteByIds(listOf(transactionId))
+    }
+
     /** Inserts [transaction] unless a matching transaction already exists within [dedupeWindow]. */
     suspend fun insertIfNotDuplicate(transaction: Transaction, dedupeWindow: Duration = Duration.ofMinutes(10)): Boolean {
         val taughtLabel = merchantRuleManager?.allRules()?.let { MerchantRuleBook.resolveLabel(it, transaction.merchant) }
@@ -58,7 +74,8 @@ class TransactionRepository(
     /** Tap-to-reclassify: applies a user-chosen category to a single transaction (e.g. fixing a wrong "Miscellaneous" guess, or flagging cash as "Given to Family"). */
     suspend fun reclassify(transactionId: Long, category: Category) {
         val entity = transactionDao.getById(transactionId) ?: return
-        transactionDao.update(entity.copy(category = category.name))
+        // A user-confirmed category is also a user-confirmed transaction - clears it from the review queue.
+        transactionDao.update(entity.copy(category = category.name, confidence = 99))
     }
 
     /** Bulk tap-to-reclassify from a category card: re-tags every transaction currently under [from] as [to] (e.g. moving every wrongly-bucketed "Miscellaneous" cash withdrawal to "ATM Withdrawal"). */

@@ -28,5 +28,7 @@ data class TransactionsUiState(
     val upcomingBills: List<UpcomingBill> = emptyList(),
     val nextSalaryDate: java.time.LocalDate? = null,
     val transactions: List<Transaction> = emptyList(),
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    /** Low-confidence transactions (any period, any source) needing the user's confirmation - see [Transaction.confidence]. */
+    val needsReview: List<Transaction> = emptyList()
 )

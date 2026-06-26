@@ -32,7 +32,11 @@ object MoneyTextExtractor {
         "lucky draw", "lottery", "win cash", "limited period offer", "limited time offer",
         "exclusive offer", "t&c apply", "t&amp;c apply", "terms and conditions apply",
         "subscribe now", "unsubscribe", "promo code", "% off", "sale is live", "register now",
-        "get upto", "get up to", "free gift", "act now", "this offer expires", "offer expires"
+        "get upto", "get up to", "free gift", "act now", "this offer expires", "offer expires",
+        "coupon credited", "coupon worth", "voucher credited", "cashback offer", "eligible for", "discount of",
+        "kyc expired", "kyc has expired", "account blocked", "account will be blocked",
+        "verify immediately", "verify your account", "update your pan", "update pan", "tap here",
+        "lucky winner", "you are selected", "prize money", "claimed your prize"
     )
 
     // Bank SMS/email templates routinely mention a second amount alongside the actual transaction

@@ -38,8 +38,14 @@ object NotificationTransactionParser {
         val amount = MoneyTextExtractor.extractAmount(combinedText)
             ?: return ParseResult.NotFinancial("No amount found in notification")
 
-        val type = MoneyTextExtractor.extractTransactionType(combinedText) ?: TransactionType.EXPENSE
+        val explicitType = MoneyTextExtractor.extractTransactionType(combinedText)
+        val type = explicitType ?: TransactionType.EXPENSE
         val category = CategoryEngine.categorize("$merchant $combinedText")
+
+        // First-party app notification from a fixed allow-list, so the source itself is trusted;
+        // only dock confidence when the direction had to be defaulted (no explicit debit/credit
+        // keyword in the notification text) rather than actually read off it.
+        val confidence = if (explicitType != null) 90 else 70
 
         return ParseResult.Success(
             Transaction(
@@ -50,7 +56,8 @@ object NotificationTransactionParser {
                 type = type,
                 paymentMethod = PaymentMethod.UNKNOWN,
                 source = TransactionSource.NOTIFICATION,
-                rawText = combinedText
+                rawText = combinedText,
+                confidence = confidence
             )
         )
     }
