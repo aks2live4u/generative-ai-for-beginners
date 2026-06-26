@@ -74,6 +74,22 @@ class TransactionRepository(
             .forEach { transactionDao.update(it.copy(category = category.name)) }
     }
 
+    /**
+     * Applies a duplicate-merge flagged by Smart Scan (AI): deletes [removeIds] and records the
+     * merge in [keepId]'s notes, so the AI's findings actually fix the data instead of just being
+     * displayed as text the user has to act on by hand. No-ops if [keepId] no longer exists (e.g.
+     * the user already fixed it some other way before applying this scan's results).
+     */
+    suspend fun mergeDuplicates(keepId: Long, removeIds: List<Long>) {
+        val idsToRemove = removeIds - keepId
+        if (idsToRemove.isEmpty()) return
+        val keep = transactionDao.getById(keepId) ?: return
+        val mergeTag = "Merged ${idsToRemove.size} duplicate(s) flagged by Smart Scan (AI)"
+        val updatedNotes = listOfNotNull(keep.notes, mergeTag).joinToString("; ")
+        transactionDao.update(keep.copy(notes = updatedNotes))
+        transactionDao.deleteByIds(idsToRemove)
+    }
+
     /** Retroactively renames every past transaction matching [merchantKey] to [label] (e.g. after teaching a new rule). */
     suspend fun relabelPastTransactions(merchantKey: String, label: String) {
         transactionDao.getAll()

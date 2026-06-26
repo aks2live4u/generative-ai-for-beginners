@@ -88,6 +88,22 @@ class MoneyTextExtractorTest {
     }
 
     @Test
+    fun `flags a 'credited to your credit card' bill payment receipt`() {
+        // Real-world bank wording ("credited to", not "credited towards") for the credit-card side
+        // of a bill payment the user already paid from their bank account - without this, it was
+        // recorded as a second, spurious INCOME transaction for the same payment.
+        val text = "Payment of Rs.50,000.00 has been credited to your HDFC Bank Credit Card ending 1234 " +
+            "towards your bill. Thank you."
+        assertEquals(true, MoneyTextExtractor.isCardPaymentConfirmation(text))
+    }
+
+    @Test
+    fun `does not flag a genuine cashback credited to a credit card as a bill payment confirmation`() {
+        val text = "Cashback of Rs.50.00 credited to your Credit Card ending 1234 on 25-Jun-26"
+        assertEquals(false, MoneyTextExtractor.isCardPaymentConfirmation(text))
+    }
+
+    @Test
     fun `prefers the actual transaction amount over a leading total amount due figure`() {
         // Previously "total amount due" wasn't recognized as a balance/due-amount phrase (only the
         // shorter "total due" was), so when a statement-style message led with this figure, it was

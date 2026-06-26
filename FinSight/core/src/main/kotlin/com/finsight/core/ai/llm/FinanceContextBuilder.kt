@@ -81,8 +81,11 @@ object FinanceContextBuilder {
      */
     fun buildSmartScanContext(transactions: List<Transaction>, maxTransactions: Int = 80): String =
         buildString {
+            // id=... is included (and unique per row) so the model can name exact rows to merge in its
+            // structured ACTIONS block (see SmartScanActionParser) instead of only describing duplicates
+            // in prose that the app has no way to act on.
             transactions.sortedByDescending { it.date }.take(maxTransactions).forEach { tx ->
-                appendLine("- ${transactionLine(tx)} | source=${tx.source} | text=\"${LlmRedaction.redact(tx.rawText)}\"")
+                appendLine("- id=${tx.id} ${transactionLine(tx)} | source=${tx.source} | text=\"${LlmRedaction.redact(tx.rawText)}\"")
             }
         }
 

@@ -42,6 +42,7 @@ import com.finsight.core.ai.FinancialHealthFactor
 import com.finsight.core.ai.FinancialHealthScore
 import com.finsight.core.ai.SavingsOpportunity
 import com.finsight.core.ai.SavingsOpportunityType
+import com.finsight.core.ai.llm.SmartScanActionParser
 import com.finsight.core.model.PaymentMethod
 import com.finsight.ui.components.PrimaryButton
 import com.finsight.ui.components.ScoreRing
@@ -70,7 +71,8 @@ fun InsightsScreen(
     aiFeaturesEnabled: Boolean = false,
     onExplainHealthScore: (suspend () -> Result<String>)? = null,
     onExplainHiddenExpenses: (suspend () -> Result<String>)? = null,
-    onRunSmartScan: (suspend () -> Result<String>)? = null
+    onRunSmartScan: (suspend () -> Result<String>)? = null,
+    onApplySmartScanFixes: (suspend (String) -> Result<String>)? = null
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -104,7 +106,7 @@ fun InsightsScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
             if (aiFeaturesEnabled && onRunSmartScan != null) {
-                SmartScanCard(onRunSmartScan)
+                SmartScanCard(onRunSmartScan, onApplySmartScanFixes)
                 Spacer(modifier = Modifier.height(20.dp))
             }
             BackupCard(onBackupNow)
@@ -146,10 +148,15 @@ private fun ExplainAiSection(onRun: suspend () -> Result<String>) {
 }
 
 @Composable
-private fun SmartScanCard(onRunSmartScan: suspend () -> Result<String>) {
+private fun SmartScanCard(
+    onRunSmartScan: suspend () -> Result<String>,
+    onApplyFixes: (suspend (String) -> Result<String>)? = null
+) {
     val scope = rememberCoroutineScope()
     var isRunning by remember { mutableStateOf(false) }
+    var isApplying by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<Result<String>?>(null) }
+    var applyResult by remember { mutableStateOf<Result<String>?>(null) }
 
     Card(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
@@ -169,7 +176,7 @@ private fun SmartScanCard(onRunSmartScan: suspend () -> Result<String>) {
             Text(
                 text = "Sends your imported transactions (with account/card numbers masked) to Gemini to " +
                     "look for likely cross-source duplicates, fraud-like anomalies, and insurance " +
-                    "policies it can recognize.",
+                    "policies it can recognize - and can merge the duplicates it finds for you.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp, bottom = 14.dp)
@@ -182,6 +189,7 @@ private fun SmartScanCard(onRunSmartScan: suspend () -> Result<String>) {
                     onClick = {
                         isRunning = true
                         result = null
+                        applyResult = null
                         scope.launch {
                             result = onRunSmartScan()
                             isRunning = false
@@ -191,15 +199,48 @@ private fun SmartScanCard(onRunSmartScan: suspend () -> Result<String>) {
             }
             result?.let { r ->
                 Text(
-                    text = r.getOrElse { it.message ?: "Smart Scan failed" },
+                    text = r.getOrElse { it.message ?: "Smart Scan failed" }.let(::stripSmartScanActionsBlock),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (r.isSuccess) MaterialTheme.colorScheme.onBackground else MaterialTheme.financeColors.expense,
                     modifier = Modifier.padding(top = 10.dp)
                 )
+                val rawText = r.getOrNull()
+                val actions = remember(rawText) {
+                    rawText?.let { SmartScanActionParser.parse(it) } ?: emptyList()
+                }
+                if (actions.isNotEmpty() && onApplyFixes != null && applyResult == null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    if (isApplying) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        androidx.compose.material3.TextButton(onClick = {
+                            isApplying = true
+                            scope.launch {
+                                applyResult = onApplyFixes(rawText!!)
+                                isApplying = false
+                            }
+                        }) {
+                            val mergedCount = actions.sumOf { it.removeIds.size }
+                            Text("Fix ${mergedCount} flagged duplicate(s)")
+                        }
+                    }
+                }
+                applyResult?.let { ar ->
+                    Text(
+                        text = ar.getOrElse { it.message ?: "Failed to apply fixes" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (ar.isSuccess) MaterialTheme.colorScheme.onBackground else MaterialTheme.financeColors.expense,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
             }
         }
     }
 }
+
+/** Strips the trailing ```json ... ``` ACTIONS block from a Smart Scan response before displaying its prose. */
+private fun stripSmartScanActionsBlock(text: String): String =
+    text.replace(Regex("```json[\\s\\S]*?```", RegexOption.IGNORE_CASE), "").trimEnd()
 
 @Composable
 private fun BackupCard(onBackupNow: suspend () -> Boolean) {

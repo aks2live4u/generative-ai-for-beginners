@@ -52,6 +52,7 @@ import com.finsight.ui.state.buildTransactionsState
 import com.finsight.ui.transactions.TransactionFilter
 import com.finsight.ui.transactions.TransactionsScreen
 import com.finsight.core.ai.llm.FinanceContextBuilder
+import com.finsight.core.ai.llm.SmartScanActionParser
 import com.finsight.llm.GeminiResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -364,6 +365,18 @@ private fun MainScaffold(container: AppContainer) {
                                     prompt = "Transactions:\n$context"
                                 )
                             }
+                        },
+                        onApplySmartScanFixes = { scanResponseText ->
+                            val actions = SmartScanActionParser.parse(scanResponseText)
+                            if (actions.isEmpty()) {
+                                Result.failure(IllegalStateException("No fixable duplicates found"))
+                            } else {
+                                actions.forEach { action ->
+                                    container.transactionRepository.mergeDuplicates(action.keepId, action.removeIds)
+                                }
+                                val mergedCount = actions.sumOf { it.removeIds.size }
+                                Result.success("Done - merged $mergedCount duplicate transaction(s).")
+                            }
                         }
                     )
                 }
@@ -447,11 +460,19 @@ private suspend fun askGeminiOrFail(
 
 private const val SMART_SCAN_SYSTEM_INSTRUCTION =
     "You are reviewing a personal finance app's imported transactions (from SMS, email and " +
-        "notifications, already deduplicated for exact matches). Look across them and report in " +
-        "plain text, in three short sections: (1) likely cross-source duplicates (same purchase " +
-        "logged twice from different sources/wording), (2) anomalies that look fraud-like (unusual " +
-        "amount/merchant/timing patterns), (3) any insurance policies you can identify from the " +
-        "merchant/category. If a section has nothing to report, say so briefly."
+        "notifications, already deduplicated for exact matches). Each line is prefixed with its " +
+        "own id=<number>. Look across them and report in plain text, in three short sections: " +
+        "(1) likely cross-source or opposite-leg duplicates (e.g. the same purchase logged twice " +
+        "from different sources/wording, or a credit card bill payment that shows up as both a " +
+        "debit from a bank account and a credit on the card - those are the same money moving, " +
+        "not two events), (2) anomalies that look fraud-like (unusual amount/merchant/timing " +
+        "patterns), (3) any insurance policies you can identify from the merchant/category. If a " +
+        "section has nothing to report, say so briefly.\n\n" +
+        "After the prose, if (and only if) you found duplicates in section (1), append a fenced " +
+        "json code block (```json ... ```) listing exactly which ids to merge, in this exact shape: " +
+        "{\"merges\":[{\"keepId\":<id to keep>,\"removeIds\":[<ids to delete>]}]}. Pick the id with " +
+        "the most complete/accurate merchant name as keepId. Use the real ids from the id=<number> " +
+        "prefixes - never invent ids. Omit the json block entirely if there is nothing to merge."
 
 private const val CHAT_SYSTEM_INSTRUCTION =
     "You are FinSight's personal finance assistant. Answer the user's question using only the " +

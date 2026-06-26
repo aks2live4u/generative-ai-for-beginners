@@ -33,4 +33,7 @@ interface TransactionDao {
             "AND dateEpochMillis BETWEEN :startMillis AND :endMillis"
     )
     suspend fun getCandidateDuplicates(amountMinor: Long, startMillis: Long, endMillis: Long): List<TransactionEntity>
+
+    @Query("DELETE FROM transactions WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
 }

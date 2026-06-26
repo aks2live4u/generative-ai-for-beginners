@@ -119,8 +119,23 @@ object MoneyTextExtractor {
         "we have received your payment of", "thank you for paying your credit card",
         "thank you for your card payment", "thank you for the payment towards your card",
         "your credit card payment of", "card payment of rs", "payment towards your card ending",
-        "payment towards card ending"
+        "payment towards card ending",
+        "towards your credit card bill", "towards your card bill",
+        "your card bill payment of", "card bill payment of rs",
+        "payment towards your credit card bill", "payment towards your card bill"
     )
+
+    // "credited to your ... card" alone is ambiguous - a genuine cashback/reward ("Cashback of
+    // Rs.50 credited to your Credit Card ending 1234") uses near-identical wording to a real bank's
+    // bill-payment receipt ("Payment of Rs.50,000 has been credited to your HDFC Bank Credit Card
+    // ending 1234 towards your bill"), but is actual new money that must still count as income.
+    // (Note the bank's own name often sits between "your" and "credit card" - hence "credited to
+    // your" is checked separately from [mentionsCard] rather than as one fixed phrase.) So this only
+    // counts as a bill-payment confirmation when the message also mentions "payment"/"bill"
+    // elsewhere and isn't itself a reward/cashback/refund credit - without this distinction, real
+    // bill-payment receipts using "credited to" (rather than "credited towards", already covered
+    // above) slipped past the guard and got recorded as a second, spurious INCOME transaction.
+    private val rewardCreditKeywords = listOf("cashback", "cash back", "reward", "refund", "reversal")
 
     /**
      * True when [text] is a credit-card issuer's confirmation that *it* received the user's bill
@@ -131,7 +146,11 @@ object MoneyTextExtractor {
         val lower = text.lowercase()
         val mentionsCard = lower.contains("credit card") || lower.contains("card ending") || lower.contains("card no")
         if (!mentionsCard) return false
-        return cardPaymentConfirmationKeywords.any { lower.contains(it) }
+        if (cardPaymentConfirmationKeywords.any { lower.contains(it) }) return true
+        val mentionsPaymentOrBill = lower.contains("payment") || lower.contains("bill")
+        val looksLikeReward = rewardCreditKeywords.any { lower.contains(it) }
+        if (!mentionsPaymentOrBill || looksLikeReward) return false
+        return lower.contains("credited to your")
     }
 
     /**
