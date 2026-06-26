@@ -17,4 +17,7 @@ interface SubscriptionDao {
 
     @Query("SELECT * FROM subscriptions ORDER BY renewalDateEpochDay ASC")
     suspend fun getAll(): List<SubscriptionEntity>
+
+    @Query("DELETE FROM subscriptions")
+    suspend fun deleteAll()
 }

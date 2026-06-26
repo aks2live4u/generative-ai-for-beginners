@@ -4,6 +4,7 @@ import com.finsight.core.model.Category
 import com.finsight.core.model.Transaction
 import com.finsight.core.parser.MerchantMatcher
 import com.finsight.core.parser.MerchantRuleBook
+import com.finsight.core.parser.MoneyTextExtractor
 import com.finsight.data.MerchantRuleManager
 import com.finsight.data.db.dao.MerchantDao
 import com.finsight.data.db.dao.TransactionDao
@@ -88,6 +89,25 @@ class TransactionRepository(
         val updatedNotes = listOfNotNull(keep.notes, mergeTag).joinToString("; ")
         transactionDao.update(keep.copy(notes = updatedNotes))
         transactionDao.deleteByIds(idsToRemove)
+    }
+
+    /**
+     * One-time data repair: [MoneyTextExtractor.isCardPaymentConfirmation] was tightened to catch
+     * more real-world "your card payment has been credited" receipt wording (see MoneyTextExtractor),
+     * but that fix only changes how *future* SMS/email/notifications get classified - transactions
+     * already recorded from this wording before the fix shipped (the credit-card bill-payment
+     * receipt that showed up as a spurious extra "credit" alongside the real bank debit) stay wrong
+     * forever unless something actively re-checks and removes them. Called once per app launch;
+     * cheap no-op once the bad rows are gone since matching messages are no longer recorded going
+     * forward.
+     */
+    suspend fun cleanupMisclassifiedCardConfirmations(): Int {
+        val toDelete = transactionDao.getAll()
+            .filter { MoneyTextExtractor.isCardPaymentConfirmation(it.rawText) }
+            .map { it.id }
+        if (toDelete.isEmpty()) return 0
+        transactionDao.deleteByIds(toDelete)
+        return toDelete.size
     }
 
     /** Retroactively renames every past transaction matching [merchantKey] to [label] (e.g. after teaching a new rule). */

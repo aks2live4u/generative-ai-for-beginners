@@ -266,6 +266,14 @@ private fun MainScaffold(container: AppContainer) {
         )
     }
 
+    // Runs once per app launch to clean up transactions that were wrongly recorded by an
+    // already-fixed parsing bug (see TransactionRepository.cleanupMisclassifiedCardConfirmations) -
+    // a code fix to the parser alone doesn't retroactively remove bad rows already sitting in the
+    // database from before the fix shipped.
+    LaunchedEffect(Unit) {
+        container.transactionRepository.cleanupMisclassifiedCardConfirmations()
+    }
+
     // Re-discover recurring payments (EMI/SIP/insurance/subscriptions/rent) whenever the
     // transaction list changes, with zero manual setup. Subscription.serviceName is the Room
     // primary key, so upsert() naturally keeps one row per merchant instead of growing duplicates.
@@ -276,15 +284,15 @@ private fun MainScaffold(container: AppContainer) {
         val detections = withContext(kotlinx.coroutines.Dispatchers.Default) {
             com.finsight.core.ai.RecurringPaymentDetector.detect(transactions)
         }
-        detections.forEach { detection ->
-            container.subscriptionRepository.upsert(
+        container.subscriptionRepository.replaceAutoDetected(
+            detections.map { detection ->
                 com.finsight.core.model.Subscription(
                     serviceName = detection.merchantLabel,
                     renewalDate = detection.nextExpectedDate,
                     monthlyCost = detection.monthlyCost
                 )
-            )
-        }
+            }
+        )
     }
 
     Scaffold(
@@ -367,15 +375,19 @@ private fun MainScaffold(container: AppContainer) {
                             }
                         },
                         onApplySmartScanFixes = { scanResponseText ->
-                            val actions = SmartScanActionParser.parse(scanResponseText)
-                            if (actions.isEmpty()) {
-                                Result.failure(IllegalStateException("No fixable duplicates found"))
-                            } else {
-                                actions.forEach { action ->
-                                    container.transactionRepository.mergeDuplicates(action.keepId, action.removeIds)
+                            try {
+                                val actions = SmartScanActionParser.parse(scanResponseText)
+                                if (actions.isEmpty()) {
+                                    Result.failure(IllegalStateException("No fixable duplicates found"))
+                                } else {
+                                    actions.forEach { action ->
+                                        container.transactionRepository.mergeDuplicates(action.keepId, action.removeIds)
+                                    }
+                                    val mergedCount = actions.sumOf { it.removeIds.size }
+                                    Result.success("Done - merged $mergedCount duplicate transaction(s).")
                                 }
-                                val mergedCount = actions.sumOf { it.removeIds.size }
-                                Result.success("Done - merged $mergedCount duplicate transaction(s).")
+                            } catch (e: Exception) {
+                                Result.failure(e)
                             }
                         }
                     )
@@ -444,6 +456,13 @@ private const val EXPLAIN_SYSTEM_INSTRUCTION =
         "to you in plain, concise language. Don't recompute or second-guess the numbers - just " +
         "interpret them for a non-technical user, and point out anything that looks off."
 
+/**
+ * [call] builds the prompt context from live transaction data and hits the network - either step
+ * can throw (e.g. a malformed transaction, a connectivity error not already converted to
+ * [GeminiResult.Failure]), and an uncaught exception inside a `scope.launch {}` block crashes the
+ * whole app rather than just failing this one screen. Catching here turns any such failure into a
+ * normal error message shown on the Insights screen instead.
+ */
 private suspend fun askGeminiOrFail(
     container: AppContainer,
     call: suspend (apiKey: String) -> GeminiResult
@@ -452,9 +471,13 @@ private suspend fun askGeminiOrFail(
     if (apiKey.isNullOrBlank()) {
         return Result.failure(IllegalStateException("No API key saved"))
     }
-    return when (val result = call(apiKey)) {
-        is GeminiResult.Success -> Result.success(result.text.trim())
-        is GeminiResult.Failure -> Result.failure(Exception(result.message))
+    return try {
+        when (val result = call(apiKey)) {
+            is GeminiResult.Success -> Result.success(result.text.trim())
+            is GeminiResult.Failure -> Result.failure(Exception(result.message))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }
 

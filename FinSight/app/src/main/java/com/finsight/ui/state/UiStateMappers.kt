@@ -204,9 +204,17 @@ fun buildInsightsState(
     now: LocalDate = LocalDate.now()
 ): InsightsUiState {
     val currentRange = TimePeriod.MONTH.currentRange(now)
+    fun isRealExpense(tx: Transaction) = tx.type == TransactionType.EXPENSE &&
+        tx.category != Category.INVESTMENT_OUTFLOW &&
+        tx.category.group != CategoryGroup.TRANSFERS
+    val incomeThisMonth = transactions.filter { it.type == TransactionType.INCOME && dateOf(it) in currentRange }.sumOf { it.amount }
+    val expenseThisMonth = transactions.filter { isRealExpense(it) && dateOf(it) in currentRange }.sumOf { it.amount }
+    val savingsRatePercent = if (incomeThisMonth > 0) (incomeThisMonth - expenseThisMonth) / incomeThisMonth * 100 else 0.0
     return InsightsUiState(
         healthScore = FinancialHealthScoreCalculator.calculate(transactions, subscriptions, liquidSavingsBalance = 0.0, now = now),
         savingsOpportunities = SavingsDetector.detect(transactions, subscriptions, now),
-        paymentMethodBreakdown = paymentMethodBreakdownFor(transactions, currentRange)
+        paymentMethodBreakdown = paymentMethodBreakdownFor(transactions, currentRange),
+        categoryBreakdown = categoryBreakdownFor(transactions, currentRange),
+        savingsRatePercent = savingsRatePercent
     )
 }

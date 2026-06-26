@@ -60,7 +60,9 @@ data class PaymentMethodBreakdown(
 data class InsightsUiState(
     val healthScore: FinancialHealthScore? = null,
     val savingsOpportunities: List<SavingsOpportunity> = emptyList(),
-    val paymentMethodBreakdown: List<PaymentMethodBreakdown> = emptyList()
+    val paymentMethodBreakdown: List<PaymentMethodBreakdown> = emptyList(),
+    val categoryBreakdown: List<com.finsight.ui.dashboard.CategoryBreakdown> = emptyList(),
+    val savingsRatePercent: Double = 0.0
 )
 
 @Composable
@@ -99,6 +101,10 @@ fun InsightsScreen(
                 if (aiFeaturesEnabled && onExplainHiddenExpenses != null) {
                     ExplainAiSection(onExplainHiddenExpenses)
                 }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+            if (state.categoryBreakdown.isNotEmpty()) {
+                SpendingBreakdownCard(state.categoryBreakdown, state.savingsRatePercent)
                 Spacer(modifier = Modifier.height(20.dp))
             }
             if (state.paymentMethodBreakdown.isNotEmpty()) {
@@ -205,8 +211,11 @@ private fun SmartScanCard(
                     modifier = Modifier.padding(top = 10.dp)
                 )
                 val rawText = r.getOrNull()
+                // Parsing untrusted LLM output during composition: any exception here would crash
+                // the whole screen's recomposition rather than just failing this one card, so a
+                // parse failure must degrade to "no fixable actions" instead of throwing.
                 val actions = remember(rawText) {
-                    rawText?.let { SmartScanActionParser.parse(it) } ?: emptyList()
+                    rawText?.let { runCatching { SmartScanActionParser.parse(it) }.getOrDefault(emptyList()) } ?: emptyList()
                 }
                 if (actions.isNotEmpty() && onApplyFixes != null && applyResult == null) {
                     Spacer(modifier = Modifier.height(10.dp))
@@ -409,6 +418,63 @@ private fun labelForPaymentMethod(method: PaymentMethod): String = when (method)
     PaymentMethod.WALLET -> "Wallet"
     PaymentMethod.CASH -> "Cash"
     PaymentMethod.UNKNOWN -> "Other / Unidentified"
+}
+
+/**
+ * Full per-category spend breakdown (every category, not just a top-5 highlight) plus this
+ * month's savings rate, in one place - addresses the recurring complaint that the app shows no
+ * clear answer to "how much went to subscriptions / credit card bills / EMI / shopping / home"
+ * without digging through the raw transaction list.
+ */
+@Composable
+private fun SpendingBreakdownCard(breakdown: List<com.finsight.ui.dashboard.CategoryBreakdown>, savingsRatePercent: Double) {
+    Card(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "This Month's Spending Breakdown",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "Saving ${"%.0f".format(savingsRatePercent)}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (savingsRatePercent >= 0) MaterialTheme.financeColors.income else MaterialTheme.financeColors.expense
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            breakdown.forEach { entry ->
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = entry.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "${formatRupees(entry.amount)} (${"%.0f".format(entry.percentOfSpend)}%)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (entry.percentOfSpend / 100).toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

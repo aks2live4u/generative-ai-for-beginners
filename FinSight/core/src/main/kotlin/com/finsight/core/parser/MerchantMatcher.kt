@@ -34,8 +34,18 @@ object MerchantMatcher {
 
     /**
      * True when [a] and [b] likely refer to the same merchant: identical after normalization, or
-     * one normalized form contains the other (e.g. "swiggy" within "swiggyorder"), guarded by a
-     * minimum length so short generic words don't match everything.
+     * one normalized form is a prefix/suffix of the other (e.g. "swiggy" is a prefix of
+     * "swiggyinstamart"), guarded by a minimum length so short generic words don't match
+     * everything.
+     *
+     * Deliberately NOT a plain "longer contains shorter anywhere" check: that previously matched
+     * two completely unrelated merchants whenever one's name happened to appear in the *middle* of
+     * the other's (e.g. a 4-letter common word like "club" embedded inside an unrelated longer
+     * name), which is how RecurringPaymentDetector grouped unrelated transactions into a false
+     * "recurring payment" that didn't correspond to anything in the user's real messages. Requiring
+     * the shared text to anchor at the start or end of the longer name - the way real merchant
+     * variants actually differ (a brand name plus a suffix/prefix like "*ORDER" or "PAY") - rules
+     * that out while still matching genuine same-merchant variants.
      */
     fun isSameMerchant(a: String, b: String): Boolean = isSameNormalizedMerchant(normalize(a), normalize(b))
 
@@ -45,6 +55,7 @@ object MerchantMatcher {
         if (normA == normB) return true
         val shorter = if (normA.length <= normB.length) normA else normB
         val longer = if (normA.length <= normB.length) normB else normA
-        return shorter.length >= 4 && longer.contains(shorter)
+        if (shorter.length < 6) return false
+        return longer.startsWith(shorter) || longer.endsWith(shorter)
     }
 }

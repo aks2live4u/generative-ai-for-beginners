@@ -529,7 +529,7 @@ private fun HiddenExpenseFinderCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Review & Save",
+                text = "Tap to review in Insights",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
