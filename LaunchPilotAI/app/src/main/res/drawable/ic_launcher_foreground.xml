@@ -11,7 +11,9 @@
         android:pathData="M54,22 C64,32 68,46 66,60 L60,66 L48,66 L42,60 C40,46 44,32 54,22 Z" />
 
     <!-- Rocket window -->
-    <circle android:fillColor="#6C5CE7" android:cx="54" android:cy="42" android:r="6" />
+    <path
+        android:fillColor="#6C5CE7"
+        android:pathData="M48,42 A6,6 0 1,0 60,42 A6,6 0 1,0 48,42 Z" />
 
     <!-- Left fin -->
     <path
