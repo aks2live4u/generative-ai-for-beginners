@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>LaunchPilot AI</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ ONBOARDING ============ -->
+  <section id="screen-onboarding" class="screen active">
+    <div class="onb-header">
+      <div class="brand-row">
+        <span class="brand-logo">🚀</span>
+        <div>
+          <div class="brand-title">LaunchPilot AI</div>
+          <div class="brand-sub">Your Business Launch OS — Made for India</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="onb-body">
+      <h1 class="onb-h1">Let's build your business 👋</h1>
+      <p class="onb-p">Answer a few questions and we'll generate your personalized roadmap and checklist — specific to India.</p>
+
+      <div class="onb-progress">
+        <span class="onb-step-label">Step <span id="onb-step-num">1</span> of 7</span>
+        <div class="onb-dots" id="onb-dots"></div>
+      </div>
+
+      <form id="onb-form">
+        <!-- Step 1: Location -->
+        <div class="onb-step" data-step="1">
+          <label class="field-label">Country</label>
+          <div class="fixed-field">🇮🇳 India <span class="fixed-badge">India-only app</span></div>
+
+          <label class="field-label">State</label>
+          <select id="f-state" class="field-select"></select>
+
+          <label class="field-label">City</label>
+          <input id="f-city" class="field-input" type="text" placeholder="e.g. Mumbai" />
+        </div>
+
+        <!-- Step 2: Business idea -->
+        <div class="onb-step" data-step="2" hidden>
+          <label class="field-label">Describe your business idea</label>
+          <textarea id="f-idea" class="field-textarea" placeholder="e.g. I want to start a men's oversized T-shirt brand"></textarea>
+
+          <label class="field-label">Industry / Niche</label>
+          <select id="f-industry" class="field-select"></select>
+        </div>
+
+        <!-- Step 3: Manufacturing / Trading / Service -->
+        <div class="onb-step" data-step="3" hidden>
+          <label class="field-label">Is this Manufacturing, Trading, or a Service?</label>
+          <div class="choice-cards" id="f-bizmode" data-field="bizmode">
+            <div class="choice-card" data-value="manufacturing"><span class="choice-icon">🏭</span>Manufacturing<div class="choice-hint">You make the product</div></div>
+            <div class="choice-card" data-value="trading"><span class="choice-icon">📦</span>Trading<div class="choice-hint">You resell/import products</div></div>
+            <div class="choice-card" data-value="service"><span class="choice-icon">🧑‍💼</span>Service<div class="choice-hint">You offer a service, no physical product</div></div>
+          </div>
+
+          <label class="field-label">Business Structure</label>
+          <select id="f-structure" class="field-select"></select>
+        </div>
+
+        <!-- Step 4: Online / Offline / Both -->
+        <div class="onb-step" data-step="4" hidden>
+          <label class="field-label">Will you sell Online, Offline, or Both?</label>
+          <div class="choice-cards" id="f-channel" data-field="channel">
+            <div class="choice-card" data-value="online"><span class="choice-icon">🌐</span>Online</div>
+            <div class="choice-card" data-value="offline"><span class="choice-icon">🏬</span>Offline</div>
+            <div class="choice-card" data-value="both"><span class="choice-icon">🔀</span>Both</div>
+          </div>
+        </div>
+
+        <!-- Step 5: Budget -->
+        <div class="onb-step" data-step="5" hidden>
+          <label class="field-label">What's your starting budget?</label>
+          <div class="choice-list" id="f-budget" data-field="budget"></div>
+        </div>
+
+        <!-- Step 6: Target customers / selling scope -->
+        <div class="onb-step" data-step="6" hidden>
+          <label class="field-label">Who are your target customers?</label>
+          <div class="choice-cards" id="f-audience" data-field="audience">
+            <div class="choice-card" data-value="b2c"><span class="choice-icon">🧍</span>Individuals (B2C)</div>
+            <div class="choice-card" data-value="b2b"><span class="choice-icon">🏢</span>Businesses (B2B)</div>
+            <div class="choice-card" data-value="both"><span class="choice-icon">🔀</span>Both</div>
+          </div>
+
+          <label class="field-label">Selling in India only, or internationally too?</label>
+          <div class="choice-cards" id="f-scope" data-field="scope">
+            <div class="choice-card" data-value="domestic"><span class="choice-icon">🇮🇳</span>India only</div>
+            <div class="choice-card" data-value="international"><span class="choice-icon">🌍</span>International too</div>
+          </div>
+        </div>
+
+        <!-- Step 7: Individual or Company -->
+        <div class="onb-step" data-step="7" hidden>
+          <label class="field-label">Are you starting as an Individual or a Company?</label>
+          <div class="choice-cards" id="f-entity" data-field="entity">
+            <div class="choice-card" data-value="individual"><span class="choice-icon">🧑</span>Individual</div>
+            <div class="choice-card" data-value="company"><span class="choice-icon">🏢</span>Company / Team</div>
+          </div>
+          <p class="onb-p small">We'll use everything you've told us to generate your India-specific roadmap, checklist and cost estimate.</p>
+        </div>
+      </form>
+    </div>
+
+    <div class="onb-footer">
+      <button id="onb-back-btn" class="btn-secondary" type="button" hidden>Back</button>
+      <button id="onb-continue-btn" class="btn-primary" type="button">Continue</button>
+    </div>
+  </section>
+
+  <!-- ============ HOME / DASHBOARD ============ -->
+  <section id="screen-home" class="screen">
+    <div class="top-bar">
+      <button class="icon-btn" id="home-menu-btn">☰</button>
+      <div>
+        <div class="top-title" id="home-greeting">Hello 👋</div>
+        <div class="top-sub">Here's your business progress</div>
+      </div>
+      <button class="icon-btn">🔔</button>
+    </div>
+    <div class="scroll-body" id="home-body"></div>
+  </section>
+
+  <!-- ============ CHECKLIST OVERVIEW ============ -->
+  <section id="screen-checklist" class="screen">
+    <div class="top-bar">
+      <div class="top-title">Checklist</div>
+      <button class="icon-btn">🔍</button>
+    </div>
+    <div class="tabs" id="checklist-tabs">
+      <span class="tab active" data-filter="all">All</span>
+      <span class="tab" data-filter="pending">Pending</span>
+      <span class="tab" data-filter="progress">In Progress</span>
+      <span class="tab" data-filter="done">Done</span>
+    </div>
+    <div class="scroll-body" id="checklist-body"></div>
+  </section>
+
+  <!-- ============ RESEARCH HUB ============ -->
+  <section id="screen-research" class="screen">
+    <div class="top-bar">
+      <div class="top-title">Research Hub</div>
+    </div>
+    <div class="scroll-body" id="research-body"></div>
+  </section>
+
+  <!-- ============ TOOLS GRID ============ -->
+  <section id="screen-tools" class="screen">
+    <div class="top-bar">
+      <div class="top-title">Business Tools</div>
+    </div>
+    <div class="scroll-body" id="tools-body"></div>
+  </section>
+
+  <!-- ============ PROFILE / SETTINGS ============ -->
+  <section id="screen-profile" class="screen">
+    <div class="scroll-body" id="profile-body"></div>
+  </section>
+
+  <!-- ============ CATEGORY DETAIL (checklist items in one category) ============ -->
+  <section id="screen-category-detail" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title" id="category-detail-title">Category</div>
+      <span></span>
+    </div>
+    <div class="scroll-body" id="category-detail-body"></div>
+  </section>
+
+  <!-- ============ TASK DETAIL ============ -->
+  <section id="screen-task-detail" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <span></span>
+      <button class="icon-btn">⋯</button>
+    </div>
+    <div class="scroll-body" id="task-detail-body"></div>
+  </section>
+
+  <!-- ============ MANUFACTURER / WHOLESALE / SUPPLIER FINDER ============ -->
+  <section id="screen-manufacturer-finder" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title">Sourcing Finder</div>
+      <span></span>
+    </div>
+    <div class="search-row">
+      <input id="mf-search" class="field-input" type="text" placeholder="Search a product e.g. T-shirt, Bedsheets" />
+    </div>
+    <div class="tabs" id="mf-tabs">
+      <span class="tab active" data-mf-tab="manufacturers">Manufacturers</span>
+      <span class="tab" data-mf-tab="wholesale">Wholesale Markets</span>
+      <span class="tab" data-mf-tab="suppliers">Suppliers</span>
+    </div>
+    <div class="scroll-body" id="mf-body"></div>
+  </section>
+
+  <!-- ============ COST ESTIMATOR ============ -->
+  <section id="screen-cost-estimator" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title">Cost Estimator</div>
+      <span></span>
+    </div>
+    <div class="scroll-body" id="cost-body"></div>
+  </section>
+
+  <!-- ============ AI BUSINESS MENTOR ============ -->
+  <section id="screen-ai-mentor" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div>
+        <div class="top-title">AI Business Mentor</div>
+        <div class="top-sub tiny">Grounded in the India Business Knowledge Base</div>
+      </div>
+      <button class="icon-btn" id="mentor-reset-btn">↻</button>
+    </div>
+    <div class="chat-body" id="mentor-chat"></div>
+    <div class="chat-suggestions" id="mentor-suggestions"></div>
+    <div class="chat-input-row">
+      <input id="mentor-input" class="field-input" type="text" placeholder="Ask me anything about your business…" />
+      <button id="mentor-send-btn" class="send-btn">➤</button>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENTS & TEMPLATES ============ -->
+  <section id="screen-documents" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title">Documents & Templates</div>
+      <span></span>
+    </div>
+    <div class="tabs" id="doc-tabs">
+      <span class="tab active" data-doc-filter="all">All</span>
+      <span class="tab" data-doc-filter="popular">Popular</span>
+      <span class="tab" data-doc-filter="legal">Legal</span>
+      <span class="tab" data-doc-filter="finance">Finance</span>
+      <span class="tab" data-doc-filter="hr">HR</span>
+    </div>
+    <div class="scroll-body" id="documents-body"></div>
+  </section>
+
+  <!-- ============ DOCUMENT VIEW ============ -->
+  <section id="screen-document-view" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title" id="document-view-title">Document</div>
+      <span></span>
+    </div>
+    <div class="scroll-body">
+      <pre id="document-view-content" class="doc-text"></pre>
+    </div>
+  </section>
+
+  <!-- ============ TIMELINE PLANNER ============ -->
+  <section id="screen-timeline" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title">Timeline Planner</div>
+      <span></span>
+    </div>
+    <div class="scroll-body" id="timeline-body"></div>
+  </section>
+
+  <!-- ============ FUNDING & SUPPORT ============ -->
+  <section id="screen-funding" class="screen sub-screen">
+    <div class="top-bar">
+      <button class="icon-btn back-btn" data-back>←</button>
+      <div class="top-title">Funding & Support</div>
+      <span></span>
+    </div>
+    <div class="tabs" id="funding-tabs">
+      <span class="tab active" data-funding-filter="all">All</span>
+      <span class="tab" data-funding-filter="loans">Loans</span>
+      <span class="tab" data-funding-filter="grants">Grants</span>
+      <span class="tab" data-funding-filter="schemes">Schemes</span>
+      <span class="tab" data-funding-filter="investors">Investors</span>
+    </div>
+    <div class="scroll-body" id="funding-body"></div>
+  </section>
+
+  <!-- ============ BOTTOM NAV ============ -->
+  <nav id="bottom-nav">
+    <div class="nav-item active" data-nav="home"><span class="nav-icon">🏠</span><span>Home</span></div>
+    <div class="nav-item" data-nav="checklist"><span class="nav-icon">✅</span><span>Tasks</span></div>
+    <div class="nav-item" data-nav="research"><span class="nav-icon">🔎</span><span>Research</span></div>
+    <div class="nav-item" data-nav="tools"><span class="nav-icon">🛠️</span><span>Tools</span></div>
+    <div class="nav-item" data-nav="profile"><span class="nav-icon">👤</span><span>Profile</span></div>
+  </nav>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
