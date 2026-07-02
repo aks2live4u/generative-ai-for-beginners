@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+web-build/
+.DS_Store
+*.pem
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.env
+.env.local
+ios/
+android/
+*.orig.*
+.metro-health-check*
+expo-env.d.ts.bak
