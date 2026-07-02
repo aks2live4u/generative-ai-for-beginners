@@ -22,8 +22,30 @@ npm install
 npm run dev
 ```
 
-## Build
+## Build (web)
 
 ```bash
 npm run build
 ```
+
+## Install via Android Studio
+
+This app is wrapped with [Capacitor](https://capacitorjs.com/), so the same React code ships as a
+real Android app. The `android/` folder is a standard Gradle/Android Studio project.
+
+1. Install dependencies once: `npm install`
+2. Whenever you change the web app, rebuild and sync the native project:
+   ```bash
+   npm run android:sync
+   ```
+3. Open the project in Android Studio:
+   ```bash
+   npm run android:open
+   ```
+   (or open the `android/` folder directly from Android Studio's "Open" dialog)
+4. Let Android Studio sync Gradle and download the SDK/build tools if prompted, then press **Run** to
+   install the app on an emulator or a connected device — or use **Build > Generate Signed Bundle / APK**
+   to produce an installable APK.
+
+No native plugins are required: the video/music file pickers use the standard HTML file input, which
+Android's WebView already surfaces as the native file/media picker.

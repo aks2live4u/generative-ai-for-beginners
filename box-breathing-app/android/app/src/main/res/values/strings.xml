@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Box Breathing</string>
+    <string name="title_activity_main">Box Breathing</string>
+    <string name="package_name">com.aks2live4u.boxbreathing</string>
+    <string name="custom_url_scheme">com.aks2live4u.boxbreathing</string>
+</resources>
