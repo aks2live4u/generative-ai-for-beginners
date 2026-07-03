@@ -20,9 +20,10 @@ knowing before you rely on it:
   listings so the app has data to work with, and it's the natural place to
   wire up a CSV import for jobs you found manually on those sites.
 - **AI generation** (resumes, cover letters, match rationale, interview prep,
-  outreach drafts): calls OpenAI when `OPENAI_API_KEY` is set. Without a key,
-  every agent falls back to deterministic, template-based logic built from
-  your Career Profile — the app is fully usable with zero external
+  outreach drafts): calls Gemini or OpenAI, whichever key you set
+  (`GEMINI_API_KEY` or `OPENAI_API_KEY` in `backend/.env`). Without either
+  key, every agent falls back to deterministic, template-based logic built
+  from your Career Profile — the app is fully usable with zero external
   dependencies, just with less polished prose.
 - **Applications and outreach are never sent automatically.** The
   Application Agent tracks status but never submits a form; the Outreach
@@ -71,7 +72,7 @@ later, the FastAPI backend is UI-agnostic and needs no changes.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # fill in OPENAI_API_KEY if you have one
+cp .env.example .env   # fill in GEMINI_API_KEY or OPENAI_API_KEY if you have one
 python seed.py          # creates demo@careerpilot.ai / demo1234 with sample data
 uvicorn app.main:app --reload
 ```
@@ -102,7 +103,7 @@ docker compose up --build
 All configuration is via environment variables — see `backend/.env.example`.
 Notable ones:
 
-- `OPENAI_API_KEY` — enables real AI generation; omit to run on fallback logic.
+- `GEMINI_API_KEY` / `OPENAI_API_KEY` — enables real AI generation (set one); omit both to run on fallback logic.
 - `GREENHOUSE_COMPANIES` / `LEVER_COMPANIES` — comma-separated board slugs to
   pull live listings from (e.g. `stripe,gitlab,cloudflare`).
 - `DATABASE_URL` — defaults to local SQLite; point at Postgres for production.

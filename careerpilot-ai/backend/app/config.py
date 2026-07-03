@@ -21,6 +21,19 @@ class Settings:
         "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
     )
 
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    gemini_chat_model: str = os.getenv("GEMINI_CHAT_MODEL", "gemini-2.0-flash")
+    gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
+
+    # AI_PROVIDER picks explicitly ("openai" | "gemini"); left unset, whichever
+    # API key is present wins (Gemini checked first since it's free-tier
+    # friendly), and with neither set every agent falls back to deterministic
+    # templates -- see app/services/ai_service.py.
+    ai_provider: str = os.getenv(
+        "AI_PROVIDER",
+        "gemini" if os.getenv("GEMINI_API_KEY") else ("openai" if os.getenv("OPENAI_API_KEY") else "none"),
+    )
+
     # Public, ToS-compliant job board APIs (no auth required).
     remoteok_api_url: str = "https://remoteok.com/api"
     arbeitnow_api_url: str = "https://www.arbeitnow.com/api/job-board-api"

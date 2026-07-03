@@ -62,9 +62,34 @@ cp -r dist-android ../android/app/src/main/assets/www
 
 `build:android` (not the regular `build`) matters here — it emits
 relative asset paths (`./assets/...`) instead of absolute ones
-(`/assets/...`), which is required for the bundle to load correctly from
-`file:///android_asset/`, and it skips the service worker registration
-(irrelevant when the app is already bundled locally).
+(`/assets/...`), and it skips the service worker registration (irrelevant
+when the app is already bundled locally).
+
+## Troubleshooting
+
+**Blank white screen after launch.** The app serves its bundled assets over
+a virtual `https://appassets.androidplatform.net/...` origin
+(`WebViewAssetLoader`) rather than `file://`, specifically because Chromium
+silently refuses to run `<script type="module">` — what Vite's build
+output uses — when loaded from `file://`. If you still hit a blank screen:
+
+1. Plug in the device/emulator, open Chrome on your computer, go to
+   `chrome://inspect`, and open the WebView under your device. The DevTools
+   console will show the actual JS error (all console output is also
+   mirrored to Logcat under the tag `CareerPilotWebView`).
+2. A red error screen with a **Reload** button means the page itself failed
+   to load (wrong build, missing assets) — check `app/src/main/assets/www/`
+   actually contains `index.html` and an `assets/` subfolder.
+3. A truly blank screen with no error and no console output usually means
+   the entered **Backend API URL** isn't the issue at all (that field only
+   affects API calls, not whether the app UI itself renders) — re-check step
+   1 first.
+
+**"Backend API URL" is not an AI provider key.** That field is the address
+of *your own* CareerPilot AI backend server (see "Before you open this in
+Android Studio" above) — not an OpenAI/Gemini API key. Those AI provider
+keys go in `backend/.env` on the machine running the backend, not in the
+Android app.
 
 ## What's native vs. web here
 

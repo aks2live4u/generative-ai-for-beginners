@@ -64,4 +64,4 @@ for router in (
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "ai_configured": bool(settings.openai_api_key)}
+    return {"status": "ok", "ai_provider": settings.ai_provider}
