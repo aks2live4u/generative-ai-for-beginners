@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CareerPilot AI is a personal tool where you point the app at your own
+  backend (a home server, a LAN machine, or your own cloud deployment).
+  That backend may not have a public TLS certificate yet, so cleartext
+  HTTP is allowed here. If you deploy the backend behind HTTPS, this
+  config has no downside; it just also permits HTTP for local/dev use.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

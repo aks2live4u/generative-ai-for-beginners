@@ -45,19 +45,22 @@ careerpilot-ai/
 │   │   ├── models.py   Database schema
 │   │   └── main.py     App wiring
 │   └── seed.py         Demo user + sample data
-└── frontend/           React + TypeScript + Vite, installable PWA
-    └── src/pages/       One page per module (Jobs, Applications, Profile, ...)
+├── frontend/           React + TypeScript + Vite, installable PWA
+│   └── src/pages/       One page per module (Jobs, Applications, Profile, ...)
+└── android/            Android Studio project: native WebView shell around
+                         the same frontend, for a real installable .apk
 ```
 
-### Why a PWA instead of a native Flutter/Android app
+### Why a WebView shell instead of a native Flutter/Android app
 
 The original brief called for Flutter so it could be "installed as an
 Android app." This build environment doesn't have the Flutter/Android SDK
-available, so the frontend is a **Progressive Web App** instead: open it in
-Chrome on Android, tap **⋮ → Add to Home screen**, and it installs with its
-own icon, launches full-screen (no browser chrome), and works offline for
-already-loaded data — the same end-user experience, built on a toolchain
-that's actually testable here. If you want a true native Flutter build
+available, so `frontend/` ships as a **Progressive Web App** (Chrome →
+**⋮ → Add to Home screen**) and `android/` wraps that same build in a thin
+native Kotlin shell you can open directly in Android Studio and build into
+a real `.apk` — see `android/README.md` for setup. Both give you an
+installed home-screen app; the Android Studio project is the one to use if
+you specifically need a `.apk` file. If you want a true Flutter build
 later, the FastAPI backend is UI-agnostic and needs no changes.
 
 ## Running it locally

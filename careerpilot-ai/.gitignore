@@ -8,8 +8,10 @@ backend/.env
 # Node
 frontend/node_modules/
 frontend/dist/
+frontend/dist-android/
 frontend/.env
 frontend/dev-dist/
+frontend/*.tsbuildinfo
 
 # OS
 .DS_Store

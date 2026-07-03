@@ -1,4 +1,25 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Resolution order: native Android shell override (set via Settings menu in
+// the wrapped app) > browser localStorage override > build-time env var.
+// This lets the same production build be pointed at any backend URL at
+// runtime, which matters once the app is packaged as an Android WebView
+// shell -- the backend is rarely at localhost from a phone's perspective.
+declare global {
+  interface Window {
+    AndroidConfig?: { getApiBaseUrl?: () => string };
+  }
+}
+
+const API_URL_OVERRIDE_KEY = "careerpilot_api_base_override";
+
+function resolveApiUrl(): string {
+  const nativeOverride = window.AndroidConfig?.getApiBaseUrl?.();
+  if (nativeOverride) return nativeOverride;
+  const storedOverride = localStorage.getItem(API_URL_OVERRIDE_KEY);
+  if (storedOverride) return storedOverride;
+  return import.meta.env.VITE_API_URL || "http://localhost:8000";
+}
+
+const API_URL = resolveApiUrl();
 
 const TOKEN_KEY = "careerpilot_token";
 
