@@ -64,15 +64,10 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 88,
-                height: 88,
+                width: 112,
+                height: 112,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: AppTheme.heroGradient,
-                  ),
-                  borderRadius: BorderRadius.circular(26),
+                  borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
                       color: AppTheme.heroGradient.first.withValues(alpha: 0.4),
@@ -81,7 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.mic_rounded, color: Colors.white, size: 42),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset('assets/icon/icon.png'),
+                ),
               ),
               const SizedBox(height: 20),
               ShaderMask(

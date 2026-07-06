@@ -44,7 +44,7 @@ class MessageCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Label('Pronunciation', accents.pronunciation),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -56,10 +56,11 @@ class MessageCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: () => _copyToClipboard(context, message.nativeTransliteration),
-                icon: const Icon(Icons.copy_rounded, size: 20),
+              _AccentIconButton(
+                icon: Icons.copy_rounded,
+                color: accents.pronunciation,
                 tooltip: 'Copy pronunciation',
+                onPressed: () => _copyToClipboard(context, message.nativeTransliteration),
               ),
             ],
           ),
@@ -77,17 +78,18 @@ class MessageCard extends StatelessWidget {
           children: [
             if (settings.showOriginalScript) ...[
               _Label('Original', accents.original),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
                     child: Text(originalText, style: textTheme.headlineMedium),
                   ),
                   if (onReplayOriginal != null)
-                    IconButton(
-                      onPressed: onReplayOriginal,
-                      icon: const Icon(Icons.volume_up_rounded),
+                    _AccentIconButton(
+                      icon: Icons.volume_up_rounded,
+                      color: accents.original,
                       tooltip: 'Replay original',
+                      onPressed: onReplayOriginal!,
                     ),
                 ],
               ),
@@ -98,17 +100,18 @@ class MessageCard extends StatelessWidget {
             if (!spokeEnglish && showPronunciation) pronunciation,
             if (settings.showTranslation) ...[
               _Label(finalLabel, accents.meaning),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
                     child: Text(finalText, style: textTheme.titleLarge),
                   ),
                   if (onReplayTranslation != null)
-                    IconButton(
-                      onPressed: onReplayTranslation,
-                      icon: const Icon(Icons.volume_up_rounded),
+                    _AccentIconButton(
+                      icon: Icons.volume_up_rounded,
+                      color: accents.meaning,
                       tooltip: 'Replay translation',
+                      onPressed: onReplayTranslation!,
                     ),
                 ],
               ),
@@ -145,6 +148,37 @@ class _Label extends StatelessWidget {
         fontWeight: FontWeight.w700,
         letterSpacing: 1.1,
         color: color,
+      ),
+    );
+  }
+}
+
+/// A tappable icon with a soft tinted background in the section's accent
+/// color — bigger and easier to hit/notice than a plain small line icon.
+class _AccentIconButton extends StatelessWidget {
+  const _AccentIconButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon),
+      iconSize: 24,
+      style: IconButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.16),
+        foregroundColor: color,
+        minimumSize: const Size(44, 44),
       ),
     );
   }

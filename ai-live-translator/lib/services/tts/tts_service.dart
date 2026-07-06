@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -67,7 +68,22 @@ class TtsService {
     await _deleteLastAudio();
     _lastAudioPath = path;
 
-    await _player.play(DeviceFileSource(path));
+    // AudioPlayer.play() only awaits the command being *issued*, not the
+    // audio finishing — callers need to know when the speaker has actually
+    // gone quiet (e.g. before re-arming the mic), so wait for the real
+    // completion event too, with a safety cap in case it never fires.
+    final completer = Completer<void>();
+    late final StreamSubscription<void> subscription;
+    subscription = _player.onPlayerComplete.listen((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
+
+    try {
+      await _player.play(DeviceFileSource(path));
+      await completer.future.timeout(const Duration(seconds: 30), onTimeout: () {});
+    } finally {
+      await subscription.cancel();
+    }
   }
 
   Future<void> stop() => _player.stop();

@@ -53,6 +53,7 @@ class ConversationController extends ChangeNotifier {
   StreamSubscription<double>? _ampSub;
   StreamSubscription<bool>? _connectivitySub;
   bool _autoLoopActive = false;
+  bool _isSpeaking = false;
 
   Future<void> _watchConnectivity() async {
     isOnline = await ConnectivityService.instance.isOnline();
@@ -146,7 +147,9 @@ class ConversationController extends ChangeNotifier {
   }
 
   Future<void> _armAutoListen() async {
-    if (!_autoLoopActive) return;
+    // Never open the mic while the phone itself is talking — it'll just
+    // hear its own voice and immediately "detect speech".
+    if (!_autoLoopActive || _isSpeaking) return;
     errorMessage = null;
     status = ListeningStatus.listening;
     _vad
@@ -228,13 +231,17 @@ class ConversationController extends ChangeNotifier {
       );
       messages.insert(0, message);
       lastMessage = message;
-      status = ListeningStatus.speaking;
       notifyListeners();
 
+      // replayTranslation drives `status` itself (speaking, then idle or
+      // back to listening) so it can wait out the actual playback before
+      // anything re-arms the mic. Without autoplay there's no speaking
+      // phase to wait for.
       if (settings.autoPlayVoice && !muted) {
         await replayTranslation(message);
+      } else {
+        status = ListeningStatus.idle;
       }
-      status = ListeningStatus.idle;
     } on ApiException catch (e) {
       errorMessage = e.message;
       status = ListeningStatus.error;
@@ -260,9 +267,28 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
+  /// Speaking and listening are mutually exclusive: if the mic is open
+  /// when this is called (e.g. Replay tapped mid auto-conversation), pause
+  /// it first, and only resume auto-listening once the audio has actually
+  /// finished — otherwise the mic hears the phone's own voice and either
+  /// cuts the sentence short or stalls the recorder outright.
   Future<void> _speakSide(bool speakNative, String text) async {
+    if (_isSpeaking) return;
+    _isSpeaking = true;
+
     final apiKey = await SecureStorageService.instance.getApiKey();
-    if (apiKey == null) return;
+    if (apiKey == null) {
+      _isSpeaking = false;
+      return;
+    }
+
+    final wasListening = status == ListeningStatus.listening;
+    if (wasListening) {
+      await _ampSub?.cancel();
+      await _recorder.cancel();
+    }
+    status = ListeningStatus.speaking;
+    notifyListeners();
 
     final native = nativeLanguage;
     final languageName = speakNative ? native.name : english.name;
@@ -280,6 +306,14 @@ class ConversationController extends ChangeNotifier {
       );
     } on ApiException catch (e) {
       errorMessage = e.message;
+    }
+
+    _isSpeaking = false;
+
+    if (wasListening && mode == ConversationMode.auto && _autoLoopActive) {
+      await _armAutoListen();
+    } else {
+      status = ListeningStatus.idle;
       notifyListeners();
     }
   }
