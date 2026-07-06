@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/languages_config.dart';
 import '../services/conversation_controller.dart';
 import '../widgets/detected_language_chip.dart';
+import '../widgets/glass.dart';
 import '../widgets/language_badge.dart';
 import '../widgets/message_card.dart';
 import '../widgets/mic_button.dart';
@@ -14,7 +15,7 @@ class ConversationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Consumer<ConversationController>(
           builder: (context, controller, _) => LanguageBadge(
             english: controller.english,
@@ -182,17 +183,16 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    final scheme = Theme.of(context).colorScheme;
+    return GlassContainer(
+      borderRadius: 12,
+      tint: scheme.errorContainer,
+      opacity: 0.55,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+        style: TextStyle(color: scheme.onErrorContainer),
       ),
     );
   }
@@ -236,7 +236,7 @@ class _BarButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.filledTonal(onPressed: onTap, icon: Icon(icon)),
+        GlassIconButton(icon: icon, onPressed: onTap, tooltip: label, size: 56),
         const SizedBox(height: 4),
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
       ],

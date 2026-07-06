@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/language.dart';
+import 'glass.dart';
 
 /// Small pill showing which language the last turn was detected as —
 /// a quick visual confirmation that auto-detection picked up the right side.
@@ -12,13 +13,10 @@ class DetectedLanguageChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
+    return GlassContainer(
+      borderRadius: 999,
+      blurSigma: 12,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

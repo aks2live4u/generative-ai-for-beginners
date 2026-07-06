@@ -1,9 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/app_settings.dart';
 import '../models/translation_message.dart';
 import '../themes/app_theme.dart';
+import 'glass.dart';
 
 /// Renders one conversation turn as three sections, matching the PRD:
 ///
@@ -70,10 +73,9 @@ class MessageCard extends StatelessWidget {
     final showPronunciation =
         settings.showTransliteration && message.nativeTransliteration.isNotEmpty;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (settings.showOriginalScript) ...[
@@ -121,7 +123,6 @@ class MessageCard extends StatelessWidget {
               pronunciation,
             ],
           ],
-        ),
       ),
     );
   }
@@ -170,15 +171,24 @@ class _AccentIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      icon: Icon(icon),
-      iconSize: 24,
-      style: IconButton.styleFrom(
-        backgroundColor: color.withValues(alpha: 0.16),
-        foregroundColor: color,
-        minimumSize: const Size(44, 44),
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          child: IconButton(
+            onPressed: onPressed,
+            tooltip: tooltip,
+            icon: Icon(icon),
+            iconSize: 24,
+            color: color,
+            style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+          ),
+        ),
       ),
     );
   }

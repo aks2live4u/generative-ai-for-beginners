@@ -1,9 +1,12 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/conversation_controller.dart';
 import '../services/secure_storage_service.dart';
 import '../themes/app_theme.dart';
+import '../widgets/glass.dart';
 import 'conversation_screen.dart';
 import 'settings_screen.dart';
 
@@ -41,9 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: GlassAppBar(
         actions: [
           IconButton(
             onPressed: () async {
@@ -96,13 +97,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Container(
+              GlassContainer(
+                borderRadius: 999,
+                blurSigma: 12,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
                 child: Text(
                   '${controller.english.name} ⇄ ${controller.nativeLanguage.name}',
                   style: Theme.of(context)
@@ -115,15 +113,14 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!_checkingKey && !_hasApiKey)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: Card(
-                    color: scheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Add your OpenAI API key in Settings before you start.',
-                        style: TextStyle(color: scheme.onErrorContainer),
-                        textAlign: TextAlign.center,
-                      ),
+                  child: GlassContainer(
+                    tint: scheme.errorContainer,
+                    opacity: 0.55,
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Add your OpenAI API key in Settings before you start.',
+                      style: TextStyle(color: scheme.onErrorContainer),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
@@ -155,22 +152,30 @@ class _StartButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: AppTheme.heroGradient),
-        ),
-        child: InkWell(
-          onTap: onPressed,
-          child: const SizedBox(
-            height: 56,
-            width: double.infinity,
-            child: Center(
-              child: Text(
-                'Start Conversation',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppTheme.heroGradient
+                  .map((c) => c.withValues(alpha: 0.75))
+                  .toList(),
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: InkWell(
+            onTap: onPressed,
+            child: const SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: Center(
+                child: Text(
+                  'Start Conversation',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
