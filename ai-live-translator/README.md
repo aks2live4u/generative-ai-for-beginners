@@ -1,4 +1,4 @@
-# AI Live Translator
+# Anyspeak
 
 A privacy-first, live speech translator for English ↔ [any official Indian
 language] conversations, built with Flutter. No login, no accounts, no saved

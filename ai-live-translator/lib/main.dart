@@ -36,7 +36,7 @@ class AiLiveTranslatorApp extends StatelessWidget {
             AppThemeMode.auto => ThemeMode.system,
           };
           return MaterialApp(
-            title: 'AI Translator',
+            title: 'Anyspeak',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,

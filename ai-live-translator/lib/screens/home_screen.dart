@@ -77,9 +77,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
+                // The background/foreground layers (same assets the Android
+                // adaptive launcher icon uses) are composited with the same
+                // margin here, so the glyph doesn't bleed to the edge the
+                // way the flat full-bleed icon.png does.
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(28),
-                  child: Image.asset('assets/icon/icon.png'),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset('assets/icon/background.png', fit: BoxFit.cover),
+                      Padding(
+                        padding: const EdgeInsets.all(13),
+                        child: Image.asset('assets/icon/foreground.png', fit: BoxFit.contain),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -88,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   colors: AppTheme.heroGradient,
                 ).createShader(bounds),
                 child: Text(
-                  'AI Live Translator',
+                  'Anyspeak',
                   textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
@@ -156,6 +169,7 @@ class _StartButton extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Ink(
           decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
               colors: AppTheme.heroGradient
                   .map((c) => c.withValues(alpha: 0.75))
@@ -165,6 +179,7 @@ class _StartButton extends StatelessWidget {
           ),
           child: InkWell(
             onTap: onPressed,
+            borderRadius: BorderRadius.circular(16),
             child: const SizedBox(
               height: 56,
               width: double.infinity,
