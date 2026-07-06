@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/languages_config.dart';
 import '../services/conversation_controller.dart';
+import '../widgets/detected_language_chip.dart';
 import '../widgets/language_badge.dart';
 import '../widgets/message_card.dart';
 import '../widgets/mic_button.dart';
@@ -34,8 +36,14 @@ class ConversationScreen extends StatelessWidget {
           builder: (context, controller, _) {
             return Column(
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 _StatusLine(controller: controller),
+                if (controller.lastMessage != null) ...[
+                  const SizedBox(height: 8),
+                  DetectedLanguageChip(
+                    language: LanguagesConfig.byCode(controller.lastMessage!.spokenLanguageCode),
+                  ),
+                ],
                 if (!controller.isOnline)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -49,7 +57,7 @@ class ConversationScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     child: _ErrorBanner(message: controller.errorMessage!),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 MicButton(
                   status: controller.status,
                   amplitude: controller.amplitude,
@@ -60,14 +68,10 @@ class ConversationScreen extends StatelessWidget {
                       : () {},
                 ),
                 if (controller.mode == ConversationMode.pushToTalk)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Hold to speak',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                const SizedBox(height: 16),
+                  Text('Hold to speak', style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 12),
+                _ModeSelector(controller: controller),
+                const SizedBox(height: 12),
                 Expanded(
                   child: controller.messages.isEmpty
                       ? Center(
@@ -89,7 +93,8 @@ class ConversationScreen extends StatelessWidget {
                               child: MessageCard(
                                 message: message,
                                 settings: controller.settings,
-                                onReplay: index == 0 ? controller.replayLast : null,
+                                onReplayOriginal: () => controller.replayOriginal(message),
+                                onReplayTranslation: () => controller.replayTranslation(message),
                               ),
                             );
                           },
@@ -111,6 +116,7 @@ class _StatusLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final text = switch (controller.status) {
       ListeningStatus.listening => 'Listening…',
       ListeningStatus.processing => 'Translating…',
@@ -120,7 +126,53 @@ class _StatusLine extends StatelessWidget {
           ? 'Auto conversation active'
           : 'Ready',
     };
-    return Text(text, style: Theme.of(context).textTheme.bodyMedium);
+    final dotColor = switch (controller.status) {
+      ListeningStatus.listening => scheme.tertiary,
+      ListeningStatus.processing => scheme.secondary,
+      ListeningStatus.speaking => scheme.primary,
+      ListeningStatus.error => scheme.error,
+      ListeningStatus.idle => scheme.outline,
+    };
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(text, style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    );
+  }
+}
+
+class _ModeSelector extends StatelessWidget {
+  const _ModeSelector({required this.controller});
+  final ConversationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SegmentedButton<ConversationMode>(
+        segments: const [
+          ButtonSegment(
+            value: ConversationMode.pushToTalk,
+            label: Text('Push to Talk'),
+            icon: Icon(Icons.touch_app_rounded, size: 18),
+          ),
+          ButtonSegment(
+            value: ConversationMode.auto,
+            label: Text('Auto Conversation'),
+            icon: Icon(Icons.podcasts_rounded, size: 18),
+          ),
+        ],
+        selected: {controller.mode},
+        onSelectionChanged: (s) => controller.setMode(s.first),
+      ),
+    );
   }
 }
 
@@ -157,17 +209,6 @@ class _BottomBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _BarButton(
-            icon: controller.mode == ConversationMode.auto
-                ? Icons.podcasts_rounded
-                : Icons.touch_app_rounded,
-            label: controller.mode == ConversationMode.auto ? 'Auto: On' : 'Auto: Off',
-            onTap: () => controller.setMode(
-              controller.mode == ConversationMode.auto
-                  ? ConversationMode.pushToTalk
-                  : ConversationMode.auto,
-            ),
-          ),
           _BarButton(
             icon: Icons.replay_rounded,
             label: 'Replay',

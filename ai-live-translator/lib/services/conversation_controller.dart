@@ -232,7 +232,7 @@ class ConversationController extends ChangeNotifier {
       notifyListeners();
 
       if (settings.autoPlayVoice && !muted) {
-        await _speak(message);
+        await replayTranslation(message);
       }
       status = ListeningStatus.idle;
     } on ApiException catch (e) {
@@ -260,16 +260,11 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
-  /// Speaks the side of the message the *listener* actually needs — i.e.
-  /// whichever language wasn't spoken. If English was spoken, the native
-  /// speaker needs to hear the native-language translation, and vice versa.
-  Future<void> _speak(TranslationMessage message) async {
+  Future<void> _speakSide(bool speakNative, String text) async {
     final apiKey = await SecureStorageService.instance.getApiKey();
     if (apiKey == null) return;
 
     final native = nativeLanguage;
-    final speakNative = message.wasEnglishSpoken;
-    final text = speakNative ? message.nativeText : message.englishText;
     final languageName = speakNative ? native.name : english.name;
     final voice = settings.voiceGender == VoiceGender.male
         ? 'onyx'
@@ -289,10 +284,27 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
+  /// Speaks the side of the message the *listener* actually needs — i.e.
+  /// whichever language wasn't spoken. If English was spoken, the native
+  /// speaker needs to hear the native-language translation, and vice versa.
+  Future<void> replayTranslation(TranslationMessage message) {
+    final speakNative = message.wasEnglishSpoken;
+    final text = speakNative ? message.nativeText : message.englishText;
+    return _speakSide(speakNative, text);
+  }
+
+  /// Speaks back the side that was actually said, in its own language —
+  /// lets a speaker confirm what the app heard.
+  Future<void> replayOriginal(TranslationMessage message) {
+    final speakNative = !message.wasEnglishSpoken;
+    final text = speakNative ? message.nativeText : message.englishText;
+    return _speakSide(speakNative, text);
+  }
+
   Future<void> replayLast() async {
     final msg = lastMessage;
     if (msg == null) return;
-    await _speak(msg);
+    await replayTranslation(msg);
   }
 
   @override

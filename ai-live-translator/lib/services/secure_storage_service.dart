@@ -14,11 +14,17 @@ class SecureStorageService {
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
-  Future<String?> getApiKey() =>
-      _storage.read(key: _apiKeyStorageKey).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => null,
-      );
+  Future<String?> getApiKey() async {
+    try {
+      return await _storage
+          .read(key: _apiKeyStorageKey)
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
+    } catch (_) {
+      // A locked/unavailable platform keystore should read as "no key yet"
+      // rather than crash the app — the user can simply re-enter it.
+      return null;
+    }
+  }
 
   Future<void> setApiKey(String apiKey) =>
       _storage.write(key: _apiKeyStorageKey, value: apiKey.trim());

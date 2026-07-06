@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/app_settings.dart';
 import '../models/translation_message.dart';
+import '../themes/app_theme.dart';
 
 /// Renders one conversation turn as three sections, matching the PRD:
 ///
@@ -17,22 +19,55 @@ class MessageCard extends StatelessWidget {
     super.key,
     required this.message,
     required this.settings,
-    this.onReplay,
+    this.onReplayOriginal,
+    this.onReplayTranslation,
   });
 
   final TranslationMessage message;
   final AppSettings settings;
-  final VoidCallback? onReplay;
+  final VoidCallback? onReplayOriginal;
+  final VoidCallback? onReplayTranslation;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
+    final accents = AppAccents.of(context);
     final spokeEnglish = message.wasEnglishSpoken;
 
     final originalText = spokeEnglish ? message.englishText : message.nativeText;
     final finalLabel = spokeEnglish ? 'Translation' : 'Meaning';
     final finalText = spokeEnglish ? message.nativeText : message.englishText;
+
+    final pronunciation = Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Label('Pronunciation', accents.pronunciation),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  message.nativeTransliteration,
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => _copyToClipboard(context, message.nativeTransliteration),
+                icon: const Icon(Icons.copy_rounded, size: 20),
+                tooltip: 'Copy pronunciation',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    final showPronunciation =
+        settings.showTransliteration && message.nativeTransliteration.isNotEmpty;
 
     return Card(
       child: Padding(
@@ -41,69 +76,65 @@ class MessageCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (settings.showOriginalScript) ...[
-              _Label('Original', scheme),
+              _Label('Original', accents.original),
               const SizedBox(height: 4),
-              Text(originalText, style: textTheme.headlineMedium),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(originalText, style: textTheme.headlineMedium),
+                  ),
+                  if (onReplayOriginal != null)
+                    IconButton(
+                      onPressed: onReplayOriginal,
+                      icon: const Icon(Icons.volume_up_rounded),
+                      tooltip: 'Replay original',
+                    ),
+                ],
+              ),
               const SizedBox(height: 14),
             ],
             // Pronunciation always describes the native-script text, so it
             // only appears right after whichever section is in that script.
-            if (!spokeEnglish &&
-                settings.showTransliteration &&
-                message.nativeTransliteration.isNotEmpty) ...[
-              _Label('Pronunciation', scheme),
-              const SizedBox(height: 4),
-              Text(
-                message.nativeTransliteration,
-                style: textTheme.bodyLarge?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
+            if (!spokeEnglish && showPronunciation) pronunciation,
             if (settings.showTranslation) ...[
-              _Label(finalLabel, scheme),
+              _Label(finalLabel, accents.meaning),
               const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(
                     child: Text(finalText, style: textTheme.titleLarge),
                   ),
-                  if (onReplay != null)
+                  if (onReplayTranslation != null)
                     IconButton(
-                      onPressed: onReplay,
+                      onPressed: onReplayTranslation,
                       icon: const Icon(Icons.volume_up_rounded),
-                      tooltip: 'Replay voice',
+                      tooltip: 'Replay translation',
                     ),
                 ],
               ),
             ],
-            if (spokeEnglish &&
-                settings.showTransliteration &&
-                message.nativeTransliteration.isNotEmpty) ...[
+            if (spokeEnglish && showPronunciation) ...[
               const SizedBox(height: 14),
-              _Label('Pronunciation', scheme),
-              const SizedBox(height: 4),
-              Text(
-                message.nativeTransliteration,
-                style: textTheme.bodyLarge?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
+              pronunciation,
             ],
           ],
         ),
       ),
     );
   }
+
+  void _copyToClipboard(BuildContext context, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pronunciation copied'), duration: Duration(seconds: 1)),
+    );
+  }
 }
 
 class _Label extends StatelessWidget {
-  const _Label(this.text, this.scheme);
+  const _Label(this.text, this.color);
   final String text;
-  final ColorScheme scheme;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +144,7 @@ class _Label extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.1,
-        color: scheme.primary,
+        color: color,
       ),
     );
   }
