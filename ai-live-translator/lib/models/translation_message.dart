@@ -1,32 +1,44 @@
-/// One turn of the conversation: what was said, how to sound it out, and
-/// what it means. Held only in memory — never written to disk or a database.
+/// One turn of the conversation. Held only in memory — never written to
+/// disk or a database.
+///
+/// English is always one side of the conversation, so instead of generic
+/// "original/translated" fields (which get confusing once you factor in
+/// who spoke first), this stores the English text and the native-script
+/// text directly. [MessageCard] decides the Original/Translation/Meaning
+/// labels from [spokenLanguageCode].
 class TranslationMessage {
   TranslationMessage({
     required this.id,
     required this.spokenLanguageCode,
-    required this.originalText,
-    required this.transliteration,
-    required this.translatedText,
-    required this.translatedLanguageCode,
+    required this.englishText,
+    required this.nativeText,
+    required this.nativeLanguageCode,
+    required this.nativeTransliteration,
     required this.timestamp,
   });
 
   final String id;
 
-  /// Language code of the original speech (as detected).
+  /// Language code of whichever side was actually spoken: 'en' or
+  /// [nativeLanguageCode].
   final String spokenLanguageCode;
 
-  /// What the speaker said, in its native script.
-  final String originalText;
+  /// The English-language text (whether it was the original or the
+  /// translation).
+  final String englishText;
 
-  /// Romanized pronunciation of the original text (e.g. "Nenu baagunnanu").
-  final String transliteration;
+  /// The native-script text in the non-English partner language (whether
+  /// it was the original or the translation).
+  final String nativeText;
 
-  /// English (or target-language) meaning.
-  final String translatedText;
+  /// Language code of the non-English partner language (e.g. 'te').
+  final String nativeLanguageCode;
 
-  /// Language code the translation was produced in.
-  final String translatedLanguageCode;
+  /// Romanized, English-letters pronunciation of [nativeText] — always
+  /// paired with the native-script text, regardless of which side spoke.
+  final String nativeTransliteration;
 
   final DateTime timestamp;
+
+  bool get wasEnglishSpoken => spokenLanguageCode == 'en';
 }

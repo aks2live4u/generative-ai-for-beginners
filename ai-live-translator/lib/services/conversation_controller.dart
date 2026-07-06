@@ -21,10 +21,13 @@ enum ConversationMode { pushToTalk, auto }
 enum ListeningStatus { idle, listening, processing, speaking, error }
 
 /// Orchestrates the full pipeline described in the PRD:
-/// record -> VAD/silence -> Whisper transcription -> GPT translation ->
+/// record -> VAD/silence -> transcription -> GPT translation ->
 /// OpenAI TTS -> playback, deleting every temp audio file along the way.
 /// This is the one place that wires the individual services together;
 /// screens only ever talk to this controller.
+///
+/// English is always one side of the conversation; [nativeLanguage] is the
+/// other side, chosen in Settings.
 class ConversationController extends ChangeNotifier {
   ConversationController({required this.settings}) {
     _watchConnectivity();
@@ -60,15 +63,22 @@ class ConversationController extends ChangeNotifier {
     });
   }
 
-  AppLanguage get languageA => LanguagesConfig.byCode(settings.fromLanguageCode);
-  AppLanguage get languageB => LanguagesConfig.byCode(settings.toLanguageCode);
+  AppLanguage get english => LanguagesConfig.english;
+  AppLanguage get nativeLanguage => LanguagesConfig.byCode(settings.toLanguageCode);
 
-  void swapLanguages() {
-    final from = settings.fromLanguageCode;
-    settings.fromLanguageCode = settings.toLanguageCode;
-    settings.toLanguageCode = from;
+  /// Clears the current conversation. Called when the user leaves the
+  /// conversation screen, starts a new one, or changes the language pair —
+  /// nothing here is ever persisted, so "clearing" just means forgetting it.
+  void clearConversation() {
+    messages.clear();
+    lastMessage = null;
+    errorMessage = null;
     notifyListeners();
   }
+
+  /// Call after the partner language changes in Settings, so a stale
+  /// conversation from a different language pair doesn't linger.
+  void onLanguagePairChanged() => clearConversation();
 
   void toggleMute() {
     muted = !muted;
@@ -141,7 +151,10 @@ class ConversationController extends ChangeNotifier {
     status = ListeningStatus.listening;
     _vad
       ..reset()
-      ..silenceThresholdDb = -50 + (settings.microphoneSensitivity * 30);
+      // Higher sensitivity setting -> lower (more negative) threshold ->
+      // picks up quieter speech. sensitivity 0 -> -20dB (loud only),
+      // sensitivity 1 -> -50dB (quiet speech counts too).
+      ..silenceThresholdDb = -20 - (settings.microphoneSensitivity * 30);
     notifyListeners();
 
     try {
@@ -190,27 +203,27 @@ class ConversationController extends ChangeNotifier {
       return _rearmIfAuto();
     }
 
+    final native = nativeLanguage;
+
     try {
-      final transcription =
-          await _speech.transcribe(audioFilePath: path, apiKey: apiKey);
+      final transcription = await _speech.transcribe(
+        audioFilePath: path,
+        apiKey: apiKey,
+        nativeLanguageName: native.name,
+      );
       final translation = await _translation.translate(
         transcript: transcription.text,
-        languageA: languageA,
-        languageB: languageB,
+        nativeLanguage: native,
         apiKey: apiKey,
       );
-
-      final targetCode = translation.sourceLanguageCode == languageA.code
-          ? languageB.code
-          : languageA.code;
 
       final message = TranslationMessage(
         id: const Uuid().v4(),
         spokenLanguageCode: translation.sourceLanguageCode,
-        originalText: translation.originalText,
-        transliteration: translation.transliteration,
-        translatedText: translation.translatedText,
-        translatedLanguageCode: targetCode,
+        englishText: translation.englishText,
+        nativeText: translation.nativeText,
+        nativeLanguageCode: native.code,
+        nativeTransliteration: translation.nativeTransliteration,
         timestamp: DateTime.now(),
       );
       messages.insert(0, message);
@@ -247,18 +260,28 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
+  /// Speaks the side of the message the *listener* actually needs — i.e.
+  /// whichever language wasn't spoken. If English was spoken, the native
+  /// speaker needs to hear the native-language translation, and vice versa.
   Future<void> _speak(TranslationMessage message) async {
     final apiKey = await SecureStorageService.instance.getApiKey();
     if (apiKey == null) return;
-    final targetLang = LanguagesConfig.byCode(message.translatedLanguageCode);
-    final voice =
-        settings.voiceGender == VoiceGender.male ? 'onyx' : targetLang.ttsVoice;
+
+    final native = nativeLanguage;
+    final speakNative = message.wasEnglishSpoken;
+    final text = speakNative ? message.nativeText : message.englishText;
+    final languageName = speakNative ? native.name : english.name;
+    final voice = settings.voiceGender == VoiceGender.male
+        ? 'onyx'
+        : (speakNative ? native.ttsVoice : english.ttsVoice);
+
     try {
       await _tts.speak(
-        text: message.translatedText,
+        text: text,
         apiKey: apiKey,
         voice: voice,
         speed: settings.speechSpeed,
+        languageName: languageName,
       );
     } on ApiException catch (e) {
       errorMessage = e.message;

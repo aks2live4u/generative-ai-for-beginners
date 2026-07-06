@@ -18,6 +18,7 @@ class SettingsController extends ChangeNotifier {
   static const _kShowTransliteration = 'show_transliteration';
   static const _kShowOriginal = 'show_original';
   static const _kShowTranslation = 'show_translation';
+  static const _kToLanguage = 'to_language_code';
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -29,6 +30,7 @@ class SettingsController extends ChangeNotifier {
     settings.showTransliteration = prefs.getBool(_kShowTransliteration) ?? true;
     settings.showOriginalScript = prefs.getBool(_kShowOriginal) ?? true;
     settings.showTranslation = prefs.getBool(_kShowTranslation) ?? true;
+    settings.toLanguageCode = prefs.getString(_kToLanguage) ?? 'te';
     notifyListeners();
   }
 
@@ -42,6 +44,13 @@ class SettingsController extends ChangeNotifier {
     await prefs.setBool(_kShowTransliteration, settings.showTransliteration);
     await prefs.setBool(_kShowOriginal, settings.showOriginalScript);
     await prefs.setBool(_kShowTranslation, settings.showTranslation);
+    await prefs.setString(_kToLanguage, settings.toLanguageCode);
+  }
+
+  void setNativeLanguage(String code) {
+    settings.toLanguageCode = code;
+    notifyListeners();
+    _persist();
   }
 
   void setThemeMode(AppThemeMode mode) {

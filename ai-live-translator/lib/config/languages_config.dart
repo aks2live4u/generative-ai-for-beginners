@@ -2,9 +2,8 @@ import '../models/language.dart';
 
 /// Single source of truth for every language the app knows about.
 ///
-/// To add a new Indian language: add one entry here and set [AppLanguage.available]
-/// to true. Nothing in services/ or screens/ needs to change — they all read
-/// from [LanguagesConfig.enabledLanguages].
+/// To add a language: add one entry here. Nothing in services/ or screens/
+/// needs to change — they all read from [LanguagesConfig.enabledLanguages].
 class LanguagesConfig {
   LanguagesConfig._();
 
@@ -28,102 +27,108 @@ class LanguagesConfig {
       name: 'Hindi',
       nativeName: 'हिन्दी',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'ta',
       name: 'Tamil',
       nativeName: 'தமிழ்',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'kn',
       name: 'Kannada',
       nativeName: 'ಕನ್ನಡ',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'ml',
       name: 'Malayalam',
       nativeName: 'മലയാളം',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'gu',
       name: 'Gujarati',
       nativeName: 'ગુજરાતી',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'mr',
       name: 'Marathi',
       nativeName: 'मराठी',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'pa',
       name: 'Punjabi',
       nativeName: 'ਪੰਜਾਬੀ',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'bn',
       name: 'Bengali',
       nativeName: 'বাংলা',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'or',
       name: 'Odia',
       nativeName: 'ଓଡ଼ିଆ',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'as',
       name: 'Assamese',
       nativeName: 'অসমীয়া',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'ur',
       name: 'Urdu',
       nativeName: 'اردو',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'kok',
       name: 'Konkani',
       nativeName: 'कोंकणी',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
     AppLanguage(
       code: 'sa',
       name: 'Sanskrit',
       nativeName: 'संस्कृतम्',
       ttsVoice: 'alloy',
-      available: false,
+      available: true,
     ),
   ];
 
-  /// Languages actually selectable in this build. MVP ships English + Telugu.
+  /// Languages actually selectable in this build.
   static List<AppLanguage> get enabledLanguages =>
       all.where((l) => l.available).toList(growable: false);
+
+  /// English is always one side of the conversation; these are the
+  /// available "other" languages a user can pair it with in Settings.
+  static List<AppLanguage> get partnerLanguages =>
+      enabledLanguages.where((l) => l.code != english.code).toList(growable: false);
 
   static AppLanguage byCode(String code) =>
       all.firstWhere((l) => l.code == code, orElse: () => all.first);
 
-  /// Default MVP conversation pair: English <-> Telugu.
-  static AppLanguage get defaultFrom => byCode('en');
-  static AppLanguage get defaultTo => byCode('te');
+  static AppLanguage get english => byCode('en');
+
+  /// Default partner language: Telugu.
+  static AppLanguage get defaultPartner => byCode('te');
 }

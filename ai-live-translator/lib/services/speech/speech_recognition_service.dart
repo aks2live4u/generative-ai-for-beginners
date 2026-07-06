@@ -7,12 +7,13 @@ import '../../models/transcription_result.dart';
 import '../../utils/api_exception.dart';
 import '../../utils/constants.dart';
 
-/// Speech-to-text via OpenAI's Whisper endpoint
+/// Speech-to-text via OpenAI's transcription endpoint
 /// (POST https://api.openai.com/v1/audio/transcriptions).
 class SpeechRecognitionService {
   Future<TranscriptionResult> transcribe({
     required String audioFilePath,
     required String apiKey,
+    String? nativeLanguageName,
   }) async {
     final file = File(audioFilePath);
     if (!await file.exists()) {
@@ -23,8 +24,16 @@ class SpeechRecognitionService {
         http.MultipartRequest('POST', Uri.parse(ApiConstants.transcriptionEndpoint))
           ..headers['Authorization'] = 'Bearer $apiKey'
           ..fields['model'] = ApiConstants.transcriptionModel
-          ..fields['response_format'] = 'verbose_json'
+          ..fields['response_format'] = 'json'
           ..files.add(await http.MultipartFile.fromPath('file', audioFilePath));
+
+    // Biases the decoder toward the two languages actually in play, since
+    // this is a closed English/native-language conversation, not open
+    // vocabulary in any language.
+    if (nativeLanguageName != null) {
+      request.fields['prompt'] =
+          'A conversation in English or $nativeLanguageName.';
+    }
 
     http.StreamedResponse streamed;
     try {

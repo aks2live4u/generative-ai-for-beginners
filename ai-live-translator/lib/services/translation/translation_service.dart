@@ -6,53 +6,65 @@ import '../../models/language.dart';
 import '../../utils/api_exception.dart';
 import '../../utils/constants.dart';
 
-/// Structured result of one translation pass: exactly the three sections
-/// the PRD requires — Original, Transliteration, Translation — plus which
-/// of the two configured languages the speaker was actually using.
+/// Structured result of one translation pass. English is always one side
+/// of the conversation, so the result always carries both the English
+/// text and the native-script text, plus which one was actually spoken.
 class TranslationResult {
   TranslationResult({
     required this.sourceLanguageCode,
-    required this.originalText,
-    required this.transliteration,
-    required this.translatedText,
+    required this.englishText,
+    required this.nativeText,
+    required this.nativeTransliteration,
   });
 
   final String sourceLanguageCode;
-  final String originalText;
-  final String transliteration;
-  final String translatedText;
+  final String englishText;
+  final String nativeText;
+  final String nativeTransliteration;
 }
 
 /// Translation + transliteration via an OpenAI chat completion. This is
 /// where the PRD's translation prompt lives: translate naturally, preserve
-/// emotion and politeness, never explain or summarize, and always return
-/// the original, its transliteration, and the translation — nothing else.
-/// The model is asked to return that as strict JSON so the UI can render
-/// the three sections without brittle text parsing.
+/// emotion and politeness, never explain or summarize. The transliteration
+/// is always of the native-script text (whichever side it's on), since
+/// that's the side an English-only reader actually needs help sounding out.
 class TranslationService {
   Future<TranslationResult> translate({
     required String transcript,
-    required AppLanguage languageA,
-    required AppLanguage languageB,
+    required AppLanguage nativeLanguage,
     required String apiKey,
   }) async {
     final systemPrompt = '''
-You are a real-time interpreter for a live spoken conversation between a
-${languageA.name} speaker and a ${languageB.name} speaker.
+You are a real-time interpreter for a live spoken conversation between an
+English speaker and a ${nativeLanguage.name} speaker.
+
+The transcript you receive is ALWAYS either English or ${nativeLanguage.name} —
+never any other language. Speech-to-text can be noisy or misheard; if the
+transcript looks garbled or ambiguous, interpret it as whichever of these
+two languages is most plausible. Never respond in, or transliterate into,
+any language or script other than English and ${nativeLanguage.name}.
 
 Rules:
-- Translate naturally. Preserve emotion, tone, and politeness.
+- Translate naturally, the way people actually talk day to day — not
+  formal, textbook, or literary ${nativeLanguage.name}. Use the everyday
+  conversational register a native speaker would use with friends or
+  family, not a stiff word-for-word rendering. Grammar should still be
+  correct, just relaxed and natural rather than overly formal.
+- Preserve emotion, tone, and politeness level from the original.
 - Do not explain. Do not summarize. Do not add commentary or notes.
-- Decide which of these two languages the input is written in: "${languageA.code}" (${languageA.name}) or "${languageB.code}" (${languageB.name}).
-- Translate it into the OTHER of those two languages.
-- Provide a romanized, English-letters transliteration showing how the
-  ORIGINAL text is pronounced, readable by someone who cannot read that script.
-- If the original is already in English (or another Latin-script language),
-  the transliteration is simply the original text.
+- Determine whether the transcript is English or ${nativeLanguage.name}.
+- Produce BOTH: the English-language version of this message, and the
+  ${nativeLanguage.name}-script version of this message. One of the two is
+  the original (fix minor speech-recognition errors but keep its meaning),
+  the other is your natural translation of it.
+- Provide a romanized, English-letters transliteration of the
+  ${nativeLanguage.name}-script text specifically, showing how to pronounce
+  it aloud. Do not transliterate the English text — it's already Latin
+  script.
 
-Respond with ONLY strict JSON, no markdown fences, no extra text, in exactly
-this shape:
-{"source_language":"<language code>","original_text":"<cleaned original text>","transliteration":"<romanized pronunciation of the original>","translated_text":"<natural translation in the other language>"}
+Respond with ONLY strict JSON, no markdown fences, no extra text, in
+exactly this shape:
+{"source_language":"en or ${nativeLanguage.code}","english_text":"<the English-language version>","native_text":"<the ${nativeLanguage.name}-script version>","native_transliteration":"<romanized pronunciation of native_text>"}
 ''';
 
     final body = jsonEncode({
@@ -97,22 +109,22 @@ this shape:
     }
 
     final sourceCode = (parsed['source_language'] as String? ?? '').trim();
-    final original = (parsed['original_text'] as String? ?? transcript).trim();
-    final transliteration = (parsed['transliteration'] as String? ?? '').trim();
-    final translated = (parsed['translated_text'] as String? ?? '').trim();
+    final englishText = (parsed['english_text'] as String? ?? '').trim();
+    final nativeText = (parsed['native_text'] as String? ?? '').trim();
+    final nativeTransliteration =
+        (parsed['native_transliteration'] as String? ?? '').trim();
 
-    if (translated.isEmpty) {
+    if (englishText.isEmpty || nativeText.isEmpty) {
       throw ApiException('Language not recognised. Try again.');
     }
 
     return TranslationResult(
-      sourceLanguageCode:
-          sourceCode == languageA.code || sourceCode == languageB.code
-              ? sourceCode
-              : languageA.code,
-      originalText: original,
-      transliteration: transliteration,
-      translatedText: translated,
+      sourceLanguageCode: sourceCode == 'en' || sourceCode == nativeLanguage.code
+          ? sourceCode
+          : 'en',
+      englishText: englishText,
+      nativeText: nativeText,
+      nativeTransliteration: nativeTransliteration,
     );
   }
 

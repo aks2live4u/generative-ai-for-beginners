@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/languages_config.dart';
 import '../models/app_settings.dart';
+import '../services/conversation_controller.dart';
 import '../services/secure_storage_service.dart';
 import '../services/settings_controller.dart';
 
@@ -18,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _obscureKey = true;
   bool _loadingKey = true;
   bool _hasSavedKey = false;
+  bool _editingKey = false;
   String? _saveMessage;
 
   @override
@@ -31,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _hasSavedKey = key != null && key.isNotEmpty;
+      _editingKey = !_hasSavedKey;
       _loadingKey = false;
     });
   }
@@ -43,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _hasSavedKey = true;
+      _editingKey = false;
       _saveMessage = 'API key saved securely on this device.';
     });
   }
@@ -52,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() {
       _hasSavedKey = false;
+      _editingKey = true;
       _saveMessage = 'API key removed.';
     });
   }
@@ -73,14 +79,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           _SectionTitle('OpenAI API Key'),
-          Text(
-            _hasSavedKey
-                ? 'A key is saved on this device (hidden for your security).'
-                : 'No key saved yet. Translation will not work until you add one.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          if (!_loadingKey)
+          if (_loadingKey)
+            const SizedBox.shrink()
+          else if (!_editingKey) ...[
+            Row(
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    color: Theme.of(context).colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('API key saved on this device.')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => setState(() => _editingKey = true),
+                  child: const Text('Change'),
+                ),
+                TextButton(onPressed: _clearKey, child: const Text('Remove')),
+              ],
+            ),
+          ] else ...[
+            Text(
+              _hasSavedKey
+                  ? 'Enter a new key to replace the saved one.'
+                  : 'No key saved yet. Translation will not work until you add one.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _apiKeyController,
               obscureText: _obscureKey,
@@ -93,39 +120,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveKey,
-                  child: const Text('Save Key'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saveKey,
+                    child: const Text('Save Key'),
+                  ),
                 ),
+                if (_hasSavedKey) ...[
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    onPressed: () => setState(() => _editingKey = false),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => launchUrl(
+                Uri.parse('https://platform.openai.com/api-keys'),
+                mode: LaunchMode.externalApplication,
               ),
-              const SizedBox(width: 12),
-              if (_hasSavedKey)
-                OutlinedButton(onPressed: _clearKey, child: const Text('Remove')),
-            ],
-          ),
-          if (_saveMessage != null)
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Get an OpenAI API key'),
+            ),
+          ],
+          if (_saveMessage != null && !_editingKey)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(_saveMessage!,
                   style: TextStyle(color: Theme.of(context).colorScheme.primary)),
             ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () => launchUrl(
-              Uri.parse('https://platform.openai.com/api-keys'),
-              mode: LaunchMode.externalApplication,
-            ),
-            icon: const Icon(Icons.open_in_new_rounded),
-            label: const Text('Get an OpenAI API key'),
-          ),
           const Divider(height: 40),
 
           _SectionTitle('Language Pair'),
-          const Text('English ↔ Telugu (more Indian languages coming soon)'),
+          const Text('English, paired with:'),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: settings.toLanguageCode,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            items: [
+              for (final lang in LanguagesConfig.partnerLanguages)
+                DropdownMenuItem(value: lang.code, child: Text(lang.name)),
+            ],
+            onChanged: (code) {
+              if (code == null) return;
+              settingsController.setNativeLanguage(code);
+              context.read<ConversationController>().onLanguagePairChanged();
+            },
+          ),
           const Divider(height: 40),
 
           _SectionTitle('Appearance'),

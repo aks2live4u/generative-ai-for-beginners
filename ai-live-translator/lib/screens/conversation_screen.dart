@@ -15,11 +15,19 @@ class ConversationScreen extends StatelessWidget {
       appBar: AppBar(
         title: Consumer<ConversationController>(
           builder: (context, controller, _) => LanguageBadge(
-            languageA: controller.languageA,
-            languageB: controller.languageB,
-            onSwap: controller.swapLanguages,
+            english: controller.english,
+            nativeLanguage: controller.nativeLanguage,
           ),
         ),
+        actions: [
+          Consumer<ConversationController>(
+            builder: (context, controller, _) => IconButton(
+              onPressed: controller.messages.isEmpty ? null : controller.clearConversation,
+              icon: const Icon(Icons.delete_outline_rounded),
+              tooltip: 'Clear conversation',
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Consumer<ConversationController>(
@@ -149,11 +157,6 @@ class _BottomBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _BarButton(
-            icon: Icons.swap_horiz_rounded,
-            label: 'Swap',
-            onTap: controller.swapLanguages,
-          ),
           _BarButton(
             icon: controller.mode == ConversationMode.auto
                 ? Icons.podcasts_rounded

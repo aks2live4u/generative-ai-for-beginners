@@ -3,8 +3,15 @@ import 'package:flutter/material.dart';
 import '../models/app_settings.dart';
 import '../models/translation_message.dart';
 
-/// Renders one conversation turn as the three sections the PRD requires:
-/// Original, Pronunciation (transliteration), and Meaning (translation).
+/// Renders one conversation turn as three sections, matching the PRD:
+///
+/// - English spoken -> Original (English) / Translation (native script) /
+///   Pronunciation (of the native-script translation).
+/// - Native language spoken -> Original (native script) / Pronunciation
+///   (of it) / Meaning (English).
+///
+/// Either way, the transliteration always belongs to the native-script
+/// text specifically — never to English, which needs no sounding-out help.
 class MessageCard extends StatelessWidget {
   const MessageCard({
     super.key,
@@ -21,6 +28,11 @@ class MessageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final spokeEnglish = message.wasEnglishSpoken;
+
+    final originalText = spokeEnglish ? message.englishText : message.nativeText;
+    final finalLabel = spokeEnglish ? 'Translation' : 'Meaning';
+    final finalText = spokeEnglish ? message.nativeText : message.englishText;
 
     return Card(
       child: Padding(
@@ -31,15 +43,18 @@ class MessageCard extends StatelessWidget {
             if (settings.showOriginalScript) ...[
               _Label('Original', scheme),
               const SizedBox(height: 4),
-              Text(message.originalText, style: textTheme.headlineMedium),
+              Text(originalText, style: textTheme.headlineMedium),
               const SizedBox(height: 14),
             ],
-            if (settings.showTransliteration &&
-                message.transliteration.isNotEmpty) ...[
+            // Pronunciation always describes the native-script text, so it
+            // only appears right after whichever section is in that script.
+            if (!spokeEnglish &&
+                settings.showTransliteration &&
+                message.nativeTransliteration.isNotEmpty) ...[
               _Label('Pronunciation', scheme),
               const SizedBox(height: 4),
               Text(
-                message.transliteration,
+                message.nativeTransliteration,
                 style: textTheme.bodyLarge?.copyWith(
                   fontStyle: FontStyle.italic,
                   color: scheme.onSurfaceVariant,
@@ -48,12 +63,12 @@ class MessageCard extends StatelessWidget {
               const SizedBox(height: 14),
             ],
             if (settings.showTranslation) ...[
-              _Label('Meaning', scheme),
+              _Label(finalLabel, scheme),
               const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(
-                    child: Text(message.translatedText, style: textTheme.titleLarge),
+                    child: Text(finalText, style: textTheme.titleLarge),
                   ),
                   if (onReplay != null)
                     IconButton(
@@ -62,6 +77,20 @@ class MessageCard extends StatelessWidget {
                       tooltip: 'Replay voice',
                     ),
                 ],
+              ),
+            ],
+            if (spokeEnglish &&
+                settings.showTransliteration &&
+                message.nativeTransliteration.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _Label('Pronunciation', scheme),
+              const SizedBox(height: 4),
+              Text(
+                message.nativeTransliteration,
+                style: textTheme.bodyLarge?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ],
           ],

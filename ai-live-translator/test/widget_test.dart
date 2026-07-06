@@ -5,15 +5,16 @@ import 'package:ai_live_translator/services/speech/voice_activity_detector.dart'
 
 void main() {
   group('LanguagesConfig', () {
-    test('MVP ships exactly English and Telugu enabled', () {
+    test('English and Telugu are enabled', () {
       final codes = LanguagesConfig.enabledLanguages.map((l) => l.code).toSet();
-      expect(codes, {'en', 'te'});
+      expect(codes, containsAll(['en', 'te']));
     });
 
-    test('every future language is present but disabled until launched', () {
-      final future = LanguagesConfig.all.where((l) => !l.available);
-      expect(future.map((l) => l.code), contains('hi'));
-      expect(future.map((l) => l.code), contains('ta'));
+    test('every official Indian language is enabled as a partner option', () {
+      final partnerCodes = LanguagesConfig.partnerLanguages.map((l) => l.code);
+      expect(partnerCodes, contains('hi'));
+      expect(partnerCodes, contains('ta'));
+      expect(partnerCodes, isNot(contains('en')));
     });
 
     test('byCode resolves a known language', () {

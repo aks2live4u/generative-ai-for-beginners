@@ -24,6 +24,7 @@ class TtsService {
     required String apiKey,
     required String voice,
     double speed = 1.0,
+    String? languageName,
   }) async {
     if (text.trim().isEmpty) return;
 
@@ -42,6 +43,11 @@ class TtsService {
               'voice': voice,
               'speed': speed,
               'response_format': 'mp3',
+              if (languageName != null)
+                'instructions':
+                    'Speak clearly and naturally in $languageName, using '
+                    'accurate native pronunciation, at a measured, '
+                    'easy-to-follow pace.',
             }),
           )
           .timeout(const Duration(seconds: 20));

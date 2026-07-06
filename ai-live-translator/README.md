@@ -1,13 +1,14 @@
 # AI Live Translator
 
-A privacy-first, live speech translator for English ↔ Telugu conversations,
-built with Flutter. No login, no accounts, no saved conversations — audio is
-deleted from the device immediately after each translation.
+A privacy-first, live speech translator for English ↔ [any official Indian
+language] conversations, built with Flutter. No login, no accounts, no saved
+conversations — audio is deleted from the device immediately after each
+translation.
 
 This implements the pipeline from the PRD:
 
 ```
-Record → Voice Activity Detection → Whisper (speech-to-text) →
+Record → Voice Activity Detection → Transcription (speech-to-text) →
 GPT (translation + transliteration) → OpenAI TTS (voice) → Playback
 ```
 
@@ -19,9 +20,22 @@ The app is built around **OpenAI's API**, not Wispr:
 
 | Pipeline step | OpenAI API used | Model (see `lib/utils/constants.dart`) |
 |---|---|---|
-| Speech-to-text | `POST /v1/audio/transcriptions` | `whisper-1` |
+| Speech-to-text | `POST /v1/audio/transcriptions` | `gpt-4o-transcribe` |
 | Translation + transliteration | `POST /v1/chat/completions` | `gpt-4o-mini` |
-| Text-to-speech | `POST /v1/audio/speech` | `tts-1` |
+| Text-to-speech | `POST /v1/audio/speech` | `gpt-4o-mini-tts` |
+
+**A known limitation, honestly stated:** OpenAI's speech and voice models
+are strongest for English and a handful of major languages. Recognition
+accuracy and voice pronunciation quality for Telugu (and other Indian
+languages) are noticeably weaker than for English — you may see
+transcription mistakes on unclear or accented speech, and the synthesized
+voice can sound non-native. This is a real constraint of the underlying
+models, not a bug in this app, and it isn't something a system prompt can
+fully fix. If native-quality Indian-language voice/ASR becomes a hard
+requirement, that would mean adding a second, language-specialized
+provider (e.g. Google Cloud or Azure Speech, which have dedicated Indian
+language voices) alongside OpenAI — a bigger change than swapping a model
+name, and out of scope for this single-API-key build.
 
 **Why OpenAI and not Wispr:** Wispr Flow is a dictation app (voice → typed
 text on your keyboard) — it doesn't publish a general developer API for
@@ -134,23 +148,30 @@ The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
 ## 3. How the app works
 
-- **Home screen** — "Start Conversation" and "Settings". Nothing else.
+- **Home screen** — "Start Conversation", with a Settings gear in the top
+  right. Nothing else.
 - **Conversation screen** —
   - **Push-to-talk (default):** hold the mic button, speak, release. The app
-    transcribes, detects which of the two languages was spoken, translates,
-    and (unless muted) speaks the translation aloud.
+    transcribes, detects whether English or the partner language was
+    spoken, translates, and (unless muted) speaks the translation aloud.
   - **Auto Conversation mode:** tap the "Auto" button. The app listens
     continuously and uses a simple energy-based voice activity detector
     (`lib/services/speech/voice_activity_detector.dart`) to notice when a
     speaker has finished a sentence, so no one has to tap anything —
     useful while traveling.
   - Every message shows **Original**, **Pronunciation** (romanized
-    transliteration), and **Meaning** (translation), matching the PRD's
-    three-part message layout.
-  - **Swap**, **Replay**, and **Mute** are available at the bottom.
-- **Settings screen** — API key entry, theme (light/dark/auto), voice
-  gender, speech speed, auto-play, microphone sensitivity, and toggles for
-  which of the three message sections to show.
+    transliteration of the native-script text, whichever side it's on),
+    and **Translation/Meaning**, matching the PRD's three-part layout for
+    both directions.
+  - The conversation is cleared automatically when you leave this screen —
+    it only exists for the current session — or tap the trash icon in the
+    top right to clear it immediately without leaving.
+  - **Replay** and **Mute** are available at the bottom.
+- **Settings screen** — API key entry (collapses to a "saved" state once
+  you've entered one, rather than always showing the raw input), a
+  dropdown to pick which Indian language partners with English, theme
+  (light/dark/auto), voice gender, speech speed, auto-play, microphone
+  sensitivity, and toggles for which message sections to show.
 
 ---
 
@@ -158,27 +179,28 @@ The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
 - No login, no accounts, no analytics, no ads.
 - No conversation history is ever written to disk — messages live only in
-  memory for the current session and disappear when the app closes.
-- Recorded audio is written to a temp file only long enough to send it to
-  Whisper, then deleted (`AudioRecorderService.deleteFile`). Synthesized
-  speech audio is deleted the same way after playback.
+  memory for the current session, and are cleared the moment you leave the
+  conversation screen (or tap Clear), not just when the app fully closes.
+- Recorded audio is written to a temp file only long enough to transcribe
+  it, then deleted (`AudioRecorderService.deleteFile`). Synthesized speech
+  audio is deleted the same way after playback.
 - The only thing persisted locally is non-sensitive UI preferences (theme,
-  voice, toggles) via `shared_preferences`, and the API key via
-  `flutter_secure_storage`. Neither is a conversation database.
+  voice, language pair, toggles) via `shared_preferences`, and the API key
+  via `flutter_secure_storage`. Neither is a conversation database.
 - All network calls are HTTPS, directly to `api.openai.com`, with the key
   sent only as a bearer token.
 
 ---
 
-## 5. Adding a new language later
+## 5. Language pair
 
-Everything language-specific lives in one file:
-`lib/config/languages_config.dart`. Flip an `AppLanguage`'s `available` flag
-to `true` (and give it a real `ttsVoice`) to enable it — no changes needed
-in the pipeline, screens, or services. The PRD's full future list (Hindi,
-Tamil, Kannada, Malayalam, Gujarati, Marathi, Punjabi, Bengali, Odia,
-Assamese, Urdu, Konkani, Sanskrit, ...) is already stubbed out there,
-disabled, ready to switch on.
+English is always one side of the conversation. Every official Indian
+language (Hindi, Tamil, Kannada, Malayalam, Gujarati, Marathi, Punjabi,
+Bengali, Odia, Assamese, Urdu, Konkani, Sanskrit, plus Telugu) is enabled
+as a selectable partner language in **Settings → Language Pair** — pick
+whichever one you're actually using. Everything language-specific lives in
+`lib/config/languages_config.dart`; adding a language that isn't already
+listed there is a one-entry change, no pipeline/screen code touched.
 
 ---
 
@@ -194,7 +216,7 @@ lib/
     secure_storage_service.dart    API key storage
     connectivity_service.dart      Online/offline detection
     settings_controller.dart       User preferences (non-sensitive)
-    speech/                        Recording, VAD, Whisper transcription
+    speech/                        Recording, VAD, transcription
     translation/                   GPT translation + transliteration
     tts/                           OpenAI text-to-speech + playback
   screens/                  home_screen, conversation_screen, settings_screen
