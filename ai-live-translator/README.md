@@ -64,17 +64,33 @@ as the `Authorization` header on direct HTTPS calls to `api.openai.com`.
 **Opening the project:**
 
 1. Unzip the project you received.
-2. Android Studio → **File → Open** → select the `ai-live-translator` folder
-   (the one containing `pubspec.yaml`).
-3. Let Android Studio index the project and run `pub get` automatically (or
-   run it yourself: `flutter pub get`).
-4. Connect an Android phone (USB debugging on) or start an emulator —
+2. **Before opening Android Studio at all**, open a terminal, `cd` into the
+   unzipped `ai-live-translator` folder, and run:
+   ```
+   flutter pub get
+   ```
+   This is the step that creates `android/local.properties` (with the
+   `flutter.sdk` path pointing at your Flutter install) and
+   `.dart_tool/package_config.json`. Neither file ships in the zip — they're
+   machine-specific and Flutter's own tooling regenerates them, which is why
+   this has to run first. If you skip this and let Android Studio run a
+   Gradle sync first, you'll hit `flutter.sdk not set in local.properties`
+   or `package_config.json does not exist`.
+3. Only now open Android Studio → **File → Open** → select the
+   `ai-live-translator` folder (the one containing `pubspec.yaml`).
+4. Let Android Studio finish indexing/syncing (it should reuse what
+   `pub get` already created).
+5. Connect an Android phone (USB debugging on) or start an emulator —
    **you'll need a real microphone**, so a physical device gives the truest
    test of the live conversation experience.
-5. Click **Run** (▶) with `main.dart` as the entry point.
-6. First launch will prompt for microphone permission — allow it.
-7. Go to **Settings** in the app and add your OpenAI API key (see above)
+6. Click **Run** (▶) with `main.dart` as the entry point.
+7. First launch will prompt for microphone permission — allow it.
+8. Go to **Settings** in the app and add your OpenAI API key (see above)
    before starting a conversation.
+
+If you ever see `flutter.sdk not set in local.properties`, it means step 2
+was skipped or ran from the wrong folder — rerun `flutter pub get` from
+inside `ai-live-translator` (not from `android/`) and re-sync.
 
 **Building a release APK** (from a terminal in the project folder):
 
