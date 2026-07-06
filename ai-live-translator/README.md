@@ -84,6 +84,23 @@ flutter build apk --release
 
 The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
 
+**Troubleshooting:**
+
+- **`.dart_tool/package_config.json does not exist` / build fails immediately.**
+  Run `flutter pub get` once from a terminal *inside* the `ai-live-translator`
+  folder before running or building. Android Studio normally does this
+  automatically on open, but if a Gradle build starts before that finishes
+  (or you opened the wrong folder), this file won't exist yet.
+- **Warnings about outdated Gradle/AGP/Kotlin versions.** The `android/`
+  folder here was generated against Flutter 3.44.4 (Gradle 9.1.0, AGP 9.0.1,
+  Kotlin 2.3.20), which are current as of this writing. If your installed
+  Flutter SDK is newer still and warns about these being outdated, run
+  `flutter upgrade` and then `flutter create .` from the project root to
+  regenerate `android/` against your version — it will only touch the
+  generated Gradle/platform files, not your `lib/` code.
+- Always run `flutter pub get` from the project root (the folder containing
+  `pubspec.yaml`), not from `android/`.
+
 ---
 
 ## 3. How the app works
