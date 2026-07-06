@@ -116,6 +116,19 @@ The APK is written to `build/app/outputs/flutter-apk/app-release.apk`.
   generated Gradle/platform files, not your `lib/` code.
 - Always run `flutter pub get` from the project root (the folder containing
   `pubspec.yaml`), not from `android/`.
+- **`flutter.sdk not set in local.properties`.** Same root cause as above:
+  `android/local.properties` is machine-specific (it records the path to
+  *your* Flutter install), so it isn't shipped in the zip — running
+  `flutter pub get` is what creates it. If Android Studio ran a Gradle sync
+  before you did that, you'll see this error. Fix: run `flutter pub get`
+  from the project root, then re-sync.
+- **Build fails inside `record_linux.dart`** with errors like `class
+  'RecordLinux' is missing implementations for ... startStream`. This was a
+  version-mismatch bug between the `record` package and its `record_linux`
+  companion in older `record` releases — fixed by pinning `record: ^7.1.1`
+  in `pubspec.yaml` (already done in this project). If you still see it,
+  delete `pubspec.lock` and run `flutter pub get` again to force
+  re-resolution.
 
 ---
 
