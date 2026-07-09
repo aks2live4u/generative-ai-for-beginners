@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -50,7 +52,15 @@ import com.aivideotranscriber.util.LanguageOptions
 @Composable
 fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
     val context = LocalContext.current
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            viewModel.pickedFileUri = uri
+            viewModel.pickedFileName = queryDisplayName(context, uri)
+        }
+    }
+    // The system Photo Picker (used for video, above) only supports photos/videos - it has no
+    // concept of audio files - so a plain document picker is used for those instead.
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             viewModel.pickedFileUri = uri
             viewModel.pickedFileName = queryDisplayName(context, uri)
@@ -94,20 +104,40 @@ fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
             }
         }
 
-        OutlinedButton(
-            onClick = {
-                filePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-        ) {
-            Icon(Icons.Filled.UploadFile, contentDescription = null)
-            Text(
-                viewModel.pickedFileName ?: "Choose Video",
-                modifier = Modifier.padding(start = 8.dp),
-            )
+        if (viewModel.pickedFileName != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Icon(Icons.Filled.UploadFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Text(
+                    viewModel.pickedFileName!!,
+                    modifier = Modifier.padding(start = 8.dp),
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(
+                onClick = {
+                    videoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                },
+                modifier = Modifier.weight(1f).height(56.dp),
+            ) {
+                Icon(Icons.Filled.Movie, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Video", modifier = Modifier.padding(start = 6.dp))
+            }
+            OutlinedButton(
+                onClick = {
+                    audioPicker.launch(arrayOf("audio/*"))
+                },
+                modifier = Modifier.weight(1f).height(56.dp),
+            ) {
+                Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Audio", modifier = Modifier.padding(start = 6.dp))
+            }
         }
         Text(
-            "Pick a video from your gallery or files. Stays on your phone — nothing is copied or uploaded anywhere.",
+            "Pick a video from your gallery, or an audio file (MP3, WAV, M4A, AAC, FLAC, OGG). " +
+                "Stays on your phone — nothing is copied or uploaded anywhere.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),

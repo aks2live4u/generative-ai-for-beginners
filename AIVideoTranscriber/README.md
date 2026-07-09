@@ -17,8 +17,10 @@ is no backend server, no account, no analytics, and nothing you transcribe ever 
 
 ## What's implemented
 
-- Pick a video via Android's system **Photo Picker** — shows your gallery/camera roll directly,
-  not just a raw file browser.
+- Pick a **video** via Android's system Photo Picker — shows your gallery/camera roll directly,
+  not just a raw file browser — or an **audio** file (MP3, WAV, M4A, AAC, FLAC, OGG - voice
+  memos, podcast exports, meeting recordings, etc.) via a document picker, since the Photo
+  Picker only understands photos/videos.
 - **No link/URL input.** This was tried, but every plausible use case for it was a social
   platform share link (Facebook, YouTube, Instagram, TikTok...), which don't point to an actual
   video file — they point to a webpage, and turning that into a real download requires a scraper

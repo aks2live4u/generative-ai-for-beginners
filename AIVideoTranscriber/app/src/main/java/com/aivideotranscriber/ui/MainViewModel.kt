@@ -21,7 +21,8 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 private const val SUPPORTED_EXTENSIONS_MESSAGE =
-    "Supported formats: MP4, MOV, MKV, AVI, WEBM, M4V, FLV, 3GP, MPEG."
+    "Supported video formats: MP4, MOV, MKV, AVI, WEBM, M4V, FLV, 3GP, MPEG. " +
+        "Supported audio formats: MP3, WAV, M4A, AAC, FLAC, OGG."
 
 class MainViewModel : ViewModel() {
 
