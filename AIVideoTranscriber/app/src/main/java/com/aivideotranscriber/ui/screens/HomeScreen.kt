@@ -2,7 +2,9 @@ package com.aivideotranscriber.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,10 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Mic
@@ -21,19 +24,13 @@ import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -53,7 +51,6 @@ import com.aivideotranscriber.ui.InputMode
 import com.aivideotranscriber.ui.MainViewModel
 import com.aivideotranscriber.util.LanguageOptions
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
     val context = LocalContext.current
@@ -101,19 +98,21 @@ fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
             }
         }
 
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            SegmentedButton(
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ModeButton(
+                label = "Upload Video",
+                icon = Icons.Filled.UploadFile,
                 selected = viewModel.inputMode == InputMode.FILE,
                 onClick = { viewModel.inputMode = InputMode.FILE },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                icon = { Icon(Icons.Filled.UploadFile, contentDescription = null) },
-            ) { Text("Upload Video") }
-            SegmentedButton(
+                modifier = Modifier.weight(1f),
+            )
+            ModeButton(
+                label = "Video Link",
+                icon = Icons.Filled.Link,
                 selected = viewModel.inputMode == InputMode.URL,
                 onClick = { viewModel.inputMode = InputMode.URL },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                icon = { Icon(Icons.Filled.Link, contentDescription = null) },
-            ) { Text("Video Link") }
+                modifier = Modifier.weight(1f),
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -219,21 +218,41 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onCheck
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModeButton(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val content: @Composable () -> Unit = {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 6.dp), fontSize = 13.sp)
+    }
+    if (selected) {
+        Button(onClick = onClick, modifier = modifier) { content() }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) { content() }
+    }
+}
+
 @Composable
 private fun LanguageDropdown(selectedCode: String, onSelected: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = LanguageOptions.ALL.firstOrNull { it.code == selectedCode }?.displayName ?: "Auto Detect"
 
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = selectedName,
             onValueChange = {},
             readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        // Read-only text fields can still swallow taps for cursor placement, so a transparent
+        // clickable overlay is used to reliably open the menu instead of relying on the field.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clickable { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             LanguageOptions.ALL.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(option.displayName) },
