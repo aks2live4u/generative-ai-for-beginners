@@ -17,6 +17,18 @@ if(NOT EXISTS "${WHISPER_LIB_DIR}/CMakeLists.txt")
         "Run 'git submodule update --init --recursive' from the project root and re-sync.")
 endif()
 
+# whisper.cpp's whisper_print_system_info()/version code expects WHISPER_VERSION to be defined
+# by the build (normally done by whisper.cpp's own top-level CMakeLists.txt, which we bypass here
+# in favor of building src/whisper.cpp directly against ggml) - read it out of that file instead.
+file(READ "${WHISPER_LIB_DIR}/CMakeLists.txt" MAIN_CMAKE_CONTENT)
+string(REGEX MATCH "project\\(\"whisper\\.cpp\" VERSION ([0-9]+\\.[0-9]+\\.[0-9]+)\\)" VERSION_MATCH "${MAIN_CMAKE_CONTENT}")
+if(CMAKE_MATCH_1)
+    set(WHISPER_VERSION ${CMAKE_MATCH_1})
+else()
+    set(WHISPER_VERSION "unknown")
+endif()
+message(STATUS "whisper.cpp version: ${WHISPER_VERSION}")
+
 set(SOURCE_FILES
     ${WHISPER_LIB_DIR}/src/whisper.cpp
     ${CMAKE_SOURCE_DIR}/jni.c
@@ -38,6 +50,7 @@ function(build_library target_name)
 
     target_link_libraries(${target_name} ${LOG_LIB} android ggml)
     target_compile_definitions(${target_name} PUBLIC GGML_USE_CPU)
+    target_compile_definitions(${target_name} PRIVATE WHISPER_VERSION="${WHISPER_VERSION}")
 
     if (${target_name} STREQUAL "whisper_v8fp16_va")
         target_compile_options(${target_name} PRIVATE -march=armv8.2-a+fp16)
