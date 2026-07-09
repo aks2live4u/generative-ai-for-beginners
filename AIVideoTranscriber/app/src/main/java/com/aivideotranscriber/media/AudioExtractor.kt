@@ -5,7 +5,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import java.io.FileDescriptor
 import java.nio.ByteOrder
-import kotlin.math.roundToInt
 
 class NoAudioTrackException : Exception("This file doesn't seem to contain any audio to transcribe.")
 
@@ -13,6 +12,11 @@ class NoAudioTrackException : Exception("This file doesn't seem to contain any a
  * Decodes the first audio track of a video/audio file into mono 16 kHz float32 PCM samples,
  * the exact format whisper.cpp expects. Uses Android's built-in MediaExtractor/MediaCodec so no
  * FFmpeg dependency is needed.
+ *
+ * Downmixing and resampling happen incrementally, one decoded chunk at a time, instead of
+ * buffering the whole file at full resolution first - a 15-minute 44.1kHz stereo recording is
+ * ~300MB at full resolution vs. ~55MB as 16kHz mono, and materializing the full-resolution
+ * version (plus intermediate copies) was blowing past the heap on real devices.
  */
 object AudioExtractor {
     private const val TARGET_SAMPLE_RATE = 16_000
@@ -56,8 +60,16 @@ object AudioExtractor {
         val channelCount = audioFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         val durationUs = if (audioFormat.containsKey(MediaFormat.KEY_DURATION)) audioFormat.getLong(MediaFormat.KEY_DURATION) else 0L
 
-        val pcmChunks = ArrayList<ShortArray>()
-        var totalShorts = 0
+        // Pre-size the output buffer from the file's reported duration so it rarely (if ever)
+        // needs to grow/copy - falls back to a modest guess if duration isn't reported.
+        val estimatedOutputSamples = if (durationUs > 0) {
+            ((durationUs / 1_000_000.0) * TARGET_SAMPLE_RATE).toInt() + TARGET_SAMPLE_RATE
+        } else {
+            TARGET_SAMPLE_RATE * 60
+        }
+        val output = GrowableFloatBuffer(estimatedOutputSamples.coerceAtLeast(1024))
+        val resampler = StreamingResampler(sampleRate, TARGET_SAMPLE_RATE)
+
         val bufferInfo = MediaCodec.BufferInfo()
         var sawInputEos = false
         var sawOutputEos = false
@@ -92,8 +104,9 @@ object AudioExtractor {
                         val shortBuffer = outBuffer.order(ByteOrder.nativeOrder()).asShortBuffer()
                         val shorts = ShortArray(shortBuffer.remaining())
                         shortBuffer.get(shorts)
-                        pcmChunks.add(shorts)
-                        totalShorts += shorts.size
+
+                        val monoChunk = downmixToMono(shorts, channelCount)
+                        resampler.process(monoChunk, output)
                     }
                     codec.releaseOutputBuffer(outIndex, false)
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
@@ -101,22 +114,15 @@ object AudioExtractor {
                     }
                 }
             }
+            resampler.finish(output)
         } finally {
             codec.stop()
             codec.release()
             extractor.release()
         }
 
-        val interleaved = ShortArray(totalShorts)
-        var offset = 0
-        for (chunk in pcmChunks) {
-            System.arraycopy(chunk, 0, interleaved, offset, chunk.size)
-            offset += chunk.size
-        }
-
-        val mono = downmixToMono(interleaved, channelCount)
         onProgress(100)
-        return resampleTo16k(mono, sampleRate)
+        return output.toFloatArray()
     }
 
     private fun downmixToMono(samples: ShortArray, channelCount: Int): FloatArray {
@@ -134,20 +140,76 @@ object AudioExtractor {
         }
         return mono
     }
+}
 
-    private fun resampleTo16k(input: FloatArray, inputSampleRate: Int): FloatArray {
-        if (inputSampleRate == TARGET_SAMPLE_RATE || input.isEmpty()) return input
-        val ratio = TARGET_SAMPLE_RATE.toDouble() / inputSampleRate
-        val outputLength = (input.size * ratio).roundToInt()
-        val output = FloatArray(outputLength)
-        for (i in output.indices) {
-            val srcPos = i / ratio
-            val srcIndex = srcPos.toInt()
-            val frac = (srcPos - srcIndex).toFloat()
-            val s0 = input.getOrElse(srcIndex) { 0f }
-            val s1 = input.getOrElse(srcIndex + 1) { s0 }
-            output[i] = s0 + (s1 - s0) * frac
+/** A growable primitive float array - like ArrayList<Float> but without the boxing overhead,
+ *  which matters at the scale of tens of millions of audio samples. */
+private class GrowableFloatBuffer(initialCapacity: Int) {
+    private var array = FloatArray(initialCapacity.coerceAtLeast(16))
+    private var size = 0
+
+    fun append(value: Float) {
+        if (size == array.size) {
+            array = array.copyOf(array.size * 2)
         }
-        return output
+        array[size] = value
+        size++
+    }
+
+    fun toFloatArray(): FloatArray = if (size == array.size) array else array.copyOf(size)
+}
+
+/**
+ * Linear-interpolation resampler that consumes mono input one decoded chunk at a time and
+ * appends the resampled output as it goes, so the full-resolution audio is never held in memory
+ * all at once. Interpolating across a chunk boundary needs the last sample of the previous
+ * chunk, which is carried over between calls to [process].
+ */
+private class StreamingResampler(private val sourceSampleRate: Int, private val targetSampleRate: Int) {
+    private val ratio = targetSampleRate.toDouble() / sourceSampleRate
+    private var globalInputSamplesConsumed = 0L
+    private var nextOutputIndex = 0L
+    private var prevSample = 0f
+
+    fun process(chunk: FloatArray, dest: GrowableFloatBuffer) {
+        if (chunk.isEmpty()) return
+
+        if (sourceSampleRate == targetSampleRate) {
+            for (sample in chunk) dest.append(sample)
+            globalInputSamplesConsumed += chunk.size
+            prevSample = chunk.last()
+            return
+        }
+
+        val chunkStart = globalInputSamplesConsumed
+        val chunkEnd = chunkStart + chunk.size
+
+        while (true) {
+            val srcPosGlobal = nextOutputIndex / ratio
+            // Stop once producing the next sample would require data past this chunk - the
+            // remainder is resolved once the next chunk (or finish()) arrives.
+            if (srcPosGlobal >= chunkEnd - 1) break
+
+            val srcIndexGlobal = srcPosGlobal.toLong()
+            val frac = (srcPosGlobal - srcIndexGlobal).toFloat()
+            val localIndex0 = (srcIndexGlobal - chunkStart).toInt()
+            val s0 = if (localIndex0 < 0) prevSample else chunk[localIndex0]
+            val s1 = chunk[localIndex0 + 1]
+            dest.append(s0 + (s1 - s0) * frac)
+            nextOutputIndex++
+        }
+
+        globalInputSamplesConsumed = chunkEnd
+        prevSample = chunk.last()
+    }
+
+    /** Flushes any trailing output sample(s) that only needed data up to the very last input
+     *  sample (holds the tail steady rather than interpolating towards silence). */
+    fun finish(dest: GrowableFloatBuffer) {
+        if (sourceSampleRate == targetSampleRate) return
+        while (nextOutputIndex / ratio < globalInputSamplesConsumed) {
+            dest.append(prevSample)
+            nextOutputIndex++
+        }
     }
 }

@@ -94,9 +94,13 @@ are NDK/CMake version mismatches, which are easy to fix by bumping `ndkVersion` 
   level.
 - **No speaker diarization.** That needs a separate model (e.g. pyannote.audio) that doesn't
   have a mature on-device Android story yet.
-- **Whole file is decoded into memory** as 16 kHz mono float32 before transcription (no chunked
-  streaming), so very long videos (multi-hour) may run out of memory on lower-RAM devices. Keep
-  clips to well under an hour for reliable results.
+- **Whole file is transcribed in one pass** — whisper.cpp's API takes one full float array, so
+  the final 16kHz mono PCM (about 115 KB per minute of audio) is held in memory for the whole
+  `whisper_full()` call, and whisper.cpp's own internal buffers scale with audio length too. Audio
+  *decoding* itself is streamed chunk-by-chunk (see `AudioExtractor.kt`) so the original
+  full-resolution file is never fully buffered, but very long recordings (multi-hour) can still
+  run out of memory on lower-RAM devices during the transcription step itself. `android:largeHeap`
+  is enabled to give some headroom. Keep clips to well under an hour for reliable results.
 - **Filler-word cleanup is a simple regex heuristic**, not an AI model — it will occasionally
   strip intentional words like "like" or "actually". It's an optional toggle for that reason.
 - **Saving to Downloads on Android 9 (API 28) and below** needs the legacy
