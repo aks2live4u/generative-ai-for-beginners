@@ -144,7 +144,7 @@ fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Direct downloadable links only (.mp4, direct Drive/Dropbox links, etc). YouTube, Instagram, TikTok and similar platforms aren't supported — downloading from them generally breaks their Terms of Service.",
+                "Direct downloadable links only (.mp4, direct Drive/Dropbox links, etc). YouTube, Instagram, TikTok, Facebook and similar platforms aren't supported — their links point to a webpage, not the actual video file, and scraping them generally breaks their Terms of Service. Use Upload Video instead for videos from those apps.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp),

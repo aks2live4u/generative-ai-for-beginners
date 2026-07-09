@@ -41,6 +41,15 @@ object VideoDownloader {
                 throw DownloadException("This video is larger than the 2 GB on-device processing limit.")
             }
 
+            val contentType = response.header("Content-Type").orEmpty()
+            if (contentType.startsWith("text/html")) {
+                throw DownloadException(
+                    "That link points to a webpage, not a video file - this usually means it's a " +
+                        "YouTube/Instagram/TikTok/Facebook-style share link rather than a direct " +
+                        "download. Save the video to your phone and use Upload Video instead.",
+                )
+            }
+
             destination.parentFile?.mkdirs()
             body.byteStream().use { input ->
                 destination.outputStream().use { output ->
