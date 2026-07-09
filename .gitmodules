@@ -1,0 +1,3 @@
+[submodule "AIVideoTranscriber/app/src/main/cpp/whisper.cpp"]
+	path = AIVideoTranscriber/app/src/main/cpp/whisper.cpp
+	url = https://github.com/ggerganov/whisper.cpp.git
