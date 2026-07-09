@@ -22,7 +22,6 @@ private data class Stage(val title: String, val subtitle: String, val percent: I
 @Composable
 fun ProcessingScreen(state: PipelineState) {
     val stage = when (state) {
-        is PipelineState.Downloading -> Stage("Downloading video…", "Fetching your video securely over HTTPS", state.percent)
         is PipelineState.ExtractingAudio -> Stage("Extracting audio…", "Converting to mono 16 kHz for the best accuracy", state.percent)
         is PipelineState.LoadingModel -> Stage("Preparing the AI model…", "Downloaded once, then reused on-device", state.percent)
         is PipelineState.Transcribing -> Stage("Running AI transcription…", "Entirely on this device — nothing leaves your phone", state.percent)

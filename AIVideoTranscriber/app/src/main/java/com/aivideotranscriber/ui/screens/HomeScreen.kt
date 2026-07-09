@@ -1,6 +1,7 @@
 package com.aivideotranscriber.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,11 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
@@ -40,21 +39,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aivideotranscriber.model.AccuracyTier
-import com.aivideotranscriber.ui.InputMode
 import com.aivideotranscriber.ui.MainViewModel
 import com.aivideotranscriber.util.LanguageOptions
 
 @Composable
 fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
     val context = LocalContext.current
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             viewModel.pickedFileUri = uri
             viewModel.pickedFileName = queryDisplayName(context, uri)
@@ -98,58 +94,24 @@ fun HomeScreen(viewModel: MainViewModel, errorMessage: String?) {
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ModeButton(
-                label = "Upload Video",
-                icon = Icons.Filled.UploadFile,
-                selected = viewModel.inputMode == InputMode.FILE,
-                onClick = { viewModel.inputMode = InputMode.FILE },
-                modifier = Modifier.weight(1f),
-            )
-            ModeButton(
-                label = "Video Link",
-                icon = Icons.Filled.Link,
-                selected = viewModel.inputMode == InputMode.URL,
-                onClick = { viewModel.inputMode = InputMode.URL },
-                modifier = Modifier.weight(1f),
+        OutlinedButton(
+            onClick = {
+                filePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+        ) {
+            Icon(Icons.Filled.UploadFile, contentDescription = null)
+            Text(
+                viewModel.pickedFileName ?: "Choose Video",
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
-
-        Spacer(Modifier.height(16.dp))
-
-        if (viewModel.inputMode == InputMode.FILE) {
-            OutlinedButton(
-                onClick = { filePicker.launch(arrayOf("video/*")) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-            ) {
-                Icon(Icons.Filled.UploadFile, contentDescription = null)
-                Text(
-                    viewModel.pickedFileName ?: "Choose Video",
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-            Text(
-                "Supported: MP4, MOV, MKV, AVI, WEBM, M4V, FLV, 3GP, MPEG. Stays on your phone — nothing is copied anywhere.",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        } else {
-            OutlinedTextField(
-                value = viewModel.urlText,
-                onValueChange = { viewModel.urlText = it },
-                label = { Text("Paste a direct video link (https://...)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                "Direct downloadable links only (.mp4, direct Drive/Dropbox links, etc). YouTube, Instagram, TikTok, Facebook and similar platforms aren't supported — their links point to a webpage, not the actual video file, and scraping them generally breaks their Terms of Service. Use Upload Video instead for videos from those apps.",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
+        Text(
+            "Pick a video from your gallery or files. Stays on your phone — nothing is copied or uploaded anywhere.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         Spacer(Modifier.height(24.dp))
         Text("Language", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
@@ -215,19 +177,6 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onCheck
             Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun ModeButton(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val content: @Composable () -> Unit = {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Text(label, modifier = Modifier.padding(start = 6.dp), fontSize = 13.sp)
-    }
-    if (selected) {
-        Button(onClick = onClick, modifier = modifier) { content() }
-    } else {
-        OutlinedButton(onClick = onClick, modifier = modifier) { content() }
     }
 }
 

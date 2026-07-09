@@ -31,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,10 +59,6 @@ fun TranscriptScreen(viewModel: MainViewModel, result: PipelineState.Done) {
     var searchQuery by remember { mutableStateOf("") }
     var videoView by remember { mutableStateOf<VideoView?>(null) }
 
-    DisposableEffect(Unit) {
-        onDispose { viewModel.clearDownloadedVideo() }
-    }
-
     val displaySegments = remember(result.segments, viewModel.fillerCleanupEnabled) {
         result.segments.map { seg ->
             if (viewModel.fillerCleanupEnabled) seg.copy(text = FillerWordCleaner.clean(seg.text)) else seg
@@ -81,7 +76,7 @@ fun TranscriptScreen(viewModel: MainViewModel, result: PipelineState.Done) {
         TopAppBar(
             title = { Text("Transcript") },
             navigationIcon = {
-                IconButton(onClick = { viewModel.reset(context) }) {
+                IconButton(onClick = { viewModel.reset() }) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "New transcription")
                 }
             },
@@ -92,12 +87,7 @@ fun TranscriptScreen(viewModel: MainViewModel, result: PipelineState.Done) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                if (result.previewUri != null && viewModel.inputMode == com.aivideotranscriber.ui.InputMode.URL) {
-                    "This device downloaded a temporary copy of your video only to show the preview below. " +
-                        "It will be permanently deleted the moment you leave this screen."
-                } else {
-                    "Transcription ran entirely on this device. Nothing was ever uploaded to a server."
-                },
+                "Transcription ran entirely on this device. Nothing was ever uploaded to a server.",
                 modifier = Modifier.padding(12.dp),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,

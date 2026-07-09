@@ -1,7 +1,7 @@
 # AI Video Transcriber (Android)
 
-A private, on-device video/audio transcriber for Android. Pick a video from your phone or paste
-a direct video link, and it transcribes speech to text **entirely on the device** — using
+A private, on-device video/audio transcriber for Android. Pick a video from your phone's gallery
+or files, and it transcribes speech to text **entirely on the device** — using
 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (OpenAI Whisper, running locally). There
 is no backend server, no account, no analytics, and nothing you transcribe ever leaves your phone.
 
@@ -17,13 +17,16 @@ is no backend server, no account, no analytics, and nothing you transcribe ever 
 
 ## What's implemented
 
-- Pick a video from your phone (any app that can supply `video/*` via Android's file picker),
-  or paste a direct `https://` video link (a raw `.mp4` URL, a direct Google Drive/Dropbox
-  download link, etc.)
-- **Not** supported: YouTube, Instagram, TikTok, Facebook, X/Twitter, Vimeo. Scraping those
-  breaks constantly and generally violates their Terms of Service, so it's intentionally left out.
-- On-device transcription via whisper.cpp, no network calls except to download the model once
-  and to fetch a pasted URL.
+- Pick a video via Android's system **Photo Picker** — shows your gallery/camera roll directly,
+  not just a raw file browser.
+- **No link/URL input.** This was tried, but every plausible use case for it was a social
+  platform share link (Facebook, YouTube, Instagram, TikTok...), which don't point to an actual
+  video file — they point to a webpage, and turning that into a real download requires a scraper
+  that breaks constantly and generally violates those platforms' Terms of Service. If you have a
+  video from one of those apps, save it to your phone (most apps have a built-in "save video" or
+  share-to-Files option) and use the picker instead.
+- On-device transcription via whisper.cpp — the only network calls this app ever makes are to
+  download the Whisper model once (see Accuracy below).
 - Three accuracy tiers (Fast / Best / Ultra), mapped to the `tiny` / `base` / `small` multilingual
   Whisper models — downloaded once (75–466 MB) and reused after that.
 - Auto language detection, or pick from the ~99 languages Whisper supports.
@@ -31,10 +34,11 @@ is no backend server, no account, no analytics, and nothing you transcribe ever 
 - Optional heuristic filler-word cleanup ("um", "uh", "like", repeated words).
 - Search within the transcript.
 - Copy, share (plain text), and download as `.txt` or `.srt`.
-- Auto-cleanup: if you paste a URL, the app downloads a temporary copy to extract audio and to
-  show the preview player, and deletes it the moment you leave the transcript screen (or on next
-  app start, as a safety net). Files you pick from your own device are **never copied anywhere** —
-  the app reads them in place and deletes nothing that wasn't its own.
+- Nothing is copied anywhere: the app reads the picked video in place via its content URI and
+  never makes its own copy, so there's nothing of ours to clean up afterward.
+- CPU-aware threading: on the (near-universal) big.LITTLE phone chips, transcription threads are
+  scheduled only on the fast "performance" cores, detected via each core's max clock speed —
+  see `WhisperCpuConfig.kt`.
 
 ## Requirements
 
@@ -44,8 +48,7 @@ is no backend server, no account, no analytics, and nothing you transcribe ever 
   these automatically on first sync if they're missing.
 - A device or emulator running **Android 8.0 (API 26) or newer**, `arm64-v8a`, `armeabi-v7a`, or
   `x86_64`.
-- Internet access on first run, to download the on-device model (once) and, if you use the link
-  option, to fetch the video.
+- Internet access on first run, to download the on-device model (once).
 
 ## Setup
 
@@ -94,8 +97,6 @@ are NDK/CMake version mismatches, which are easy to fix by bumping `ndkVersion` 
   clips to well under an hour for reliable results.
 - **Filler-word cleanup is a simple regex heuristic**, not an AI model — it will occasionally
   strip intentional words like "like" or "actually". It's an optional toggle for that reason.
-- **Direct link downloads are capped at 2 GB** and must be plain `https://` — no auth, no
-  redirects to login pages, no streaming platforms.
 - **Saving to Downloads on Android 9 (API 28) and below** needs the legacy
   `WRITE_EXTERNAL_STORAGE` permission, which isn't requested automatically in this build. Use
   **Share** instead of **Download** on those OS versions, or wire up a runtime permission request

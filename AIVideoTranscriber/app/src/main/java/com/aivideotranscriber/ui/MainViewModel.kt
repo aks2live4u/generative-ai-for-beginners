@@ -5,14 +5,10 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.aivideotranscriber.cleanup.CleanupManager
 import com.aivideotranscriber.media.AudioExtractor
-import com.aivideotranscriber.media.DownloadException
 import com.aivideotranscriber.media.NoAudioTrackException
-import com.aivideotranscriber.media.VideoDownloader
 import com.aivideotranscriber.model.AccuracyTier
 import com.aivideotranscriber.model.ModelDownloadException
 import com.aivideotranscriber.model.ModelManager
@@ -22,7 +18,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.io.IOException
 
 private const val SUPPORTED_EXTENSIONS_MESSAGE =
@@ -30,10 +25,8 @@ private const val SUPPORTED_EXTENSIONS_MESSAGE =
 
 class MainViewModel : ViewModel() {
 
-    var inputMode by mutableStateOf(InputMode.FILE)
     var pickedFileUri by mutableStateOf<Uri?>(null)
     var pickedFileName by mutableStateOf<String?>(null)
-    var urlText by mutableStateOf("")
     var language by mutableStateOf(LanguageOptions.AUTO.code)
     var accuracyTier by mutableStateOf(AccuracyTier.BEST)
     var timestampsEnabled by mutableStateOf(true)
@@ -43,33 +36,26 @@ class MainViewModel : ViewModel() {
         private set
 
     val canStart: Boolean
-        get() = when (inputMode) {
-            InputMode.FILE -> pickedFileUri != null
-            InputMode.URL -> urlText.isNotBlank()
-        }
+        get() = pickedFileUri != null
 
     private var whisperContext: WhisperContext? = null
     private var loadedTier: AccuracyTier? = null
-    private var downloadedVideoFile: File? = null
 
     fun startTranscription(context: Context) {
         val appContext = context.applicationContext
         viewModelScope.launch {
             try {
-                clearDownloadedVideo()
-                val (samplePath, sampleFd, previewUri) = resolveAudioSource(appContext)
+                val uri = pickedFileUri ?: throw PipelineException("Pick a video first.")
+                val pfd = withContext(Dispatchers.IO) {
+                    appContext.contentResolver.openFileDescriptor(uri, "r")
+                        ?: throw PipelineException("Couldn't open this file.")
+                }
 
                 pipelineState = PipelineState.ExtractingAudio(0)
                 val pcm = withContext(Dispatchers.Default) {
                     try {
-                        if (sampleFd != null) {
-                            sampleFd.use {
-                                AudioExtractor.extractMonoPcm16k(it.fileDescriptor) { p ->
-                                    pipelineState = PipelineState.ExtractingAudio(p)
-                                }
-                            }
-                        } else {
-                            AudioExtractor.extractMonoPcm16k(samplePath!!) { p ->
+                        pfd.use {
+                            AudioExtractor.extractMonoPcm16k(it.fileDescriptor) { p ->
                                 pipelineState = PipelineState.ExtractingAudio(p)
                             }
                         }
@@ -95,13 +81,11 @@ class MainViewModel : ViewModel() {
                     throw PipelineException("No speech was detected in this audio. Try a clearer recording or a different accuracy tier.")
                 }
 
-                pipelineState = PipelineState.Done(segments, previewUri)
+                pipelineState = PipelineState.Done(segments, uri)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: PipelineException) {
                 pipelineState = PipelineState.Failed(e.message ?: "Something went wrong.")
-            } catch (e: DownloadException) {
-                pipelineState = PipelineState.Failed(e.message ?: "Couldn't download this video.")
             } catch (e: ModelDownloadException) {
                 pipelineState = PipelineState.Failed(e.message ?: "Couldn't download the on-device model. Check your internet connection.")
             } catch (e: OutOfMemoryError) {
@@ -116,61 +100,16 @@ class MainViewModel : ViewModel() {
 
     fun retry(context: Context) = startTranscription(context)
 
-    fun reset(context: Context) {
+    fun reset() {
         pipelineState = PipelineState.Idle
         pickedFileUri = null
         pickedFileName = null
-        urlText = ""
-        clearDownloadedVideo()
-        CleanupManager.clearTempFiles(context.applicationContext)
-    }
-
-    /** Call when leaving the transcript screen or closing the app - deletes any video this app
-     *  downloaded on the user's behalf. Files the user picked from their own device were never
-     *  copied anywhere, so there is nothing of ours to delete for uploads. */
-    fun clearDownloadedVideo() {
-        downloadedVideoFile?.delete()
-        downloadedVideoFile = null
     }
 
     override fun onCleared() {
-        clearDownloadedVideo()
         // viewModelScope is already cancelled by the time onCleared() runs, so a fresh
         // runBlocking is used here to guarantee native memory is actually freed.
         whisperContext?.let { ctx -> kotlinx.coroutines.runBlocking { ctx.release() } }
-    }
-
-    private data class AudioSource(
-        val path: String?,
-        val fd: android.os.ParcelFileDescriptor?,
-        val previewUri: Uri?,
-    )
-
-    private suspend fun resolveAudioSource(context: Context): AudioSource {
-        return when (inputMode) {
-            InputMode.FILE -> {
-                val uri = pickedFileUri ?: throw PipelineException("Pick a video first.")
-                val pfd = withContext(Dispatchers.IO) {
-                    context.contentResolver.openFileDescriptor(uri, "r")
-                        ?: throw PipelineException("Couldn't open this file.")
-                }
-                AudioSource(path = null, fd = pfd, previewUri = uri)
-            }
-            InputMode.URL -> {
-                val url = urlText.trim()
-                if (url.isBlank()) throw PipelineException("Paste a video link first.")
-                pipelineState = PipelineState.Downloading(0)
-                val dest = File(CleanupManager.tempDir(context), "download_${System.currentTimeMillis()}.mp4")
-                val downloaded = withContext(Dispatchers.IO) {
-                    VideoDownloader.download(url, dest) { p ->
-                        pipelineState = PipelineState.Downloading(p)
-                    }
-                }
-                downloadedVideoFile = downloaded
-                val previewUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", downloaded)
-                AudioSource(path = downloaded.absolutePath, fd = null, previewUri = previewUri)
-            }
-        }
     }
 
     private suspend fun loadWhisperContext(context: Context): WhisperContext {
