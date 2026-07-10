@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +35,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aichiefofstaff.data.db.MessageRole
 import com.aichiefofstaff.data.db.entity.MessageEntity
+import com.aichiefofstaff.ui.components.DepthCard
 import com.aichiefofstaff.ui.util.LocalAppContainer
 
 @Composable
@@ -95,10 +95,11 @@ fun AssistantChatScreen(conversationId: Long) {
 private fun MessageBubble(message: MessageEntity) {
     val isUser = message.role == MessageRole.USER
     Box(modifier = Modifier.fillMaxWidth()) {
-        Card(
+        DepthCard(
             modifier = Modifier
                 .align(if (isUser) Alignment.CenterEnd else Alignment.CenterStart)
-                .fillMaxWidth(0.85f)
+                .fillMaxWidth(0.85f),
+            containerColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
         ) {
             Text(message.content, modifier = Modifier.padding(12.dp))
         }

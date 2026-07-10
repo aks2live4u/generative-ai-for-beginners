@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aichiefofstaff.ui.components.DepthCard
 import com.aichiefofstaff.ui.util.LocalAppContainer
 
 @Composable
@@ -65,7 +65,7 @@ fun ProjectDetailScreen(projectId: Long) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(tasks, key = { it.id }) { task ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DepthCard(modifier = Modifier.fillMaxWidth()) {
                     Text(task.title, modifier = Modifier.padding(12.dp))
                 }
             }

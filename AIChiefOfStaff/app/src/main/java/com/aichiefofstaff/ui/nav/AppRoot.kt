@@ -15,10 +15,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -105,6 +109,9 @@ fun AppRoot() {
         topBar = {
             TopAppBar(
                 title = { Text("AI Chief of Staff") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
                 actions = {
                     IconButton(onClick = { navController.navigate(Destination.Search.route) }) {
                         Icon(Icons.Filled.Search, contentDescription = "Search")
@@ -136,13 +143,17 @@ fun AppRoot() {
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                val granted = ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.RECORD_AUDIO
-                ) == PackageManager.PERMISSION_GRANTED
-                if (granted) showVoiceSheet = true
-                else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }) {
+            FloatingActionButton(
+                onClick = {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) showVoiceSheet = true
+                    else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 10.dp, pressedElevation = 4.dp)
+            ) {
                 Icon(Icons.Filled.Mic, contentDescription = "Voice")
             }
         }

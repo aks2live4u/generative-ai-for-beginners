@@ -9,8 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aichiefofstaff.ui.components.DepthCard
 import com.aichiefofstaff.ui.util.LocalAppContainer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,9 +40,10 @@ fun AssistantScreen(onOpenConversation: (Long) -> Unit) {
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.createConversation("New conversation", onOpenConversation)
-            }) {
+            FloatingActionButton(
+                onClick = { viewModel.createConversation("New conversation", onOpenConversation) },
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp, pressedElevation = 4.dp)
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "New conversation")
             }
         }
@@ -57,7 +59,7 @@ fun AssistantScreen(onOpenConversation: (Long) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(conversations, key = { it.id }) { conversation ->
-                    Card(modifier = Modifier.fillMaxWidth(), onClick = { onOpenConversation(conversation.id) }) {
+                    DepthCard(modifier = Modifier.fillMaxWidth(), onClick = { onOpenConversation(conversation.id) }) {
                         Column(Modifier.padding(12.dp)) {
                             Text(conversation.title, fontWeight = FontWeight.Medium)
                             Text(

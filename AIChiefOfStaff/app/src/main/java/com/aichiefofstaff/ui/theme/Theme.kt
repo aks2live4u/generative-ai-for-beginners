@@ -13,9 +13,11 @@ private val DarkColors = darkColorScheme(
     secondary = AccentPink,
     background = DarkBackground,
     surface = DarkSurface,
+    surfaceVariant = Color(0xFF201F2C),
     onPrimary = DarkBackground,
     onBackground = Color(0xFFEDEDF2),
-    onSurface = Color(0xFFEDEDF2)
+    onSurface = Color(0xFFEDEDF2),
+    outline = Color(0xFF3A3950)
 )
 
 private val LightColors = lightColorScheme(
@@ -23,9 +25,11 @@ private val LightColors = lightColorScheme(
     secondary = AccentPink,
     background = LightBackground,
     surface = LightSurface,
+    surfaceVariant = Color(0xFFF1EEFB),
     onPrimary = Color.White,
     onBackground = Color(0xFF16161F),
-    onSurface = Color(0xFF16161F)
+    onSurface = Color(0xFF16161F),
+    outline = Color(0xFFDCD6F0)
 )
 
 @Composable
@@ -43,6 +47,7 @@ fun AiChiefOfStaffTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AiChiefTypography,
+        shapes = AiChiefShapes,
         content = content
     )
 }

@@ -30,7 +30,8 @@ fun TaskEditDialog(
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var notes by remember { mutableStateOf(initial?.notes.orEmpty()) }
     var priority by remember { mutableStateOf(initial?.priority ?: TaskPriority.MEDIUM) }
-    var dueAt by remember { mutableStateOf(initial?.dueAt) }
+    // Preset offsets: null = no due date, 0 = today, 1 = tomorrow, 7 = next week.
+    var dueDayOffset by remember { mutableStateOf(daysFromNowOrNull(initial?.dueAt)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -63,20 +64,24 @@ fun TaskEditDialog(
 
                 Text("Due")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = dueAt == null, onClick = { dueAt = null }, label = { Text("None") })
                     FilterChip(
-                        selected = false,
-                        onClick = { dueAt = endOfDayOffset(0) },
+                        selected = dueDayOffset == null,
+                        onClick = { dueDayOffset = null },
+                        label = { Text("None") }
+                    )
+                    FilterChip(
+                        selected = dueDayOffset == 0,
+                        onClick = { dueDayOffset = 0 },
                         label = { Text("Today") }
                     )
                     FilterChip(
-                        selected = false,
-                        onClick = { dueAt = endOfDayOffset(1) },
+                        selected = dueDayOffset == 1,
+                        onClick = { dueDayOffset = 1 },
                         label = { Text("Tomorrow") }
                     )
                     FilterChip(
-                        selected = false,
-                        onClick = { dueAt = endOfDayOffset(7) },
+                        selected = dueDayOffset == 7,
+                        onClick = { dueDayOffset = 7 },
                         label = { Text("Next week") }
                     )
                 }
@@ -90,7 +95,7 @@ fun TaskEditDialog(
                             title = title,
                             notes = notes,
                             priority = priority,
-                            dueAt = dueAt
+                            dueAt = dueDayOffset?.let { endOfDayOffset(it) }
                         )
                     )
                 }
@@ -108,4 +113,11 @@ private fun endOfDayOffset(daysFromNow: Int): Long =
         set(Calendar.HOUR_OF_DAY, 17)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
     }.timeInMillis
+
+/** Snaps an existing due date back to the Today/Tomorrow/Next week preset it was set from, if any. */
+private fun daysFromNowOrNull(dueAt: Long?): Int? {
+    if (dueAt == null) return null
+    return listOf(0, 1, 7).firstOrNull { offset -> endOfDayOffset(offset) == dueAt }
+}

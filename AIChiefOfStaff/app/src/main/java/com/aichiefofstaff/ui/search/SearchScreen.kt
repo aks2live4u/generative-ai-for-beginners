@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.aichiefofstaff.ui.components.DepthCard
 import com.aichiefofstaff.ui.util.LocalAppContainer
 
 @Composable
@@ -82,7 +82,7 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ResultRow(text: String, category: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    DepthCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text(text, fontWeight = FontWeight.Medium, maxLines = 2)
             Text(category, style = MaterialTheme.typography.labelSmall)

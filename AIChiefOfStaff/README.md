@@ -17,6 +17,15 @@ This repository implements **Phase 1** of the four-phase roadmap below: the app 
 - **Settings** — light/dark/system theme, OpenAI API key (encrypted via Android Keystore / `EncryptedSharedPreferences`), and a one-tap "delete all data" wipe.
 - **Quick Share** — the app registers as a share target for text, images, and PDFs (wiring for Phase 2's document/OCR pipeline).
 
+## Visual design
+
+- Consistent rounded corner system (`Shapes.kt`, 10–28dp) and a shared `DepthCard` component (soft shadow + tonal elevation) used for every list row, so the UI reads as one layered surface instead of flat rows.
+- Gradient hero header on Home (`GradientHero`/`GlassStatTile`) with a drop shadow tinted to the brand color, glass-morphism stat tiles.
+- Priority color-coding via a left accent bar (Home) and a colored pill (`PriorityPill`) on task rows.
+- Elevated FAB (10dp default / 4dp pressed) and tonal top app bar for depth against content.
+- Chat bubbles colored by role (primary for user, surfaceVariant for assistant) with card elevation, not flat text rows.
+- Full light/dark color schemes with distinct `surfaceVariant`/`outline` tones so elevation is visible in both themes.
+
 ## Security & privacy
 
 - No `allowBackup`, no analytics, no third-party SDKs.
@@ -38,7 +47,13 @@ This repository implements **Phase 1** of the four-phase roadmap below: the app 
 
 The debug APK will be at `app/build/outputs/apk/debug/app-debug.apk`.
 
-> This project was authored in a sandboxed environment without access to `dl.google.com`, so it could not be compiled/run here. It has been carefully reviewed by hand for API correctness against Jetpack Compose Material3, Room, Retrofit, and AndroidX Navigation, but should be built and smoke-tested in Android Studio before you rely on it.
+## Verification status
+
+The authoring environment's network policy blocks `dl.google.com` (confirmed via direct request and via Maven Central mirror probes — AGP, AndroidX, and Compose artifacts are not mirrored there), so a real Gradle/AGP build of this module could not be run in that environment. What was actually verified there:
+
+- **Pure business logic compiled and unit-tested for real** — `IntentClassifier` (voice → task/note/assistant routing) and the task due-date preset math were extracted into a throwaway plain-Kotlin Gradle module (no Android/AndroidX dependency) and run under JUnit 5. All 10 tests passed (`gradle test` → `BUILD SUCCESSFUL`).
+- **Every other file was manually audited**, not just written once: every `Modifier` extension (`weight`, `size`, `height`, `fillMaxWidth`, `fillMaxSize`, `background`, `clip`, `shadow`) was grep-checked against its required import across the whole source tree, every `Card`/`FloatingActionButton`/`TopAppBar`/`ModalBottomSheet`/DAO signature was checked against its actual Material3/Room API shape, and one real bug (a Room DAO method with a Kotlin default parameter, which the generated implementation would not have honored) was found and fixed this way.
+- Still **not** verified: full AGP/Compose compilation, Room schema generation, on-device behavior. Build and smoke-test in Android Studio before relying on this.
 
 ## Project structure
 

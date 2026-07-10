@@ -3,22 +3,21 @@ package com.aichiefofstaff.ui.tasks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,10 +36,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aichiefofstaff.data.db.TaskStatus
 import com.aichiefofstaff.data.db.entity.TaskEntity
-import com.aichiefofstaff.ui.theme.PriorityHigh
-import com.aichiefofstaff.ui.theme.PriorityLow
-import com.aichiefofstaff.ui.theme.PriorityMedium
-import com.aichiefofstaff.ui.theme.PriorityUrgent
+import com.aichiefofstaff.ui.components.DepthCard
+import com.aichiefofstaff.ui.components.PriorityPill
 import com.aichiefofstaff.ui.util.LocalAppContainer
 
 @Composable
@@ -55,7 +52,10 @@ fun TasksScreen() {
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showNewDialog = true }) {
+            FloatingActionButton(
+                onClick = { showNewDialog = true },
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp, pressedElevation = 4.dp)
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add task")
             }
         }
@@ -114,9 +114,9 @@ private fun TaskRow(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
+    DepthCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(checked = task.status == TaskStatus.DONE, onCheckedChange = { onToggle() })
@@ -126,20 +126,11 @@ private fun TaskRow(
                     fontWeight = FontWeight.Medium,
                     textDecoration = if (task.status == TaskStatus.DONE) TextDecoration.LineThrough else null
                 )
-                Text(priorityLabel(task), style = MaterialTheme.typography.labelSmall, color = priorityColor(task))
             }
+            PriorityPill(task.priority, modifier = Modifier.padding(end = 4.dp))
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete")
             }
         }
     }
-}
-
-private fun priorityLabel(task: TaskEntity): String = task.priority.name
-
-private fun priorityColor(task: TaskEntity) = when (task.priority) {
-    com.aichiefofstaff.data.db.TaskPriority.URGENT -> PriorityUrgent
-    com.aichiefofstaff.data.db.TaskPriority.HIGH -> PriorityHigh
-    com.aichiefofstaff.data.db.TaskPriority.MEDIUM -> PriorityMedium
-    com.aichiefofstaff.data.db.TaskPriority.LOW -> PriorityLow
 }
