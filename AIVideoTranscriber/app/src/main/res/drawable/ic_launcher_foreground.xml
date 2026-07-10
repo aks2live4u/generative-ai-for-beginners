@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Just the glyph - no background shape here. The OS composites this over
+     ic_launcher_background.xml and applies its own mask (circle/squircle/rounded-square), so the
+     glyph is kept within the ~66dp "safe zone" of the 108x108 canvas (roughly x/y 21-87) to avoid
+     ever being clipped, regardless of which mask shape the launcher uses. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Rounded play/waveform badge -->
-    <path
-        android:fillColor="#6366F1"
-        android:pathData="M24,32 Q24,24 32,24 L76,24 Q84,24 84,32 L84,76 Q84,84 76,84 L32,84 Q24,84 24,76 Z" />
-
-    <!-- Audio waveform bars -->
-    <path android:fillColor="#0B0F19" android:pathData="M35,50 L39,50 L39,58 L35,58 Z" />
-    <path android:fillColor="#0B0F19" android:pathData="M43,42 L47,42 L47,66 L43,66 Z" />
-    <path android:fillColor="#0B0F19" android:pathData="M51,36 L55,36 L55,72 L51,72 Z" />
+    <!-- Audio waveform bars, in white for contrast against the indigo background -->
+    <path android:fillColor="#FFFFFF" android:pathData="M35,50 L39,50 L39,58 L35,58 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M43,42 L47,42 L47,66 L43,66 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M51,36 L55,36 L55,72 L51,72 Z" />
     <path android:fillColor="#22D3EE" android:pathData="M59,30 L63,30 L63,78 L59,78 Z" />
-    <path android:fillColor="#0B0F19" android:pathData="M67,40 L71,40 L71,68 L67,68 Z" />
-    <path android:fillColor="#0B0F19" android:pathData="M75,48 L79,48 L79,60 L75,60 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M67,40 L71,40 L71,68 L67,68 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M75,48 L79,48 L79,60 L75,60 Z" />
 
 </vector>
