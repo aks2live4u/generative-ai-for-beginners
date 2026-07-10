@@ -20,7 +20,6 @@ fun DepthCard(
     modifier: Modifier = Modifier,
     shape: Shape = MaterialTheme.shapes.large,
     containerColor: Color = MaterialTheme.colorScheme.surface,
-    contentColor: Color = MaterialTheme.colorScheme.contentColorFor(containerColor),
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -30,7 +29,8 @@ fun DepthCard(
         focusedElevation = 6.dp,
         hoveredElevation = 6.dp
     )
-    val colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor)
+    // Only containerColor is set; CardDefaults picks a matching content color for it.
+    val colors = CardDefaults.cardColors(containerColor = containerColor)
 
     if (onClick != null) {
         Card(
