@@ -3,10 +3,16 @@ package com.aivideotranscriber.media
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.os.SystemClock
 import java.io.FileDescriptor
 import java.nio.ByteOrder
 
 class NoAudioTrackException : Exception("This file doesn't seem to contain any audio to transcribe.")
+
+class AudioDecodeTimeoutException : Exception(
+    "Audio decoding got stuck and timed out. This can happen with certain files on some devices " +
+        "- try picking the file again, or try a different file.",
+)
 
 /**
  * Decodes the first audio track of a video/audio file into mono 16 kHz float32 PCM samples,
@@ -20,6 +26,12 @@ class NoAudioTrackException : Exception("This file doesn't seem to contain any a
  */
 object AudioExtractor {
     private const val TARGET_SAMPLE_RATE = 16_000
+
+    // Decoding should always be fast - seconds, at most low tens of seconds even for long files,
+    // since it's a straight decode, not ML inference. Some devices' hardware decoders are known
+    // to occasionally never signal end-of-stream for a particular file, which would otherwise
+    // hang the (synchronous, non-cancellable) decode loop below forever with no way out.
+    private const val MAX_DECODE_DURATION_MS = 3 * 60 * 1000L
 
     fun extractMonoPcm16k(fd: FileDescriptor, onProgress: (Int) -> Unit = {}): FloatArray {
         val extractor = MediaExtractor()
@@ -56,8 +68,12 @@ object AudioExtractor {
         codec.configure(audioFormat, null, null, 0)
         codec.start()
 
-        val sampleRate = audioFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-        val channelCount = audioFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+        // These are the *container's* declared format, used only to size the output buffer and
+        // as a fallback. The decoder's actual output format - read below via
+        // INFO_OUTPUT_FORMAT_CHANGED - is what's authoritative, and can legitimately differ (HE-AAC
+        // streams commonly decode at 2x the sample rate declared in the container, for example).
+        var sampleRate = audioFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+        var channelCount = audioFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         val durationUs = if (audioFormat.containsKey(MediaFormat.KEY_DURATION)) audioFormat.getLong(MediaFormat.KEY_DURATION) else 0L
 
         // Pre-size the output buffer from the file's reported duration so it rarely (if ever)
@@ -68,14 +84,19 @@ object AudioExtractor {
             TARGET_SAMPLE_RATE * 60
         }
         val output = GrowableFloatBuffer(estimatedOutputSamples.coerceAtLeast(1024))
-        val resampler = StreamingResampler(sampleRate, TARGET_SAMPLE_RATE)
+        var resampler = StreamingResampler(sampleRate, TARGET_SAMPLE_RATE)
+        var producedAnyOutput = false
 
         val bufferInfo = MediaCodec.BufferInfo()
         var sawInputEos = false
         var sawOutputEos = false
+        val decodeDeadline = SystemClock.elapsedRealtime() + MAX_DECODE_DURATION_MS
 
         try {
             while (!sawOutputEos) {
+                if (SystemClock.elapsedRealtime() > decodeDeadline) {
+                    throw AudioDecodeTimeoutException()
+                }
                 if (!sawInputEos) {
                     val inIndex = codec.dequeueInputBuffer(10_000)
                     if (inIndex >= 0) {
@@ -96,22 +117,42 @@ object AudioExtractor {
                 }
 
                 val outIndex = codec.dequeueOutputBuffer(bufferInfo, 10_000)
-                if (outIndex >= 0) {
-                    if (bufferInfo.size > 0) {
-                        val outBuffer = codec.getOutputBuffer(outIndex)!!
-                        outBuffer.position(bufferInfo.offset)
-                        outBuffer.limit(bufferInfo.offset + bufferInfo.size)
-                        val shortBuffer = outBuffer.order(ByteOrder.nativeOrder()).asShortBuffer()
-                        val shorts = ShortArray(shortBuffer.remaining())
-                        shortBuffer.get(shorts)
+                when {
+                    outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        val actualFormat = codec.outputFormat
+                        val actualSampleRate = actualFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        val actualChannelCount = actualFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        if (actualSampleRate != sampleRate || actualChannelCount != channelCount) {
+                            if (producedAnyOutput) {
+                                // Format changed mid-stream (rare) - flush what the old format
+                                // produced so far and continue fresh rather than corrupting it.
+                                resampler.finish(output)
+                            }
+                            sampleRate = actualSampleRate
+                            channelCount = actualChannelCount
+                            resampler = StreamingResampler(sampleRate, TARGET_SAMPLE_RATE)
+                        }
+                    }
+                    outIndex >= 0 -> {
+                        if (bufferInfo.size > 0) {
+                            val outBuffer = codec.getOutputBuffer(outIndex)!!
+                            outBuffer.position(bufferInfo.offset)
+                            outBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                            val shortBuffer = outBuffer.order(ByteOrder.nativeOrder()).asShortBuffer()
+                            val shorts = ShortArray(shortBuffer.remaining())
+                            shortBuffer.get(shorts)
 
-                        val monoChunk = downmixToMono(shorts, channelCount)
-                        resampler.process(monoChunk, output)
+                            val monoChunk = downmixToMono(shorts, channelCount)
+                            resampler.process(monoChunk, output)
+                            producedAnyOutput = true
+                        }
+                        codec.releaseOutputBuffer(outIndex, false)
+                        if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            sawOutputEos = true
+                        }
                     }
-                    codec.releaseOutputBuffer(outIndex, false)
-                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                        sawOutputEos = true
-                    }
+                    // INFO_TRY_AGAIN_LATER (-1) or the deprecated INFO_OUTPUT_BUFFERS_CHANGED (-3):
+                    // nothing to do, loop again.
                 }
             }
             resampler.finish(output)

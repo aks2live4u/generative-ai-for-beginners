@@ -101,6 +101,11 @@ are NDK/CMake version mismatches, which are easy to fix by bumping `ndkVersion` 
   full-resolution file is never fully buffered, but very long recordings (multi-hour) can still
   run out of memory on lower-RAM devices during the transcription step itself. `android:largeHeap`
   is enabled to give some headroom. Keep clips to well under an hour for reliable results.
+- **Audio decoding has a 3-minute internal deadline.** Some devices' hardware decoders are known
+  to occasionally never signal end-of-stream for a particular file (a real, if uncommon, Android
+  `MediaCodec` quirk); `AudioExtractor` checks a deadline every loop iteration and fails with a
+  clear error instead of hanging forever. If you hit this, retry - it's file/decoder-specific, not
+  a fixed failure.
 - **Filler-word cleanup is a simple regex heuristic**, not an AI model — it will occasionally
   strip intentional words like "like" or "actually". It's an optional toggle for that reason.
 - **Saving to Downloads on Android 9 (API 28) and below** needs the legacy

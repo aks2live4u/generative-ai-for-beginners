@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aivideotranscriber.media.AudioDecodeTimeoutException
 import com.aivideotranscriber.media.AudioExtractor
 import com.aivideotranscriber.media.NoAudioTrackException
 import com.aivideotranscriber.model.AccuracyTier
@@ -62,6 +63,8 @@ class MainViewModel : ViewModel() {
                         }
                     } catch (e: NoAudioTrackException) {
                         throw PipelineException(e.message ?: "No audio track found.")
+                    } catch (e: AudioDecodeTimeoutException) {
+                        throw PipelineException(e.message ?: "Audio decoding timed out.")
                     } catch (e: IOException) {
                         throw PipelineException("This file looks corrupted or isn't a supported video/audio format. $SUPPORTED_EXTENSIONS_MESSAGE")
                     }
