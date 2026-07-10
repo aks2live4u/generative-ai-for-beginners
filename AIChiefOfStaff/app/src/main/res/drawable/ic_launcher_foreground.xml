@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Briefcase body -->
+    <path
+        android:fillColor="#a78bfa"
+        android:pathData="M28,46 Q28,40 34,40 L74,40 Q80,40 80,46 L80,78 Q80,84 74,84 L34,84 Q28,84 28,78 Z" />
+
+    <!-- Briefcase handle -->
+    <path
+        android:strokeColor="#a78bfa"
+        android:strokeWidth="5"
+        android:pathData="M44,40 L44,32 Q44,28 48,28 L60,28 Q64,28 64,32 L64,40" />
+
+    <!-- Divider line -->
+    <path
+        android:strokeColor="#0b0b12"
+        android:strokeWidth="4"
+        android:pathData="M28,58 L80,58" />
+
+    <!-- Latch -->
+    <path
+        android:fillColor="#0b0b12"
+        android:pathData="M50,53 L58,53 L58,63 L50,63 Z" />
+</vector>

@@ -1,0 +1,4 @@
+-keep class com.aichiefofstaff.** { *; }
+-keep class com.aichiefofstaff.data.network.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
