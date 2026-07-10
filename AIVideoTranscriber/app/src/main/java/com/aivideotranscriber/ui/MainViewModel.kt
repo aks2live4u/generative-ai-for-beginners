@@ -14,6 +14,7 @@ import com.aivideotranscriber.model.AccuracyTier
 import com.aivideotranscriber.model.ModelDownloadException
 import com.aivideotranscriber.model.ModelManager
 import com.aivideotranscriber.util.LanguageOptions
+import com.aivideotranscriber.whisper.TranscriptSegment
 import com.aivideotranscriber.whisper.WhisperContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,14 @@ class MainViewModel : ViewModel() {
                     throw PipelineException("No speech was detected in this audio. Try a clearer recording or a different accuracy tier.")
                 }
 
+                if (hasRepetitionLoop(segments)) {
+                    throw PipelineException(
+                        "The transcription got stuck repeating the same phrase - a known Whisper failure mode, " +
+                            "usually triggered by a stretch of silence, background noise, or non-speech audio. " +
+                            "Try a different accuracy tier, or trim the clip to just the part with speech.",
+                    )
+                }
+
                 pipelineState = PipelineState.Done(segments, uri)
             } catch (e: CancellationException) {
                 throw e
@@ -133,6 +142,28 @@ class MainViewModel : ViewModel() {
         loadedTier = accuracyTier
         return ctx
     }
+}
+
+/**
+ * Whisper occasionally falls into a decoding failure mode where it repeats the same phrase over
+ * and over instead of transcribing real speech - a known behavior (not specific to this app),
+ * usually triggered by silence, noise, or non-speech audio. Rather than ever showing that to the
+ * user as if it were a real transcript, a run of near-identical consecutive segments is treated
+ * as a failure.
+ */
+private fun hasRepetitionLoop(segments: List<TranscriptSegment>): Boolean {
+    var streak = 1
+    for (i in 1 until segments.size) {
+        val prev = segments[i - 1].text.trim().lowercase()
+        val curr = segments[i].text.trim().lowercase()
+        if (prev.isNotEmpty() && prev == curr) {
+            streak++
+            if (streak >= 6) return true
+        } else {
+            streak = 1
+        }
+    }
+    return false
 }
 
 private class PipelineException(message: String) : Exception(message)
