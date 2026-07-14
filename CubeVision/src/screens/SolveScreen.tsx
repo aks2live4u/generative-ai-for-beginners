@@ -7,7 +7,7 @@ import { MoveBadge } from "../components/MoveBadge";
 import { ProgressBar } from "../components/ProgressBar";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { useSolver } from "../hooks/useSolver";
-import { useVoiceGuidance } from "../hooks/useVoiceGuidance";
+import { useAppSettings } from "../hooks/useAppSettings";
 import { invertMove } from "../utils/moveNotation";
 import { appendHistory } from "../utils/storage";
 import { theme } from "../theme/theme";
@@ -17,7 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Solve">;
 export function SolveScreen({ route }: Props) {
   const { faces } = route.params;
   const solver = useSolver();
-  const voice = useVoiceGuidance();
+  const { settings, updateSetting, colors, speak, speakMove, triggerHaptic } = useAppSettings();
   const cubeRef = useRef<Cube3DHandle>(null);
   const [moveIndex, setMoveIndex] = useState(0);
   const [autoPlaying, setAutoPlaying] = useState(false);
@@ -43,7 +43,8 @@ export function SolveScreen({ route }: Props) {
     if (animating || moveIndex >= solver.moves.length) return false;
     const move = solver.moves[moveIndex];
     setAnimating(true);
-    voice.speakMove(move);
+    triggerHaptic("light");
+    speakMove(move);
     await cubeRef.current?.playMove(move);
     setMoveIndex((i) => i + 1);
     setAnimating(false);
@@ -54,6 +55,7 @@ export function SolveScreen({ route }: Props) {
     if (animating || moveIndex <= 0) return;
     const move = invertMove(solver.moves[moveIndex - 1]);
     setAnimating(true);
+    triggerHaptic("light");
     await cubeRef.current?.playMove(move);
     setMoveIndex((i) => i - 1);
     setAnimating(false);
@@ -69,7 +71,8 @@ export function SolveScreen({ route }: Props) {
     if (!autoPlaying) return;
     if (moveIndex >= solver.moves.length) {
       setAutoPlaying(false);
-      voice.speak("Solved!");
+      triggerHaptic("success");
+      speak("Solved!");
       return;
     }
     if (animating) return;
@@ -80,10 +83,10 @@ export function SolveScreen({ route }: Props) {
   const isSolved = solver.status === "solved" && moveIndex >= solver.moves.length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.cubeArea}>
-        {solver.status === "solving" && <Text style={styles.statusText}>Solving…</Text>}
-        {solver.status === "error" && <Text style={styles.errorText}>{solver.error}</Text>}
+        {solver.status === "solving" && <Text style={[styles.statusText, { color: colors.textMuted }]}>Solving…</Text>}
+        {solver.status === "error" && <Text style={[styles.errorText, { color: colors.danger }]}>{solver.error}</Text>}
         {(solver.status === "solved" || solver.status === "idle") && (
           <Cube3D ref={cubeRef} initialFaces={faces} size={320} />
         )}
@@ -91,14 +94,14 @@ export function SolveScreen({ route }: Props) {
 
       <View style={styles.panel}>
         <View style={styles.voiceRow}>
-          <Text style={styles.voiceLabel}>Voice guidance</Text>
-          <Switch value={voice.enabled} onValueChange={voice.toggle} />
+          <Text style={[styles.voiceLabel, { color: colors.text }]}>Voice guidance</Text>
+          <Switch value={settings.voiceGuidance} onValueChange={(v) => updateSetting("voiceGuidance", v)} />
         </View>
 
         <MoveBadge move={isSolved ? "✓" : solver.moves[moveIndex]} />
 
         <ProgressBar progress={solver.moves.length ? moveIndex / solver.moves.length : 0} />
-        <Text style={styles.progressText}>
+        <Text style={[styles.progressText, { color: colors.textMuted }]}>
           {isSolved ? "Solved!" : `${moveIndex} / ${solver.moves.length}`}
         </Text>
 
@@ -118,13 +121,13 @@ export function SolveScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1 },
   cubeArea: { flex: 1, alignItems: "center", justifyContent: "center" },
-  statusText: { fontSize: 16, color: theme.colors.textMuted },
-  errorText: { fontSize: 16, color: theme.colors.danger, textAlign: "center", paddingHorizontal: 24 },
+  statusText: { fontSize: 16 },
+  errorText: { fontSize: 16, textAlign: "center", paddingHorizontal: 24 },
   panel: { padding: theme.spacing(6), gap: theme.spacing(3), alignItems: "center" },
   voiceRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing(2) },
-  voiceLabel: { color: theme.colors.text, fontSize: 14 },
-  progressText: { color: theme.colors.textMuted, fontSize: 13 },
+  voiceLabel: { fontSize: 14 },
+  progressText: { fontSize: 13 },
   controlsRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: theme.spacing(2) },
 });

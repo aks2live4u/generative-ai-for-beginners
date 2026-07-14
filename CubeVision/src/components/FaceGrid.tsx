@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { COLOR_HEX } from "../cube/constants";
 import { FaceColors } from "../cube/types";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface Props {
   colors: FaceColors;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function FaceGrid({ colors, size = 132, flaggedIndices = [], onStickerPress }: Props) {
+  const { colors: themeColors } = useAppSettings();
   const cell = (size - 8) / 3;
   return (
     <View style={[styles.grid, { width: size, height: size }]}>
@@ -29,7 +31,7 @@ export function FaceGrid({ colors, size = 132, flaggedIndices = [], onStickerPre
                 width: cell,
                 height: cell,
                 backgroundColor: COLOR_HEX[color],
-                borderColor: flagged ? theme.colors.warning : "rgba(0,0,0,0.12)",
+                borderColor: flagged ? themeColors.warning : "rgba(0,0,0,0.12)",
                 borderWidth: flagged ? 2.5 : 1,
               },
             ]}

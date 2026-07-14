@@ -2,6 +2,7 @@ import React from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text } from "react-native";
 import { Card } from "../components/Card";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 const TIPS = [
   {
@@ -23,14 +24,15 @@ const TIPS = [
 ];
 
 export function HelpScreen() {
+  const { colors } = useAppSettings();
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Help</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Help</Text>
         {TIPS.map((tip) => (
           <Card key={tip.title} style={styles.card}>
-            <Text style={styles.cardTitle}>{tip.title}</Text>
-            <Text style={styles.cardBody}>{tip.body}</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{tip.title}</Text>
+            <Text style={[styles.cardBody, { color: colors.textMuted }]}>{tip.body}</Text>
           </Card>
         ))}
       </ScrollView>
@@ -39,10 +41,10 @@ export function HelpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1 },
   content: { padding: theme.spacing(6), gap: theme.spacing(4) },
-  title: { fontSize: 26, fontWeight: "800", color: theme.colors.text },
+  title: { fontSize: 26, fontWeight: "800" },
   card: { gap: theme.spacing(2) },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: theme.colors.text },
-  cardBody: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 20 },
+  cardTitle: { fontSize: 16, fontWeight: "700" },
+  cardBody: { fontSize: 14, lineHeight: 20 },
 });

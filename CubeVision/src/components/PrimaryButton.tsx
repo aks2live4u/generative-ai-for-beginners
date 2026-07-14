@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from "react-native";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface Props {
   label: string;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function PrimaryButton({ label, onPress, disabled, loading, variant = "primary", style }: Props) {
+  const { colors } = useAppSettings();
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
 
@@ -21,8 +23,8 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = "pr
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.base,
-        isPrimary && styles.primary,
-        isSecondary && styles.secondary,
+        isPrimary && { backgroundColor: colors.primary },
+        isSecondary && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
         variant === "ghost" && styles.ghost,
         (disabled || loading) && styles.disabled,
         pressed && !disabled && styles.pressed,
@@ -30,13 +32,13 @@ export function PrimaryButton({ label, onPress, disabled, loading, variant = "pr
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? "white" : theme.colors.primary} />
+        <ActivityIndicator color={isPrimary ? "white" : colors.primary} />
       ) : (
         <Text
           style={[
             styles.label,
             isPrimary && styles.labelPrimary,
-            (isSecondary || variant === "ghost") && styles.labelSecondary,
+            (isSecondary || variant === "ghost") && { color: colors.primary },
           ]}
         >
           {label}
@@ -55,14 +57,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 56,
   },
-  primary: {
-    backgroundColor: theme.colors.primary,
-  },
-  secondary: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
   ghost: {
     backgroundColor: "transparent",
   },
@@ -78,8 +72,5 @@ const styles = StyleSheet.create({
   },
   labelPrimary: {
     color: "white",
-  },
-  labelSecondary: {
-    color: theme.colors.primary,
   },
 });

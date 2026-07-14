@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface Props {
   /** Overlay square's side length as a fraction of the shorter screen dimension. */
@@ -12,12 +12,13 @@ interface Props {
 
 export function CubeOverlay({ sizeFraction = 0.72, statusLabel, statusColor, rotationHint }: Props) {
   const { width, height } = useWindowDimensions();
+  const { colors } = useAppSettings();
   const side = Math.min(width, height) * sizeFraction;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={styles.center}>
-        <View style={[styles.square, { width: side, height: side, borderColor: statusColor ?? theme.colors.primary }]}>
+        <View style={[styles.square, { width: side, height: side, borderColor: statusColor ?? colors.primary }]}>
           {[1, 2].map((i) => (
             <View key={`v${i}`} style={[styles.gridLineV, { left: (side / 3) * i }]} />
           ))}
@@ -26,7 +27,7 @@ export function CubeOverlay({ sizeFraction = 0.72, statusLabel, statusColor, rot
           ))}
         </View>
         {statusLabel ? (
-          <View style={[styles.badge, { backgroundColor: statusColor ?? theme.colors.primary }]}>
+          <View style={[styles.badge, { backgroundColor: statusColor ?? colors.primary }]}>
             <Text style={styles.badgeText}>{statusLabel}</Text>
           </View>
         ) : null}

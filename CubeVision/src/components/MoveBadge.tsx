@@ -1,10 +1,12 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 export function MoveBadge({ move }: { move: string | undefined }) {
+  const { colors } = useAppSettings();
   return (
-    <View style={styles.badge}>
+    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
       <Text style={styles.text}>{move ?? "—"}</Text>
     </View>
   );
@@ -16,7 +18,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.primary,
     alignItems: "center",
   },
   text: {

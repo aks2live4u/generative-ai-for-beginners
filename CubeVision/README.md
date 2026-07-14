@@ -53,7 +53,7 @@ src/
   cube/            Facelet model, verified corner/edge geometry, 6th-face inference,
                    the guided-scan role table, 3D cubie geometry
   color/           Lab color space conversion + adaptive classifier
-  hooks/           useCubeScanner, useSolver, useVoiceGuidance
+  hooks/           useCubeScanner, useSolver, useAppSettings (dark mode/voice/haptics)
   utils/           Move notation parsing, AsyncStorage-backed settings/history
   navigation/      React Navigation stack
   theme/           Shared design tokens
@@ -79,8 +79,11 @@ npx expo start
 ```
 
 Requires a native dev client (or `expo run:android` / `expo run:ios`) rather than plain
-Expo Go, because `expo-gl` (used for camera pixel sampling) and `expo-camera` need
-native modules Expo Go doesn't bundle by default.
+Expo Go, because `expo-camera`, `expo-image-manipulator`, and `expo-gl` (used by the 3D
+solution view) need native modules Expo Go doesn't bundle by default.
+
+To build and install a real standalone release build (no Metro/computer needed
+afterward): `npx expo run:android --variant release`.
 
 ## Development roadmap
 
@@ -103,12 +106,23 @@ validation math, sixth-face inference, and the solver integration — was compil
 run against real `cubejs`-generated cube states and confirmed correct (see above).
 The parts that genuinely need on-device verification before shipping:
 
-- **Pixel color sampling** (`src/camera/pixelSampler.ts`): uploads each captured
-  photo into an offscreen `expo-gl` context and reads sticker colors back with
-  `readPixels`. This is a real, documented technique, but it's the one piece of the
-  app that can't be exercised without an actual camera and GPU — verify sample
-  coordinates and color accuracy on-device, and tune `ColorProfile`'s starting
-  reference colors for your target lighting conditions if needed.
+- **Pixel color sampling** (`src/camera/pixelSampler.ts`): crops each sticker's
+  sample region out of the captured photo and resizes it down via
+  `expo-image-manipulator` (a mature, widely-used Expo module), then decodes the
+  resulting PNG itself (`src/camera/pngDecode.ts`) rather than depending on any
+  native pixel-readback path. The decoder is fully unit-tested — `npm run
+  test:png-decode` builds PNGs by hand covering every PNG filter type
+  (None/Sub/Up/Average/Paeth) and RGB/RGBA/grayscale color types, and decodes the
+  real shipped source directly (via on-the-fly TS transpilation, not a duplicate) to
+  confirm it recovers exact pixel values. An earlier version of this file used a
+  hand-rolled `expo-gl` texture-readback path that turned out to fail silently on
+  real devices — the stability-detection loop's error handling has since been
+  changed to surface persistent failures to the user instead of retrying forever
+  with no feedback (see `useStableFrame.ts`'s `MAX_CONSECUTIVE_FAILURES`), so a
+  regression here should now show a visible message rather than the scan just
+  doing nothing. Still verify color accuracy on-device, and tune
+  `ColorProfile`'s starting reference colors for your target lighting conditions
+  if scans consistently misread colors.
 - **Stability-based auto-capture** (`src/camera/useStableFrame.ts`): polls
   low-res stills on an interval to detect when the cube has stopped moving. The
   thresholds (`STABLE_DIFF_THRESHOLD`, `STABLE_FRAMES_REQUIRED`, poll interval) are

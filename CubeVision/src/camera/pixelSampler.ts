@@ -1,25 +1,6 @@
-import { Asset } from "expo-asset";
-import { ExpoWebGLRenderingContext, GLView } from "expo-gl";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { RGB } from "../color/labColor";
-
-let glContextPromise: Promise<ExpoWebGLRenderingContext> | null = null;
-
-/**
- * A headless (never-rendered) GL context used purely as a pixel-reading
- * surface: we upload each captured photo as a texture and use
- * `readPixels` to pull out the exact color under each sticker's sample
- * point. This avoids needing a native image-decoding module — expo-gl
- * already knows how to decode a local photo URI into a texture.
- *
- * NOTE: this is the one piece of CubeVision that most needs verification on
- * a real device/camera — see the README's "Known limitations" section.
- */
-async function getOffscreenGL(): Promise<ExpoWebGLRenderingContext> {
-  if (!glContextPromise) {
-    glContextPromise = GLView.createContextAsync();
-  }
-  return glContextPromise;
-}
+import { averagePngColor } from "./pngDecode";
 
 export interface PixelRect {
   x: number;
@@ -28,41 +9,40 @@ export interface PixelRect {
   height: number;
 }
 
-export async function samplePixelColors(
-  photoUri: string,
-  photoHeight: number,
-  rects: PixelRect[]
-): Promise<RGB[]> {
-  const gl = await getOffscreenGL();
+/** Small output size for each cropped sample — big enough to smooth over JPEG noise, small enough to decode fast. */
+const SAMPLE_OUTPUT_SIZE = 8;
 
-  const asset = Asset.fromURI(photoUri);
-  await asset.downloadAsync();
+/**
+ * Reads the average color under each sample rect of a captured photo.
+ *
+ * Approach: crop each sticker's sample region out of the photo and resize it
+ * down to a tiny PNG via `expo-image-manipulator` (this does the averaging
+ * for us via its resize filter), then decode that PNG ourselves — see
+ * pngDecode.ts — to get raw pixel bytes. This avoids depending on native GL
+ * texture upload/readback, and the decoder itself is unit-tested against
+ * hand-built PNGs covering every PNG filter type (see
+ * scripts/test-png-decode.js), so the only untested part on a real device is
+ * expo-image-manipulator's own crop/resize, which is a widely-used,
+ * actively-maintained Expo module.
+ */
+export async function samplePixelColors(photoUri: string, _photoHeight: number, rects: PixelRect[]): Promise<RGB[]> {
+  const results: RGB[] = [];
 
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  // expo-gl decodes local photo URIs directly when given an asset-like object.
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, asset as unknown as TexImageSource);
+  for (const rect of rects) {
+    const originX = Math.max(0, Math.round(rect.x));
+    const originY = Math.max(0, Math.round(rect.y));
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
 
-  const framebuffer = gl.createFramebuffer();
-  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    const result = await manipulateAsync(
+      photoUri,
+      [{ crop: { originX, originY, width, height } }, { resize: { width: SAMPLE_OUTPUT_SIZE, height: SAMPLE_OUTPUT_SIZE } }],
+      { base64: true, format: SaveFormat.PNG }
+    );
 
-  const pixel = new Uint8Array(4);
-  const results: RGB[] = rects.map((rect) => {
-    const cx = Math.round(rect.x + rect.width / 2);
-    // GL reads from the bottom-left origin; photo rects are top-left origin.
-    const cy = Math.round(photoHeight - (rect.y + rect.height / 2));
-    gl.readPixels(cx, cy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-    return { r: pixel[0], g: pixel[1], b: pixel[2] };
-  });
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  gl.deleteFramebuffer(framebuffer);
-  gl.deleteTexture(texture);
+    if (!result.base64) throw new Error("expo-image-manipulator did not return base64 data");
+    results.push(averagePngColor(result.base64));
+  }
 
   return results;
 }

@@ -10,6 +10,7 @@ import { FACE_COLOR, FACE_LABEL } from "../cube/constants";
 import { CubeFaces, Face, FACES } from "../cube/types";
 import { validateCube } from "../validation/validateCube";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 function solvedFaces(): CubeFaces {
   return Object.fromEntries(FACES.map((f) => [f, new Array(9).fill(FACE_COLOR[f])])) as CubeFaces;
@@ -21,6 +22,7 @@ export function ManualEntryScreen({ navigation }: Props) {
   const [faces, setFaces] = useState<CubeFaces>(solvedFaces);
   const [activeFace, setActiveFace] = useState<Face>("U");
   const [selected, setSelected] = useState<number | null>(null);
+  const { colors } = useAppSettings();
 
   const validation = useMemo(() => validateCube(faces), [faces]);
 
@@ -33,10 +35,12 @@ export function ManualEntryScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Manual Entry</Text>
-        <Text style={styles.subtitle}>Pick a face, then tap stickers to set their color.</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Manual Entry</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          Pick a face, then tap stickers to set their color.
+        </Text>
 
         <View style={styles.tabRow}>
           {FACES.map((f) => (
@@ -62,9 +66,9 @@ export function ManualEntryScreen({ navigation }: Props) {
 
         {!validation.valid && (
           <Card style={styles.issueCard}>
-            <Text style={styles.issueTitle}>Not solvable yet</Text>
+            <Text style={[styles.issueTitle, { color: colors.danger }]}>Not solvable yet</Text>
             {validation.issues.slice(0, 3).map((issue, i) => (
-              <Text key={i} style={styles.issueText}>
+              <Text key={i} style={[styles.issueText, { color: colors.text }]}>
                 • {issue.message}
               </Text>
             ))}
@@ -83,14 +87,14 @@ export function ManualEntryScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1 },
   content: { padding: theme.spacing(6), gap: theme.spacing(4), alignItems: "center" },
-  title: { fontSize: 26, fontWeight: "800", color: theme.colors.text },
-  subtitle: { fontSize: 14, color: theme.colors.textMuted, textAlign: "center" },
+  title: { fontSize: 26, fontWeight: "800" },
+  subtitle: { fontSize: 14, textAlign: "center" },
   tabRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: theme.spacing(2) },
   gridCard: { alignItems: "center" },
   issueCard: { width: "100%", gap: theme.spacing(1) },
-  issueTitle: { fontWeight: "700", color: theme.colors.danger },
-  issueText: { color: theme.colors.text, fontSize: 13 },
+  issueTitle: { fontWeight: "700" },
+  issueText: { fontSize: 13 },
   solveButton: { width: "100%", marginTop: theme.spacing(2) },
 });

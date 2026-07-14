@@ -5,11 +5,13 @@ import { RootStackParamList } from "../navigation/types";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { theme } from "../theme/theme";
 import { initSolver } from "../solver/solver";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export function HomeScreen({ navigation }: Props) {
   const [solverReady, setSolverReady] = useState(false);
+  const { colors } = useAppSettings();
 
   useEffect(() => {
     // Kick off the ~4-5s pruning-table build now, so it's ready by the time
@@ -18,10 +20,12 @@ export function HomeScreen({ navigation }: Props) {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.hero}>
-        <Text style={styles.title}>CubeVision</Text>
-        <Text style={styles.subtitle}>Scan your Rubik's Cube. Get the optimal solution. Fully offline.</Text>
+        <Text style={[styles.title, { color: colors.text }]}>CubeVision</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          Scan your Rubik's Cube. Get the optimal solution. Fully offline.
+        </Text>
       </View>
 
       <View style={styles.actions}>
@@ -37,7 +41,9 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <Text style={styles.status}>{solverReady ? "Solver ready" : "Preparing solver…"}</Text>
+      <Text style={[styles.status, { color: colors.textMuted }]}>
+        {solverReady ? "Solver ready" : "Preparing solver…"}
+      </Text>
     </SafeAreaView>
   );
 }
@@ -45,7 +51,6 @@ export function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
     justifyContent: "space-between",
     paddingHorizontal: theme.spacing(6),
     paddingVertical: theme.spacing(10),
@@ -56,11 +61,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: "800",
-    color: theme.colors.text,
   },
   subtitle: {
     fontSize: 16,
-    color: theme.colors.textMuted,
     marginTop: theme.spacing(3),
     lineHeight: 22,
   },
@@ -77,7 +80,6 @@ const styles = StyleSheet.create({
   },
   status: {
     textAlign: "center",
-    color: theme.colors.textMuted,
     fontSize: 13,
   },
 });

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { COLOR_HEX, COLORS } from "../cube/constants";
 import { CubeColor } from "../cube/types";
 import { theme } from "../theme/theme";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface Props {
   selected?: CubeColor;
@@ -11,6 +12,7 @@ interface Props {
 
 /** A picker of all 6 cube colors, used to correct a sticker in Face Review / Manual Entry. */
 export function ColorSwatchGrid({ selected, onSelect }: Props) {
+  const { colors } = useAppSettings();
   return (
     <View style={styles.row}>
       {COLORS.map((color) => (
@@ -20,7 +22,7 @@ export function ColorSwatchGrid({ selected, onSelect }: Props) {
           style={[
             styles.swatch,
             { backgroundColor: COLOR_HEX[color] },
-            selected === color && styles.selected,
+            selected === color && { borderWidth: 3, borderColor: colors.primary },
           ]}
         />
       ))}
@@ -40,9 +42,5 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.12)",
-  },
-  selected: {
-    borderWidth: 3,
-    borderColor: theme.colors.primary,
   },
 });

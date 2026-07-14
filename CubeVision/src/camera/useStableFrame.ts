@@ -8,6 +8,8 @@ const CHECK_INTERVAL_MS = 350;
 const STABLE_FRAMES_REQUIRED = 3;
 /** Average per-channel change (0-255 scale) below which two frames count as "the same". */
 const STABLE_DIFF_THRESHOLD = 6;
+/** Stop silently retrying and surface an error after this many consecutive sampling failures. */
+const MAX_CONSECUTIVE_FAILURES = 6;
 
 function averageDiff(a: RGB[], b: RGB[]): number {
   let total = 0;
@@ -17,18 +19,24 @@ function averageDiff(a: RGB[], b: RGB[]): number {
   return total / (a.length * 3);
 }
 
-export type ScanStatus = "idle" | "watching" | "stable" | "capturing";
+export type ScanStatus = "idle" | "watching" | "stable" | "error";
 
 /**
  * Polls the camera at a coarse grid to detect when the cube face has held
  * still long enough to auto-capture — no shutter button needed. Runs
  * entirely on cheap low-res stills via `takePictureAsync`, since Expo's
  * managed camera API doesn't expose a raw continuous frame stream.
+ *
+ * Sampling failures are retried silently for a few frames (the camera can
+ * genuinely not be ready yet right after mount), but after
+ * MAX_CONSECUTIVE_FAILURES in a row this stops and calls `onError` instead
+ * of retrying forever with no feedback.
  */
 export function useStableFrame(cameraRef: React.RefObject<CameraView>, overlaySizeFraction: number) {
   const [status, setStatus] = useState<ScanStatus>("idle");
   const lastSampleRef = useRef<RGB[] | null>(null);
   const stableCountRef = useRef(0);
+  const failureCountRef = useRef(0);
   const runningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,12 +45,14 @@ export function useStableFrame(cameraRef: React.RefObject<CameraView>, overlaySi
     if (timerRef.current) clearTimeout(timerRef.current);
     setStatus("idle");
     stableCountRef.current = 0;
+    failureCountRef.current = 0;
     lastSampleRef.current = null;
   }, []);
 
   const start = useCallback(
-    (onStable: () => void) => {
+    (onStable: () => void, onError?: (message: string) => void) => {
       runningRef.current = true;
+      failureCountRef.current = 0;
       setStatus("watching");
 
       const tick = async () => {
@@ -66,6 +76,7 @@ export function useStableFrame(cameraRef: React.RefObject<CameraView>, overlaySi
           }));
 
           const samples = await samplePixelColors(photo.uri, photo.height, rects);
+          failureCountRef.current = 0;
 
           if (lastSampleRef.current && averageDiff(lastSampleRef.current, samples) < STABLE_DIFF_THRESHOLD) {
             stableCountRef.current += 1;
@@ -81,8 +92,14 @@ export function useStableFrame(cameraRef: React.RefObject<CameraView>, overlaySi
             return;
           }
           setStatus("watching");
-        } catch {
-          // Camera not ready yet, or a frame failed to sample — just retry on the next tick.
+        } catch (e) {
+          failureCountRef.current += 1;
+          if (failureCountRef.current >= MAX_CONSECUTIVE_FAILURES) {
+            runningRef.current = false;
+            setStatus("error");
+            onError?.(e instanceof Error ? e.message : "Couldn't read colors from the camera.");
+            return;
+          }
         }
         if (runningRef.current) timerRef.current = setTimeout(tick, CHECK_INTERVAL_MS);
       };

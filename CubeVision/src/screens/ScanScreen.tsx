@@ -13,6 +13,7 @@ import { FACE_LABEL } from "../cube/constants";
 import { SCAN_STEPS } from "../cube/scanRoles";
 import { theme } from "../theme/theme";
 import { CubeFaces } from "../cube/types";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Scan">;
 
@@ -20,6 +21,7 @@ export function ScanScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const scanner = useCubeScanner();
   const [selected, setSelected] = useState<number | null>(null);
+  const { colors, triggerHaptic } = useAppSettings();
 
   useEffect(() => {
     if (permission && !permission.granted) requestPermission();
@@ -35,13 +37,20 @@ export function ScanScreen({ navigation }: Props) {
     setSelected(null);
   }, [scanner.pendingReview?.face]);
 
-  if (!permission) return <SafeAreaView style={styles.container} />;
+  const confirmAndAdvance = () => {
+    triggerHaptic("success");
+    scanner.confirmReview();
+  };
+
+  if (!permission) return <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} />;
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.centered}>
-          <Text style={styles.message}>CubeVision needs camera access to scan your cube.</Text>
+          <Text style={[styles.message, { color: colors.text }]}>
+            CubeVision needs camera access to scan your cube.
+          </Text>
           <PrimaryButton label="Grant Camera Access" onPress={requestPermission} />
         </View>
       </SafeAreaView>
@@ -50,12 +59,12 @@ export function ScanScreen({ navigation }: Props) {
 
   if (scanner.phase === "complete" && scanner.validation && !scanner.validation.valid) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={styles.centered}>
-          <Text style={styles.title}>This cube state isn't solvable</Text>
+          <Text style={[styles.title, { color: colors.text }]}>This cube state isn't solvable</Text>
           {scanner.validation.issues.map((issue, i) => (
             <Card key={i} style={styles.issueCard}>
-              <Text style={styles.issueText}>{issue.message}</Text>
+              <Text style={[styles.issueText, { color: colors.text }]}>{issue.message}</Text>
               {issue.suggestFaces && issue.suggestFaces.length > 0 && (
                 <View style={styles.issueActions}>
                   {issue.suggestFaces.map((face) => (
@@ -78,12 +87,14 @@ export function ScanScreen({ navigation }: Props) {
   if (scanner.phase === "reviewing" && scanner.pendingReview) {
     const review = scanner.pendingReview;
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.centered}>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.text }]}>
             {review.inferred ? "Inferred from the other 5 faces" : `${FACE_LABEL[review.face]} face`}
           </Text>
-          <Text style={styles.subtitle}>Tap any sticker to correct it, then continue.</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            Tap any sticker to correct it, then continue.
+          </Text>
           <FaceGrid
             colors={review.colors}
             size={220}
@@ -98,7 +109,7 @@ export function ScanScreen({ navigation }: Props) {
               />
             </View>
           )}
-          <PrimaryButton label="Save & Continue" onPress={scanner.confirmReview} style={styles.continueButton} />
+          <PrimaryButton label="Save & Continue" onPress={confirmAndAdvance} style={styles.continueButton} />
         </View>
       </SafeAreaView>
     );
@@ -118,7 +129,7 @@ export function ScanScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1 },
   centered: {
     flex: 1,
     alignItems: "center",
@@ -126,12 +137,12 @@ const styles = StyleSheet.create({
     padding: theme.spacing(6),
     gap: theme.spacing(4),
   },
-  message: { fontSize: 16, color: theme.colors.text, textAlign: "center" },
-  title: { fontSize: 22, fontWeight: "700", color: theme.colors.text, textAlign: "center" },
-  subtitle: { fontSize: 14, color: theme.colors.textMuted, textAlign: "center" },
+  message: { fontSize: 16, textAlign: "center" },
+  title: { fontSize: 22, fontWeight: "700", textAlign: "center" },
+  subtitle: { fontSize: 14, textAlign: "center" },
   swatchWrap: { marginTop: theme.spacing(2) },
   continueButton: { marginTop: theme.spacing(4), width: "100%" },
   issueCard: { marginBottom: theme.spacing(3), gap: theme.spacing(2) },
-  issueText: { color: theme.colors.text, fontSize: 15 },
+  issueText: { fontSize: 15 },
   issueActions: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing(2) },
 });
