@@ -6,19 +6,34 @@ let solverReady: Promise<void> | null = null;
 
 /**
  * cubejs's pruning-table generation (`Cube.initSolver`) takes a few seconds
- * and runs synchronously on the JS thread — there is no native worker
- * thread available in Hermes/React Native. Call this once, early (e.g. on
- * the Home screen), and show a loading state while it resolves so the first
- * scan-to-solve flow doesn't stall on a blank screen.
+ * on a desktop and can take meaningfully longer on a phone's JS engine —
+ * there is no native worker thread available in Hermes/React Native. Call
+ * this once, early (e.g. on the Home screen), and show a loading state
+ * while it resolves so the first scan-to-solve flow doesn't stall on a
+ * blank screen.
+ *
+ * Important: the `setTimeout` callback below runs outside the Promise
+ * executor's synchronous scope, so a thrown error inside it does NOT
+ * automatically reject the promise — without the explicit try/catch here,
+ * any failure in `Cube.initSolver()` would leave this promise pending
+ * forever with no error and no way to retry.
  */
 export function initSolver(): Promise<void> {
   if (!solverReady) {
-    solverReady = new Promise((resolve) => {
+    solverReady = new Promise<void>((resolve, reject) => {
       // Yield a tick so any pending UI update (e.g. a spinner) can paint first.
       setTimeout(() => {
-        Cube.initSolver();
-        resolve();
+        try {
+          Cube.initSolver();
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
       }, 0);
+    }).catch((e) => {
+      // Don't cache a failed attempt — let the caller retry.
+      solverReady = null;
+      throw e;
     });
   }
   return solverReady;

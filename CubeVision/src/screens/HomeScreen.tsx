@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/types";
@@ -9,15 +9,63 @@ import { useAppSettings } from "../hooks/useAppSettings";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
+type SolverStatus = "loading" | "slow" | "ready" | "error";
+
 export function HomeScreen({ navigation }: Props) {
-  const [solverReady, setSolverReady] = useState(false);
+  const [solverStatus, setSolverStatus] = useState<SolverStatus>("loading");
+  const [solverError, setSolverError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const { colors } = useAppSettings();
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    // Kick off the ~4-5s pruning-table build now, so it's ready by the time
-    // scanning finishes instead of stalling the Solve screen.
-    initSolver().then(() => setSolverReady(true));
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
+
+  const startSolver = useCallback(() => {
+    setSolverStatus("loading");
+    setSolverError(null);
+
+    // Building the solver's lookup tables genuinely takes longer than a
+    // couple seconds on some phones — let the user know it's not stuck
+    // rather than leaving them guessing.
+    const slowTimer = setTimeout(() => {
+      if (mountedRef.current) setSolverStatus((s) => (s === "loading" ? "slow" : s));
+    }, 8000);
+
+    initSolver()
+      .then(() => {
+        clearTimeout(slowTimer);
+        if (mountedRef.current) setSolverStatus("ready");
+      })
+      .catch((e) => {
+        clearTimeout(slowTimer);
+        if (mountedRef.current) {
+          setSolverStatus("error");
+          setSolverError(e instanceof Error ? e.message : "The solver failed to start.");
+        }
+      });
+
+    return () => clearTimeout(slowTimer);
+  }, []);
+
+  useEffect(() => {
+    const cleanup = startSolver();
+    return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt]);
+
+  const statusText =
+    solverStatus === "ready"
+      ? "Solver ready"
+      : solverStatus === "slow"
+      ? "Still preparing solver… this can take a minute on some phones"
+      : solverStatus === "error"
+      ? solverError ?? "Solver failed to start"
+      : "Preparing solver…";
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -41,9 +89,19 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <Text style={[styles.status, { color: colors.textMuted }]}>
-        {solverReady ? "Solver ready" : "Preparing solver…"}
-      </Text>
+      <View style={styles.statusArea}>
+        <Text style={[styles.status, { color: solverStatus === "error" ? colors.danger : colors.textMuted }]}>
+          {statusText}
+        </Text>
+        {solverStatus === "error" && (
+          <PrimaryButton
+            label="Retry"
+            variant="secondary"
+            onPress={() => setAttempt((a) => a + 1)}
+            style={styles.retryButton}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -78,8 +136,16 @@ const styles = StyleSheet.create({
   scanButton: {
     minHeight: 72,
   },
+  statusArea: {
+    alignItems: "center",
+    gap: theme.spacing(2),
+  },
   status: {
     textAlign: "center",
     fontSize: 13,
+  },
+  retryButton: {
+    minHeight: 40,
+    paddingVertical: 8,
   },
 });
