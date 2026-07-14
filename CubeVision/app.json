@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "CubeVision",
+    "slug": "cubevision",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cubevision.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CubeVision needs the camera to scan your Rubik's Cube faces and detect sticker colors."
+      }
+    },
+    "android": {
+      "package": "com.cubevision.app",
+      "permissions": ["CAMERA"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A66FF"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "CubeVision needs the camera to scan your Rubik's Cube faces and detect sticker colors."
+        }
+      ]
+    ]
+  }
+}
