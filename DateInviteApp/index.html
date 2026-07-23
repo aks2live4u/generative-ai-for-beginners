@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>will you go on a date with me? 🌸</title>
+<style>
+  :root{
+    --pink: #d63d7a;
+    --pink-deep: #7a1f3d;
+    --pink-soft: #f9c9dc;
+    --bg: #f7dbe6;
+    --card: #ffffff;
+  }
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background: linear-gradient(160deg, #f9dfe9, #f3c7dc 60%, #eeb9d3);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color:#3a2230;
+    overflow-x:hidden;
+  }
+  .stage{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 32px 16px;
+    position:relative;
+  }
+  .card{
+    background: var(--card);
+    border-radius: 28px;
+    box-shadow: 0 20px 45px rgba(122, 31, 61, 0.18);
+    padding: 40px 32px;
+    max-width: 420px;
+    width:100%;
+    text-align:center;
+    position:relative;
+    z-index:2;
+    animation: pop .35s ease;
+  }
+  @keyframes pop{
+    from{ transform: scale(.92); opacity:0; }
+    to{ transform: scale(1); opacity:1; }
+  }
+  h1{
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--pink-deep);
+    font-size: 1.7rem;
+    line-height:1.3;
+    margin: 8px 0 6px;
+  }
+  h2{
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--pink-deep);
+    font-size: 1.5rem;
+    margin: 8px 0 4px;
+  }
+  p.sub{
+    color:#7a5a68;
+    font-size:.95rem;
+    margin: 4px 0 22px;
+  }
+  .avatar{
+    width:96px; height:96px;
+    border-radius: 20px;
+    margin: 0 auto 18px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:46px;
+    background: linear-gradient(135deg, #ffd3e6, #ffb3d1);
+    box-shadow: inset 0 0 0 4px #ffffff, 0 6px 16px rgba(214,61,122,.25);
+  }
+  /* screen 1: proposal */
+  .btn-row{
+    position:relative;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:14px;
+    margin-top: 26px;
+    min-height: 210px;
+  }
+  .btn{
+    border:none;
+    cursor:pointer;
+    font-weight:700;
+    font-size:1rem;
+    padding: 14px 28px;
+    border-radius: 999px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active{ transform: scale(.96); }
+  .btn-yes{
+    background: linear-gradient(135deg, #ec5d95, #d63d7a);
+    color:#fff;
+    box-shadow: 0 10px 20px rgba(214,61,122,.35);
+  }
+  .btn-yes:hover{ transform: translateY(-2px); }
+  .btn-no{
+    background: #d9b8ea;
+    color: #5c3a72;
+    position: absolute;
+  }
+  .btn-primary{
+    background: linear-gradient(135deg, #ec5d95, #c22a6b);
+    color:#fff;
+    width:100%;
+    padding:16px;
+    font-size:1.05rem;
+    box-shadow: 0 10px 20px rgba(194,42,107,.3);
+  }
+  .btn-primary:hover{ transform: translateY(-2px); }
+  .btn-ghost{
+    background:none;
+    color:#a15c78;
+    font-size:.9rem;
+    text-decoration: underline;
+    padding: 8px;
+  }
+  .field{ text-align:left; margin-bottom:16px; }
+  .field label{
+    display:block;
+    font-weight:700;
+    color: var(--pink-deep);
+    margin-bottom:6px;
+    font-size:.95rem;
+  }
+  .field input, .field select{
+    width:100%;
+    padding: 12px 14px;
+    border-radius:12px;
+    border:1.5px solid #f0c3d8;
+    font-size:1rem;
+    background:#fff8fb;
+    color:#3a2230;
+  }
+  .field input:focus, .field select:focus{
+    outline:none;
+    border-color: var(--pink);
+  }
+  .food-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:10px;
+    margin: 20px 0 26px;
+  }
+  .food-card{
+    border: 2px solid #f3d3e2;
+    border-radius:14px;
+    padding: 14px 6px;
+    cursor:pointer;
+    background:#fff8fb;
+    transition: all .15s ease;
+  }
+  .food-card .emoji{ font-size:1.8rem; display:block; }
+  .food-card .label{ font-size:.82rem; margin-top:6px; display:block; color:#5c3a4a; }
+  .food-card.selected{
+    border-color: var(--pink);
+    background: #ffe4f0;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(214,61,122,.2);
+  }
+  .hearts-row{ margin: 14px 0; font-size:1.2rem; letter-spacing:6px; }
+  .fee-box{
+    border:1.5px solid #f0c3d8;
+    border-radius:14px;
+    padding:16px 18px;
+    text-align:left;
+    margin: 20px 0;
+    background:#fff8fb;
+  }
+  .fee-box .row{ display:flex; justify-content:space-between; align-items:center; font-weight:700; color: var(--pink-deep); }
+  .fee-box .amount{ font-size:1.3rem; }
+  .fee-box .note{ font-size:.8rem; color:#a15c78; margin-top:4px; }
+  .footer-note{
+    margin-top:22px;
+    font-size:.75rem;
+    color:#c48ba3;
+  }
+  .floating{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    overflow:hidden;
+    z-index:1;
+  }
+  .petal{
+    position:absolute;
+    top:-40px;
+    font-size:20px;
+    animation: fall linear infinite;
+    opacity:.8;
+  }
+  @keyframes fall{
+    to{ transform: translateY(110vh) rotate(360deg); }
+  }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+  #confettiCanvas{
+    position:fixed; inset:0; z-index:3; pointer-events:none;
+  }
+  .summary{
+    background:#fff2f8;
+    border-radius:14px;
+    padding:14px 16px;
+    margin: 18px 0;
+    text-align:left;
+    font-size:.9rem;
+    color:#6b3350;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="floating" id="floating"></div>
+<canvas id="confettiCanvas"></canvas>
+
+<div class="stage">
+
+  <!-- SCREEN 1: proposal -->
+  <div class="card screen active" id="screen-1">
+    <div class="avatar">💌</div>
+    <h1>🌸 Will you go on a date with me? 🌸</h1>
+    <div class="btn-row" id="btnRow">
+      <button class="btn btn-yes" id="yesBtn">YES ♥</button>
+      <button class="btn btn-no" id="noBtn">no 🐾</button>
+    </div>
+    <div class="footer-note">made with ❤️ (and a little bit of code)</div>
+  </div>
+
+  <!-- SCREEN 2: reaction -->
+  <div class="card screen" id="screen-2">
+    <div class="avatar">🧽</div>
+    <h1>WAIT YOU ACTUALLY SAID YES?? 😭</h1>
+    <p class="sub">I was so ready for you to say no 😅</p>
+    <button class="btn btn-primary" id="toScreen3">okay okay! →</button>
+  </div>
+
+  <!-- SCREEN 3: date & time -->
+  <div class="card screen" id="screen-3">
+    <div class="avatar">📅</div>
+    <h1>So... when are you free?</h1>
+    <div class="field">
+      <label for="dateInput">Pick a Day 🗓️</label>
+      <input type="date" id="dateInput">
+    </div>
+    <div class="field">
+      <label for="timeInput">What Time? 🕗</label>
+      <select id="timeInput">
+        <option value="">Select a time...</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="toScreen4">set the date! ♥</button>
+  </div>
+
+  <!-- SCREEN 4: food -->
+  <div class="card screen" id="screen-4">
+    <h1>What are we feeling? 🍽️✨</h1>
+    <p class="sub">pick your vibe</p>
+    <div class="food-grid" id="foodGrid">
+      <div class="food-card" data-food="Pizza 🍕"><span class="emoji">🍕</span><span class="label">Pizza</span></div>
+      <div class="food-card" data-food="Sushi 🍣"><span class="emoji">🍣</span><span class="label">Sushi</span></div>
+      <div class="food-card" data-food="Burgers 🍔"><span class="emoji">🍔</span><span class="label">Burgers</span></div>
+      <div class="food-card" data-food="Pasta 🍝"><span class="emoji">🍝</span><span class="label">Pasta</span></div>
+      <div class="food-card" data-food="Tacos 🌮"><span class="emoji">🌮</span><span class="label">Tacos</span></div>
+      <div class="food-card" data-food="Ramen 🍜"><span class="emoji">🍜</span><span class="label">Ramen</span></div>
+    </div>
+    <button class="btn btn-primary" id="toScreen5" disabled style="opacity:.5">lock it in 🔒</button>
+  </div>
+
+  <!-- SCREEN 5: final message -->
+  <div class="card screen" id="screen-5">
+    <h1 id="finalMsg">glad you didn't say no.</h1>
+    <p class="sub" id="finalSub"></p>
+    <p class="sub" style="font-style:italic; margin-top:-14px;">P.S. normal people text. I made a website for you instead. no big deal.</p>
+    <div class="hearts-row">♥ ♥ ♥ ♥ ♥</div>
+    <button class="btn btn-primary" id="toScreen6">ok I accept 💍</button>
+  </div>
+
+  <!-- SCREEN 6: the joke fee -->
+  <div class="card screen" id="screen-6">
+    <div class="avatar">💳</div>
+    <h1>one small fee</h1>
+    <p class="sub">to confirm your acceptance of this date, please complete the following transaction. totally normal. everyone does this.</p>
+    <div class="fee-box">
+      <div class="row"><span>Date Agreement™</span><span class="amount" id="feeAmount">₹49</span></div>
+      <div class="note">one-time fee • non-refundable • absolutely worth it</div>
+    </div>
+    <button class="btn btn-primary" id="payBtn">send 100 kisses & confirm 💋</button>
+    <div id="upiRow" style="display:none; margin-top:10px;">
+      <a class="btn btn-ghost" id="upiLink" href="#" target="_blank" rel="noopener">or pay ₹49 the boring way (Google Pay / PhonePe)</a>
+    </div>
+    <button class="btn btn-ghost" id="goBack">go back</button>
+  </div>
+
+  <!-- SCREEN 7: confirmed -->
+  <div class="card screen" id="screen-7">
+    <div class="avatar">🎉</div>
+    <h1>it's official! 💕</h1>
+    <p class="sub">100 kisses have been dispatched via WhatsApp. payment accepted. no refunds.</p>
+    <div class="summary" id="summaryBox"></div>
+    <div class="footer-note">see you soon ♥</div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — edit these to personalize the page before sharing it
+   ============================================================ */
+const CONFIG = {
+  // Who is asking, shown nowhere directly but used in the WhatsApp message
+  SENDER_NAME: "me",
+
+  // Optional: your WhatsApp number in international format, no +, no spaces
+  // e.g. "919876543210". Leave blank "" to let the person picture pick
+  // any WhatsApp contact (works without knowing anyone's number).
+  WHATSAPP_NUMBER: "",
+
+  // How many "kisses" the joke payment sends
+  KISS_COUNT: 100,
+
+  // The joke fee shown on the payment screen, in Indian Rupees
+  FEE_INR: 49,
+
+  // Optional real UPI VPA (e.g. "yourname@okhdfcbank") if you ALSO want a
+  // genuine Google Pay / PhonePe payment link shown as a secondary option.
+  // Leave blank to hide that option entirely.
+  UPI_ID: "",
+
+  // ntfy.sh topic used to push you a notification when the invite is
+  // accepted. ntfy is free and needs no signup: install the ntfy app
+  // (Android/iOS) or open https://ntfy.sh/<topic> in a browser and
+  // subscribe to this exact topic name to receive the alert.
+  // Change this to something private/hard-to-guess before sharing the page,
+  // since anyone who knows the topic name could subscribe to it too.
+  NTFY_TOPIC: "aks2live4u-date-invite-7f3q9k2p"
+};
+
+/* ============================================================
+   Floating background petals
+   ============================================================ */
+(function initPetals(){
+  const wrap = document.getElementById('floating');
+  const emojis = ['🌸','💮','🌷','♥'];
+  for(let i=0;i<16;i++){
+    const el = document.createElement('div');
+    el.className = 'petal';
+    el.textContent = emojis[i % emojis.length];
+    el.style.left = Math.random()*100 + 'vw';
+    el.style.animationDuration = (8 + Math.random()*10) + 's';
+    el.style.animationDelay = (Math.random()*10) + 's';
+    el.style.fontSize = (14 + Math.random()*14) + 'px';
+    wrap.appendChild(el);
+  }
+})();
+
+/* ============================================================
+   Screen navigation
+   ============================================================ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+/* ============================================================
+   Screen 1: dodging "no" button
+   ============================================================ */
+const btnRow = document.getElementById('btnRow');
+const noBtn = document.getElementById('noBtn');
+const yesBtn = document.getElementById('yesBtn');
+
+function overlapsYes(x, y, w, h, rowRect, yesRect, padding){
+  const noLeft = rowRect.left + x - padding;
+  const noRight = noLeft + w + padding * 2;
+  const noTop = rowRect.top + y - padding;
+  const noBottom = noTop + h + padding * 2;
+  return !(noRight < yesRect.left || noLeft > yesRect.right || noBottom < yesRect.top || noTop > yesRect.bottom);
+}
+
+function dodge(){
+  const rowRect = btnRow.getBoundingClientRect();
+  const yesRect = yesBtn.getBoundingClientRect();
+  const noW = noBtn.offsetWidth, noH = noBtn.offsetHeight;
+  const padding = 14;
+  const maxX = Math.max(btnRow.clientWidth - noW, 0);
+  const maxY = Math.max(btnRow.clientHeight - noH, 0);
+  let x, y, found = false;
+  for (let tries = 0; tries < 30; tries++){
+    x = Math.random() * maxX;
+    y = Math.random() * maxY;
+    if (!overlapsYes(x, y, noW, noH, rowRect, yesRect, padding)){ found = true; break; }
+  }
+  if (!found){
+    // guaranteed non-overlapping fallback: drop it directly below "yes"
+    x = Math.min(Math.max((btnRow.clientWidth - noW) / 2, 0), maxX);
+    y = Math.min((yesRect.bottom - rowRect.top) + padding, maxY);
+  }
+  noBtn.style.left = x + 'px';
+  noBtn.style.top = y + 'px';
+}
+// place the "no" button in a non-overlapping spot on load too, not just on dodge
+dodge();
+
+noBtn.addEventListener('mouseenter', dodge);
+noBtn.addEventListener('touchstart', (e) => { e.preventDefault(); dodge(); }, {passive:false});
+noBtn.addEventListener('click', (e) => { e.preventDefault(); dodge(); });
+
+yesBtn.addEventListener('click', () => {
+  showScreen('screen-2');
+  burstConfetti();
+});
+
+document.getElementById('toScreen3').addEventListener('click', () => showScreen('screen-3'));
+
+/* ============================================================
+   Screen 3: date + time
+   ============================================================ */
+const dateInput = document.getElementById('dateInput');
+const timeInput = document.getElementById('timeInput');
+
+// default min date = today, and populate half-hour time slots 12PM-9PM
+dateInput.min = new Date().toISOString().split('T')[0];
+(function populateTimes(){
+  const slots = [];
+  let hour = 12, minute = 0;
+  for(let i=0;i<19;i++){ // 12:00 PM through 9:00 PM in 30-min steps
+    const h12 = hour;
+    const label = `${h12}:${minute === 0 ? '00' : '30'} PM`;
+    slots.push(label);
+    minute += 30;
+    if(minute === 60){ minute = 0; hour += 1; if(hour > 12) hour = 1; }
+  }
+  slots.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    timeInput.appendChild(opt);
+  });
+})();
+
+document.getElementById('toScreen4').addEventListener('click', () => {
+  if(!dateInput.value || !timeInput.value){
+    alert('pick a day and a time first 🥺');
+    return;
+  }
+  showScreen('screen-4');
+});
+
+/* ============================================================
+   Screen 4: food picker
+   ============================================================ */
+let chosenFood = null;
+const foodGrid = document.getElementById('foodGrid');
+const toScreen5 = document.getElementById('toScreen5');
+
+foodGrid.addEventListener('click', (e) => {
+  const card = e.target.closest('.food-card');
+  if(!card) return;
+  document.querySelectorAll('.food-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  chosenFood = card.dataset.food;
+  toScreen5.disabled = false;
+  toScreen5.style.opacity = 1;
+});
+
+toScreen5.addEventListener('click', () => {
+  const niceDate = formatDate(dateInput.value);
+  document.getElementById('finalMsg').textContent =
+    `glad you didn't say no. be ready by ${timeInput.value}, I'm coming to get you 🚗`;
+  document.getElementById('finalSub').textContent =
+    `${niceDate} · ${timeInput.value} · ${chosenFood}`;
+  showScreen('screen-5');
+});
+
+function formatDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+/* ============================================================
+   Screen 5 -> 6
+   ============================================================ */
+document.getElementById('toScreen6').addEventListener('click', () => {
+  document.getElementById('feeAmount').textContent = `₹${CONFIG.FEE_INR}`;
+
+  if(CONFIG.UPI_ID){
+    const upiLink = document.getElementById('upiLink');
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.UPI_ID)}&pn=${encodeURIComponent(CONFIG.SENDER_NAME)}&am=${CONFIG.FEE_INR}&cu=INR&tn=${encodeURIComponent('Date Agreement Fee')}`;
+    upiLink.href = upiUrl;
+    upiLink.textContent = `or pay ₹${CONFIG.FEE_INR} the boring way (Google Pay / PhonePe)`;
+    document.getElementById('upiRow').style.display = 'block';
+  }
+
+  showScreen('screen-6');
+});
+document.getElementById('goBack').addEventListener('click', () => showScreen('screen-5'));
+
+/* ============================================================
+   Screen 6: "pay" -> open WhatsApp with kisses + notify sender via ntfy
+   ============================================================ */
+document.getElementById('payBtn').addEventListener('click', async () => {
+  const niceDate = formatDate(dateInput.value);
+  const kisses = '😘'.repeat(Math.min(CONFIG.KISS_COUNT, 30)); // cap emoji spam, count still stated in text
+
+  const message =
+    `Sending ${CONFIG.KISS_COUNT} kisses 💋 as payment for our date! ` +
+    `${kisses}\n\n` +
+    `📅 ${niceDate} at ${timeInput.value}\n` +
+    `🍽️ ${chosenFood}\n\n` +
+    `Consider the ₹${CONFIG.FEE_INR} agreement paid in full 😘`;
+
+  await sendNotification(niceDate);
+
+  const waUrl = CONFIG.WHATSAPP_NUMBER
+    ? `https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+  window.open(waUrl, '_blank');
+
+  document.getElementById('summaryBox').innerHTML =
+    `📅 <strong>${niceDate}</strong> at <strong>${timeInput.value}</strong><br>` +
+    `🍽️ ${chosenFood}<br>` +
+    `💋 ${CONFIG.KISS_COUNT} kisses sent via WhatsApp`;
+
+  showScreen('screen-7');
+});
+
+async function sendNotification(niceDate){
+  try{
+    await fetch(`https://ntfy.sh/${CONFIG.NTFY_TOPIC}`, {
+      method: 'POST',
+      headers: {
+        // HTTP header values must be ISO-8859-1 — no emoji here, they go in the body instead
+        'Title': 'Date invite accepted!',
+        'Tags': 'heart,tada',
+        'Priority': 'high'
+      },
+      body: `They said YES! 📅 ${niceDate} at ${timeInput.value} · 🍽️ ${chosenFood} · 💋 ${CONFIG.KISS_COUNT} kisses on the way via WhatsApp`
+    });
+  }catch(err){
+    console.warn('ntfy notification failed (offline?)', err);
+  }
+}
+
+/* ============================================================
+   Confetti burst
+   ============================================================ */
+function burstConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ['#ec5d95','#f7c6de','#c22a6b','#ffe066','#8fd3c7'];
+  const pieces = Array.from({length: 120}, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random()*canvas.height*0.3,
+    r: 4 + Math.random()*5,
+    c: colors[Math.floor(Math.random()*colors.length)],
+    vy: 2 + Math.random()*3,
+    vx: -2 + Math.random()*4,
+    rot: Math.random()*360,
+    vr: -6 + Math.random()*12
+  }));
+  let frame = 0;
+  function draw(){
+    frame++;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI/180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2, -p.r/2, p.r, p.r*1.6);
+      ctx.restore();
+    });
+    if(frame < 140){
+      requestAnimationFrame(draw);
+    }else{
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+  }
+  draw();
+}
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('confettiCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
