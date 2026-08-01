@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer focus ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#a78bfa"
+        android:strokeWidth="6"
+        android:pathData="M54,20 a34,34 0 1,0 0.1,0 Z" />
+
+    <!-- Inner focus ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#c4b5fd"
+        android:strokeWidth="5"
+        android:pathData="M54,36 a18,18 0 1,0 0.1,0 Z" />
+
+    <!-- Center dot -->
+    <path
+        android:fillColor="#7C5CFC"
+        android:pathData="M54,46 a8,8 0 1,0 0.1,0 Z" />
+
+    <!-- Bolt accent -->
+    <path
+        android:fillColor="#22D3AA"
+        android:pathData="M58,58 L46,78 L53,78 L50,90 L64,68 L56,68 Z" />
+
+</vector>
