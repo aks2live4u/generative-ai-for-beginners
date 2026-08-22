@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Next Action</title>
+<style>
+  :root{
+    --bg:#F7F7FA; --card:#FFFFFF; --border:#EBEAF3;
+    --text:#17162A; --text-dim:#6E6C85; --text-faint:#A7A5BB;
+    --accent:#5B4FE5; --accent-dim:#EDEBFC; --accent-text:#FFFFFF;
+    --danger:#E5484D; --success:#1EA672; --success-bg:#E7F8F0;
+    --shadow: 0 1px 2px rgba(23,22,42,0.04), 0 8px 24px rgba(23,22,42,0.06);
+    --radius: 18px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F0E17; --card:#1B1A29; --border:#2B2A3D;
+      --text:#F2F1F8; --text-dim:#A9A7C0; --text-faint:#6E6C85;
+      --accent:#8479FF; --accent-dim:#26234A; --accent-text:#0F0E17;
+      --danger:#FF6B70; --success:#38C793; --success-bg:#123329;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:480px; margin:0 auto; min-height:100vh;
+    display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  header.topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px 8px;
+  }
+  header.topbar h1{font-size:20px; margin:0; font-weight:700; letter-spacing:-0.01em;}
+  .icon-btn{
+    width:38px; height:38px; border-radius:12px; border:none; background:transparent;
+    color:var(--text-dim); display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .icon-btn:active{background:var(--accent-dim); color:var(--accent);}
+  main{flex:1; padding:8px 20px 100px; overflow-y:auto;}
+  .screen{display:none; animation:fadein .18s ease;}
+  .screen.active{display:block;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  /* ---------- Nav ---------- */
+  nav.tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    max-width:480px; margin:0 auto;
+    display:flex; background:var(--card); border-top:1px solid var(--border);
+    padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+    gap:4px;
+  }
+  nav.tabbar button{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; color:var(--text-faint); font-size:11.5px; font-weight:600;
+    padding:6px 0; border-radius:12px; cursor:pointer;
+  }
+  nav.tabbar button.active{color:var(--accent);}
+  nav.tabbar svg{width:22px; height:22px;}
+  .badge-dot{
+    position:absolute; margin-left:14px; margin-top:-2px;
+    width:7px; height:7px; border-radius:50%; background:var(--danger);
+  }
+
+  /* ---------- Cards / generic ---------- */
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:20px;
+  }
+  .muted{color:var(--text-dim);}
+  .faint{color:var(--text-faint);}
+  .section-label{
+    font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-faint); margin:22px 2px 10px;
+  }
+  .section-label:first-child{margin-top:4px;}
+
+  /* ---------- Inbox ---------- */
+  .capture-card{padding:18px;}
+  .capture-input-row{display:flex; align-items:flex-end; gap:10px;}
+  textarea#inboxInput{
+    flex:1; resize:none; border:none; outline:none; background:transparent;
+    color:var(--text); font-size:16px; font-family:inherit; line-height:1.4;
+    max-height:120px; min-height:44px; padding:10px 2px;
+  }
+  textarea#inboxInput::placeholder{color:var(--text-faint);}
+  .round-btn{
+    width:44px; height:44px; min-width:44px; border-radius:50%; border:none;
+    background:var(--accent); color:var(--accent-text); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 4px 14px rgba(91,79,229,0.35);
+  }
+  .round-btn:active{transform:scale(0.94);}
+  .round-btn.ghost{background:var(--accent-dim); color:var(--accent); box-shadow:none;}
+  .round-btn[disabled]{opacity:.4; box-shadow:none;}
+  .round-btn.mic-live{background:var(--danger); box-shadow:0 0 0 8px rgba(229,72,77,0.15);}
+
+  .examples{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
+  .example-chip{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:13px 14px; border-radius:14px; background:var(--card); border:1px solid var(--border);
+    color:var(--text-dim); font-size:14.5px; cursor:pointer;
+  }
+  .example-chip:active{background:var(--accent-dim);}
+
+  .inbox-item{
+    display:flex; gap:12px; padding:14px 16px; border-radius:16px; border:1px solid var(--border);
+    background:var(--card); margin-bottom:10px; cursor:pointer;
+  }
+  .inbox-item .dot{width:9px; height:9px; border-radius:50%; margin-top:6px; flex-shrink:0;}
+  .dot.processing{background:#F5A623; animation:pulse 1.1s infinite;}
+  .dot.planned{background:var(--success);}
+  .dot.error{background:var(--danger);}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  .inbox-item .txt{flex:1; min-width:0;}
+  .inbox-item .txt p{margin:0 0 4px; font-size:15px; line-height:1.35;
+    overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .inbox-item .status-text{font-size:12.5px;}
+  .inbox-item .status-text.processing{color:#B57500;}
+  .inbox-item .status-text.planned{color:var(--success);}
+  .inbox-item .status-text.error{color:var(--danger);}
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--text-faint);
+  }
+  .empty svg{width:44px; height:44px; margin-bottom:12px; opacity:.6;}
+  .empty p{margin:0; font-size:14.5px; line-height:1.5;}
+
+  /* ---------- Today ---------- */
+  .today-wrap{display:flex; flex-direction:column; align-items:center; padding-top:10px;}
+  .today-label{font-size:13px; font-weight:700; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; align-self:flex-start; margin:6px 2px 14px;}
+  .action-card{
+    width:100%; background:var(--card); border:1px solid var(--border); border-radius:24px;
+    box-shadow:var(--shadow); padding:30px 26px; text-align:center;
+  }
+  .action-card .project-tag{
+    display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600;
+    color:var(--accent); background:var(--accent-dim); padding:5px 11px; border-radius:20px; margin-bottom:16px;
+  }
+  .action-card h2{font-size:24px; line-height:1.3; margin:0 0 18px; font-weight:700; letter-spacing:-0.01em;}
+  .time-pill{
+    display:inline-flex; align-items:center; gap:6px; color:var(--text-dim); font-size:14.5px; font-weight:600;
+    margin-bottom:26px;
+  }
+  .time-pill svg{width:16px; height:16px;}
+  .check-ring{
+    width:66px; height:66px; border-radius:50%; border:2.5px solid var(--accent); background:none;
+    display:flex; align-items:center; justify-content:center; margin:0 auto; cursor:pointer; color:var(--accent);
+  }
+  .check-ring svg{width:28px; height:28px;}
+  .check-ring:active{background:var(--accent-dim); transform:scale(.96);}
+  .mark-done-label{margin-top:10px; font-size:13px; color:var(--text-faint); font-weight:600;}
+  .today-hint{margin-top:18px; font-size:12.5px; color:var(--text-faint); text-align:center; line-height:1.5;}
+  .today-links{display:flex; justify-content:center; gap:18px; margin-top:16px;}
+  .link-btn{background:none; border:none; color:var(--accent); font-size:13px; font-weight:600; cursor:pointer; padding:4px;}
+
+  .flash{
+    width:100%; background:var(--success-bg); border-radius:24px; padding:46px 20px; text-align:center;
+    animation:fadein .2s ease;
+  }
+  .flash .check-big{width:56px; height:56px; margin:0 auto 14px; color:var(--success);}
+  .flash h3{margin:0 0 4px; font-size:19px; font-weight:700; color:var(--text);}
+  .flash p{margin:0; color:var(--text-dim); font-size:14px;}
+
+  /* ---------- Plan ---------- */
+  .project-card{margin-bottom:14px; overflow:hidden;}
+  .project-head{display:flex; align-items:center; gap:12px; cursor:pointer;}
+  .project-icon{
+    width:38px; height:38px; border-radius:11px; background:var(--accent-dim); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .project-icon svg{width:19px; height:19px;}
+  .project-meta{flex:1; min-width:0;}
+  .project-meta h3{margin:0 0 3px; font-size:15.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .project-meta .sub{font-size:12.5px; color:var(--text-faint);}
+  .chev{color:var(--text-faint); transition:transform .15s ease; flex-shrink:0;}
+  .chev svg{width:18px; height:18px;}
+  .project-card.open .chev{transform:rotate(180deg);}
+  .progress-track{height:6px; border-radius:4px; background:var(--accent-dim); margin-top:14px; overflow:hidden;}
+  .progress-fill{height:100%; background:var(--accent); border-radius:4px; transition:width .3s ease;}
+  .project-body{display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);}
+  .project-card.open .project-body{display:block;}
+  .step-row{display:flex; align-items:flex-start; gap:10px; padding:8px 0;}
+  .step-mark{width:20px; height:20px; border-radius:50%; flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center;}
+  .step-mark svg{width:13px; height:13px;}
+  .step-mark.done{background:var(--success); color:#fff;}
+  .step-mark.next{border:2px solid var(--accent); color:var(--accent);}
+  .step-mark.pending{border:2px solid var(--border);}
+  .step-info{flex:1; min-width:0;}
+  .step-info .t{font-size:14.5px; line-height:1.35;}
+  .step-row.done .t{color:var(--text-faint); text-decoration:line-through;}
+  .step-row.next .t{font-weight:700; color:var(--accent);}
+  .step-info .m{font-size:12px; color:var(--text-faint); margin-top:1px;}
+  .replan-box{margin-top:16px;}
+  .replan-box textarea{
+    width:100%; border:1px solid var(--border); border-radius:12px; background:var(--bg);
+    color:var(--text); font-family:inherit; font-size:13.5px; padding:10px 12px; resize:none; min-height:40px;
+  }
+  .replan-row{display:flex; gap:8px; margin-top:8px; align-items:center;}
+  .btn-small{
+    border:none; background:var(--accent); color:var(--accent-text); font-weight:600; font-size:13px;
+    padding:9px 14px; border-radius:10px; cursor:pointer;
+  }
+  .btn-small[disabled]{opacity:.5;}
+  .btn-text-danger{background:none; border:none; color:var(--danger); font-size:12.5px; font-weight:600; cursor:pointer; padding:4px;}
+  .inline-status{font-size:12px; margin-top:6px;}
+  .inline-status.error{color:var(--danger);}
+  .inline-status.ok{color:var(--success);}
+
+  /* ---------- Settings sheet ---------- */
+  .sheet-overlay{
+    position:fixed; inset:0; background:rgba(10,9,20,0.4); z-index:40; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.active{display:flex;}
+  .sheet{
+    width:100%; max-width:480px; background:var(--card); border-radius:24px 24px 0 0;
+    padding:14px 22px calc(28px + env(safe-area-inset-bottom)); max-height:88vh; overflow-y:auto;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.2);
+    animation:sheetup .2s ease;
+  }
+  @keyframes sheetup{from{transform:translateY(24px); opacity:0;} to{transform:none; opacity:1;}}
+  .sheet-grip{width:36px; height:4px; background:var(--border); border-radius:3px; margin:0 auto 14px;}
+  .sheet h2{margin:0 0 4px; font-size:19px;}
+  .sheet .desc{color:var(--text-dim); font-size:13.5px; margin:0 0 20px; line-height:1.5;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12.5px; font-weight:700; color:var(--text-dim); margin-bottom:6px;}
+  .field .input-row{display:flex; gap:8px;}
+  .field input, .field select{
+    flex:1; width:100%; border:1px solid var(--border); border-radius:12px; background:var(--bg);
+    color:var(--text); font-size:15px; padding:12px 14px; font-family:inherit;
+  }
+  .field .hint{font-size:12px; color:var(--text-faint); margin-top:6px; line-height:1.5;}
+  .btn-primary{
+    width:100%; border:none; background:var(--accent); color:var(--accent-text); font-weight:700;
+    font-size:15px; padding:14px; border-radius:14px; cursor:pointer; margin-top:4px;
+  }
+  .btn-primary[disabled]{opacity:.5;}
+  .btn-ghost-danger{
+    width:100%; border:1px solid var(--border); background:none; color:var(--danger); font-weight:600;
+    font-size:14px; padding:12px; border-radius:14px; cursor:pointer; margin-top:10px;
+  }
+  .close-x{position:absolute; top:16px; right:18px;}
+
+  /* ---------- Processing overlay ---------- */
+  .proc-overlay{
+    position:fixed; inset:0; background:var(--bg); z-index:50; display:none;
+    flex-direction:column; align-items:center; justify-content:center; padding:24px;
+  }
+  .proc-overlay.active{display:flex;}
+  .proc-ring{
+    width:76px; height:76px; border-radius:50%; border:3px solid var(--accent-dim);
+    border-top-color:var(--accent); animation:spin 1s linear infinite; margin-bottom:22px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .proc-overlay h3{margin:0 0 26px; font-size:17px; font-weight:700;}
+  .proc-checklist{display:flex; flex-direction:column; gap:12px; width:100%; max-width:280px;}
+  .proc-step{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text-faint);}
+  .proc-step .c{
+    width:20px; height:20px; border-radius:50%; border:2px solid var(--border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:all .2s ease;
+  }
+  .proc-step .c svg{width:12px; height:12px; opacity:0;}
+  .proc-step.on{color:var(--text);}
+  .proc-step.on .c{background:var(--success); border-color:var(--success);}
+  .proc-step.on .c svg{opacity:1; color:#fff;}
+  .proc-overlay .proc-sub{margin-top:22px; font-size:12.5px; color:var(--text-faint);}
+
+  .toast{
+    position:fixed; left:50%; bottom:110px; transform:translateX(-50%); z-index:60;
+    background:var(--text); color:var(--bg); font-size:13.5px; font-weight:600;
+    padding:11px 18px; border-radius:12px; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease; max-width:88%; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-4px);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <h1 id="screenTitle">Inbox</h1>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <!-- ============ INBOX ============ -->
+    <section class="screen" id="screen-inbox">
+      <div class="card capture-card">
+        <div class="capture-input-row">
+          <textarea id="inboxInput" placeholder="Dump anything you need to get done…" rows="1"></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+          <button class="round-btn ghost" id="micBtn" aria-label="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="round-btn" id="addBtn" aria-label="Add" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="examplesBlock">
+        <div class="section-label">Examples</div>
+        <div class="examples">
+          <div class="example-chip" data-example="Plan a 7-day trip to London">Plan a 7-day trip to London <span>＋</span></div>
+          <div class="example-chip" data-example="Create a report on my team's performance">Create a team performance report <span>＋</span></div>
+          <div class="example-chip" data-example="Organize my home office">Organize my home office <span>＋</span></div>
+        </div>
+      </div>
+
+      <div id="inboxListBlock" style="display:none;">
+        <div class="section-label">Your goals</div>
+        <div id="inboxList"></div>
+      </div>
+    </section>
+
+    <!-- ============ TODAY ============ -->
+    <section class="screen" id="screen-today">
+      <div class="today-wrap" id="todayWrap"></div>
+    </section>
+
+    <!-- ============ PLAN ============ -->
+    <section class="screen" id="screen-plan">
+      <div id="planList"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="inbox" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      Inbox
+    </button>
+    <button data-tab="today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      Today
+    </button>
+    <button data-tab="plan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+      Plan
+    </button>
+  </nav>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-overlay" id="settingsOverlay">
+  <div class="sheet" style="position:relative;">
+    <div class="sheet-grip"></div>
+    <button class="icon-btn close-x" id="settingsClose">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <h2>Settings</h2>
+    <p class="desc">Next Action plans your goals using the Gemini API, called directly from this device. Your key and your tasks are stored only in this app — nothing is sent anywhere except Google's Gemini endpoint when planning.</p>
+
+    <div class="field">
+      <label for="apiKeyInput">Gemini API key</label>
+      <div class="input-row">
+        <input type="password" id="apiKeyInput" placeholder="AIza…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <button class="icon-btn" id="toggleKeyVisibility" style="border:1px solid var(--border); border-radius:12px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="hint">Get a free key at aistudio.google.com/apikey.</div>
+    </div>
+
+    <div class="field">
+      <label for="modelInput">Model</label>
+      <input list="modelOptions" id="modelInput" placeholder="gemini-2.5-flash" />
+      <datalist id="modelOptions">
+        <option value="gemini-2.5-flash"></option>
+        <option value="gemini-2.5-pro"></option>
+        <option value="gemini-2.0-flash"></option>
+      </datalist>
+    </div>
+
+    <button class="btn-primary" id="saveSettingsBtn">Save</button>
+    <div class="inline-status" id="settingsStatus"></div>
+
+    <button class="btn-ghost-danger" id="clearDataBtn">Clear all goals &amp; tasks</button>
+  </div>
+</div>
+
+<!-- Processing overlay -->
+<div class="proc-overlay" id="procOverlay">
+  <div class="proc-ring"></div>
+  <h3>Planning your goal…</h3>
+  <div class="proc-checklist" id="procChecklist">
+    <div class="proc-step" data-step="0"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Understanding your goal</div>
+    <div class="proc-step" data-step="1"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Breaking into small steps</div>
+    <div class="proc-step" data-step="2"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Estimating time &amp; order</div>
+    <div class="proc-step" data-step="3"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Preparing your plan</div>
+  </div>
+  <div class="proc-sub" id="procSub">This usually takes a few seconds.</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= Storage ================= */
+const KEYS = { settings:'na_settings_v1', inbox:'na_inbox_v1', projects:'na_projects_v1', actions:'na_actions_v1' };
+
+function load(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch(e){ return fallback; }
+}
+function saveKey(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+
+const state = {
+  settings: load(KEYS.settings, { apiKey:'', model:'gemini-2.5-flash' }),
+  inbox: load(KEYS.inbox, []),
+  projects: load(KEYS.projects, []),
+  actions: load(KEYS.actions, [])
+};
+const saveSettings = ()=>saveKey(KEYS.settings, state.settings);
+const saveInbox = ()=>saveKey(KEYS.inbox, state.inbox);
+const saveProjects = ()=>saveKey(KEYS.projects, state.projects);
+const saveActions = ()=>saveKey(KEYS.actions, state.actions);
+
+function uid(){ return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+
+/* ================= Native bridge ================= */
+function haptic(kind){
+  try{
+    if (window.AndroidBridge && kind==='success' && window.AndroidBridge.hapticSuccess) window.AndroidBridge.hapticSuccess();
+    else if (window.AndroidBridge && window.AndroidBridge.hapticLight) window.AndroidBridge.hapticLight();
+    else if (navigator.vibrate) navigator.vibrate(kind==='success' ? [30,40,60] : 20);
+  }catch(e){}
+}
+
+/* ================= Time buckets ================= */
+const TIME_BUCKETS = [5,10,15,20,30,45,60,90];
+function clampBucket(n){
+  n = Number(n); if (!Number.isFinite(n)) n = 15;
+  return TIME_BUCKETS.reduce((best,b)=> Math.abs(b-n) < Math.abs(best-n) ? b : best, TIME_BUCKETS[0]);
+}
+function formatMinutes(n){ return n >= 90 ? '90 min+' : (n + ' min'); }
+
+/* ================= Gemini planning ================= */
+const PLAN_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    goal: { type: "STRING" },
+    deadline: { type: "STRING", nullable: true },
+    clarifying_question: { type: "STRING", nullable: true },
+    actions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          estimated_minutes: { type: "INTEGER" },
+          dependencies: { type: "ARRAY", items: { type: "INTEGER" } },
+          priority: { type: "INTEGER" }
+        },
+        required: ["title","estimated_minutes","priority"]
+      }
+    }
+  },
+  required: ["goal","actions"]
+};
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function buildPlanPrompt(goalText){
+  return `You are the planning engine inside a minimalist AI to-do app called Next Action. The user just dumped something they want to accomplish. Turn it into a concrete plan made of the smallest useful next actions.
+
+Rules:
+- Each action must be specific, executable, and clear — never a vague phase like "research" or "finish the project".
+- Order actions logically and only mark a "dependencies" link (0-based indices into the actions array) when an action genuinely cannot start before another finishes.
+- estimated_minutes must be one of exactly: 5, 10, 15, 20, 30, 45, 60, 90.
+- priority is an integer 1-10, where 10 is most important/urgent for reaching the goal.
+- If the user mentioned or implied a deadline, infer an ISO date (today is ${todayISO()}) into "deadline". Otherwise omit it.
+- Only set "clarifying_question" if you genuinely cannot produce a usable first plan without one critical fact. Otherwise proceed with sensible defaults and omit it.
+- Produce between 3 and 12 actions total. No phase headers, only concrete actions.
+
+User input: "${goalText.replace(/"/g,'\\"')}"`;
+}
+
+function buildReplanPrompt(project, completed, pending, feedbackText){
+  const doneTxt = completed.map(a=>'- '+a.title).join('\n') || '(none yet)';
+  const pendingTxt = pending.map(a=>'- '+a.title).join('\n') || '(none)';
+  return `You are updating an existing plan inside the Next Action app because the user reported something changed.
+
+Goal: ${project.title}
+${project.deadline ? 'Deadline: '+project.deadline : ''}
+Already completed:
+${doneTxt}
+Current remaining plan:
+${pendingTxt}
+
+User update: "${feedbackText.replace(/"/g,'\\"')}"
+
+Regenerate ONLY the remaining actions needed from this point forward, following the same rules as before (smallest useful actions, estimated_minutes from {5,10,15,20,30,45,60,90}, priority 1-10, dependencies as 0-based indices into this NEW actions array only). Do not repeat already-completed actions. Produce between 1 and 12 actions. Set "goal" to the same goal, and set "deadline" only if it should change.`;
+}
+
+async function requestPlan(prompt){
+  const { apiKey, model } = state.settings;
+  if (!apiKey) throw new Error('Add your Gemini API key in Settings first.');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model||'gemini-2.5-flash')}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    contents: [{ role:'user', parts:[{ text: prompt }] }],
+    generationConfig: { responseMimeType:'application/json', responseSchema: PLAN_SCHEMA, temperature: 0.4 }
+  };
+  let res;
+  try{
+    res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  }catch(e){
+    throw new Error('Network error reaching Gemini. Check your connection.');
+  }
+  if (!res.ok){
+    let detail = '';
+    try{ const j = await res.json(); detail = j.error && j.error.message ? j.error.message : ''; }catch(e){}
+    if (res.status === 400 || res.status === 403) throw new Error('Gemini rejected the request — check your API key. ' + detail);
+    throw new Error('Gemini API error (' + res.status + '). ' + detail);
+  }
+  const data = await res.json();
+  const text = (data.candidates && data.candidates[0] && data.candidates[0].content &&
+    data.candidates[0].content.parts || []).map(p=>p.text||'').join('');
+  if (!text) throw new Error('Gemini returned an empty response.');
+  let parsed;
+  try{ parsed = JSON.parse(text); }catch(e){ throw new Error('Could not parse the plan Gemini returned.'); }
+  if (!parsed.actions || !Array.isArray(parsed.actions) || !parsed.actions.length){
+    throw new Error(parsed.clarifying_question || 'Gemini could not build a plan from that yet — try adding more detail.');
+  }
+  return parsed;
+}
+
+function materializePlan(aiResult, projectId, orderStart){
+  orderStart = orderStart || 0;
+  const idMap = [];
+  const list = aiResult.actions.map((a,i)=>{
+    const id = uid(); idMap[i] = id;
+    return {
+      id, projectId,
+      title: String(a.title || 'Untitled step').trim(),
+      estimated_minutes: clampBucket(a.estimated_minutes),
+      dependencies: [],
+      priority: Math.min(10, Math.max(1, Math.round(a.priority || 5))),
+      order: orderStart + i,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+  });
+  aiResult.actions.forEach((a,i)=>{
+    const deps = Array.isArray(a.dependencies) ? a.dependencies : [];
+    list[i].dependencies = deps
+      .filter(d => Number.isInteger(d) && d>=0 && d<idMap.length && d!==i)
+      .map(d => idMap[d]);
+  });
+  return list;
+}
+
+/* ================= Next-action selection ================= */
+function computeNextAction(){
+  const doneIds = new Set(state.actions.filter(a=>a.status==='done').map(a=>a.id));
+  const candidates = state.actions.filter(a =>
+    a.status === 'pending' && a.dependencies.every(d => doneIds.has(d))
+  );
+  if (!candidates.length) return null;
+  const deadlineOf = pid => { const p = state.projects.find(p=>p.id===pid); return p && p.deadline ? Date.parse(p.deadline) : null; };
+  candidates.sort((a,b)=>{
+    if (b.priority !== a.priority) return b.priority - a.priority;
+    const da = deadlineOf(a.projectId), db = deadlineOf(b.projectId);
+    if (da && db && da !== db) return da - db;
+    if (da && !db) return -1;
+    if (db && !da) return 1;
+    return a.order - b.order;
+  });
+  return candidates[0];
+}
+
+function isBlocked(action){
+  const doneIds = new Set(state.actions.filter(a=>a.status==='done').map(a=>a.id));
+  return !action.dependencies.every(d=>doneIds.has(d));
+}
+
+/* ================= Rendering: shared ================= */
+const screens = { inbox: document.getElementById('screen-inbox'), today: document.getElementById('screen-today'), plan: document.getElementById('screen-plan') };
+const titles = { inbox:'Inbox', today:'Today', plan:'Plan' };
+let activeTab = 'inbox';
+
+function switchTab(tab){
+  activeTab = tab;
+  Object.keys(screens).forEach(k=>screens[k].classList.toggle('active', k===tab));
+  document.getElementById('screenTitle').textContent = titles[tab];
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  if (tab==='today') renderToday();
+  if (tab==='plan') renderPlan();
+  if (tab==='inbox') renderInbox();
+}
+document.querySelectorAll('nav.tabbar button').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function iconCheck(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+}
+
+/* ================= Inbox ================= */
+const inboxInput = document.getElementById('inboxInput');
+const addBtn = document.getElementById('addBtn');
+inboxInput.addEventListener('input', ()=>{
+  addBtn.disabled = !inboxInput.value.trim();
+  inboxInput.style.height = 'auto';
+  inboxInput.style.height = Math.min(120, inboxInput.scrollHeight) + 'px';
+});
+inboxInput.addEventListener('keydown', e=>{
+  if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submitInbox(); }
+});
+addBtn.addEventListener('click', submitInbox);
+document.querySelectorAll('.example-chip').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    inboxInput.value = el.dataset.example;
+    addBtn.disabled = false;
+    submitInbox();
+  });
+});
+
+function submitInbox(){
+  const text = inboxInput.value.trim();
+  if (!text) return;
+  inboxInput.value = ''; addBtn.disabled = true; inboxInput.style.height = 'auto';
+  addInboxItem(text);
+}
+
+function addInboxItem(text){
+  const item = { id: uid(), text, createdAt: Date.now(), status:'processing', error:null, projectId:null };
+  state.inbox.unshift(item);
+  saveInbox();
+  renderInbox();
+  planInboxItem(item.id, true);
+}
+
+let procTimer = null;
+function runProcOverlay(){
+  const overlay = document.getElementById('procOverlay');
+  overlay.classList.add('active');
+  const steps = Array.from(document.querySelectorAll('.proc-step'));
+  steps.forEach(s=>s.classList.remove('on'));
+  let i = 0;
+  clearInterval(procTimer);
+  procTimer = setInterval(()=>{
+    if (i < steps.length){ steps[i].classList.add('on'); i++; }
+    else clearInterval(procTimer);
+  }, 500);
+}
+function stopProcOverlay(){
+  document.getElementById('procOverlay').classList.remove('active');
+  clearInterval(procTimer);
+}
+
+async function planInboxItem(itemId, showOverlay){
+  const item = state.inbox.find(i=>i.id===itemId);
+  if (!item) return;
+  item.status = 'processing'; item.error = null; saveInbox(); renderInbox();
+  if (showOverlay) runProcOverlay();
+  try{
+    const result = await requestPlan(buildPlanPrompt(item.text));
+    const project = { id: uid(), title: result.goal || item.text.slice(0,60), deadline: result.deadline || null, status:'active', createdAt: Date.now() };
+    const acts = materializePlan(result, project.id, 0);
+    state.projects.unshift(project);
+    state.actions.push(...acts);
+    item.status = 'planned'; item.projectId = project.id;
+    saveProjects(); saveActions(); saveInbox();
+  }catch(err){
+    item.status = 'error';
+    item.error = err && err.message ? err.message : 'Something went wrong.';
+    saveInbox();
+  }finally{
+    if (showOverlay) stopProcOverlay();
+    renderInbox();
+    if (activeTab==='today') renderToday();
+    if (activeTab==='plan') renderPlan();
+  }
+}
+
+function renderInbox(){
+  const hasItems = state.inbox.length > 0;
+  document.getElementById('examplesBlock').style.display = hasItems ? 'none' : 'block';
+  document.getElementById('inboxListBlock').style.display = hasItems ? 'block' : 'none';
+  const list = document.getElementById('inboxList');
+  list.innerHTML = '';
+  state.inbox.forEach(item=>{
+    const el = document.createElement('div');
+    el.className = 'inbox-item';
+    const statusText = item.status==='processing' ? 'Planning…' : item.status==='planned' ? 'Planned — see Today' : (item.error || 'Could not plan this. Tap to retry.');
+    el.innerHTML = `
+      <div class="dot ${item.status}"></div>
+      <div class="txt">
+        <p>${escapeHtml(item.text)}</p>
+        <div class="status-text ${item.status}">${escapeHtml(statusText)}</div>
+      </div>`;
+    el.addEventListener('click', ()=>{
+      if (item.status === 'error') planInboxItem(item.id, true);
+      else if (item.status === 'planned') switchTab('plan');
+    });
+    list.appendChild(el);
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ================= Voice input ================= */
+(function setupMic(){
+  const micBtn = document.getElementById('micBtn');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR){ micBtn.style.display = 'none'; return; }
+  const rec = new SR();
+  rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+  let listening = false;
+  rec.onresult = e=>{
+    const said = e.results[0][0].transcript;
+    inboxInput.value = (inboxInput.value ? inboxInput.value + ' ' : '') + said;
+    addBtn.disabled = !inboxInput.value.trim();
+  };
+  rec.onerror = ()=>{ listening = false; micBtn.classList.remove('mic-live'); };
+  rec.onend = ()=>{ listening = false; micBtn.classList.remove('mic-live'); };
+  micBtn.addEventListener('click', ()=>{
+    if (listening){ rec.stop(); return; }
+    try{ rec.start(); listening = true; micBtn.classList.add('mic-live'); }catch(e){}
+  });
+})();
+
+/* ================= Today ================= */
+let flashTimer = null;
+function renderToday(){
+  const wrap = document.getElementById('todayWrap');
+  clearTimeout(flashTimer);
+  const next = computeNextAction();
+
+  if (!next){
+    const stillPlanning = state.inbox.some(i=>i.status==='processing');
+    wrap.innerHTML = `
+      <div class="empty" style="width:100%;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+        <p>${stillPlanning ? 'Your plan is still being prepared…' : 'Nothing to do right now. Dump a goal in the Inbox and the AI will plan it for you.'}</p>
+      </div>`;
+    return;
+  }
+
+  const project = state.projects.find(p=>p.id===next.projectId);
+  wrap.innerHTML = `
+    <div class="today-label">Your next action</div>
+    <div class="action-card">
+      ${project ? `<div class="project-tag">${escapeHtml(project.title)}</div>` : ''}
+      <h2>${escapeHtml(next.title)}</h2>
+      <div class="time-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ${formatMinutes(next.estimated_minutes)}
+      </div>
+      <div><button class="check-ring" id="markDoneBtn">${iconCheck()}</button></div>
+      <div class="mark-done-label">Mark as done</div>
+    </div>
+    <div class="today-links">
+      <button class="link-btn" id="somethingChangedBtn">Something changed</button>
+      <button class="link-btn" id="viewPlanBtn">View full plan</button>
+    </div>
+    <div class="today-hint">The AI will show your next best action after you complete this one.</div>
+  `;
+  document.getElementById('markDoneBtn').addEventListener('click', ()=>completeAction(next.id));
+  document.getElementById('viewPlanBtn').addEventListener('click', ()=>switchTab('plan'));
+  document.getElementById('somethingChangedBtn').addEventListener('click', ()=>{
+    switchTab('plan');
+    setTimeout(()=>openReplanFor(next.projectId), 150);
+  });
+}
+
+function completeAction(actionId){
+  const action = state.actions.find(a=>a.id===actionId);
+  if (!action) return;
+  action.status = 'done'; action.completedAt = Date.now();
+  saveActions();
+  haptic('success');
+
+  const project = state.projects.find(p=>p.id===action.projectId);
+  let projectDone = false;
+  if (project){
+    const projActions = state.actions.filter(a=>a.projectId===project.id);
+    projectDone = projActions.length > 0 && projActions.every(a=>a.status==='done');
+    if (projectDone){ project.status = 'completed'; saveProjects(); }
+  }
+
+  const wrap = document.getElementById('todayWrap');
+  wrap.innerHTML = `
+    <div class="flash">
+      <div class="check-big">${iconCheck()}</div>
+      <h3>${projectDone ? 'Goal complete!' : 'Great! That step is done.'}</h3>
+      <p>${projectDone ? escapeHtml(project.title) + ' is done.' : 'Preparing your next action…'}</p>
+    </div>`;
+  flashTimer = setTimeout(renderToday, 1100);
+  if (activeTab==='plan' || true) renderPlan();
+}
+
+/* ================= Plan ================= */
+let openProjectId = null;
+function renderPlan(){
+  const container = document.getElementById('planList');
+  if (!state.projects.length){
+    container.innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        <p>No goals yet. Add one from the Inbox and its plan will appear here.</p>
+      </div>`;
+    return;
+  }
+  const next = computeNextAction();
+  container.innerHTML = '';
+  state.projects.forEach(project=>{
+    const acts = state.actions.filter(a=>a.projectId===project.id).sort((a,b)=>a.order-b.order);
+    const doneCount = acts.filter(a=>a.status==='done').length;
+    const pct = acts.length ? Math.round(doneCount/acts.length*100) : 0;
+    const card = document.createElement('div');
+    card.className = 'card project-card' + (openProjectId===project.id ? ' open' : '');
+    const stepsHtml = acts.map(a=>{
+      const done = a.status==='done';
+      const isNext = next && next.id===a.id;
+      const cls = done ? 'done' : isNext ? 'next' : 'pending';
+      const markInner = done ? iconCheck() : isNext ? '' : '';
+      return `<div class="step-row ${cls}">
+        <div class="step-mark ${cls}">${markInner}</div>
+        <div class="step-info">
+          <div class="t">${escapeHtml(a.title)}</div>
+          <div class="m">${formatMinutes(a.estimated_minutes)}${isBlocked(a) && !done ? ' · waiting on another step' : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="project-head">
+        <div class="project-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <div class="project-meta">
+          <h3>${escapeHtml(project.title)}</h3>
+          <div class="sub">${project.status==='completed' ? 'Completed' : doneCount + ' / ' + acts.length + ' done'}${project.deadline ? ' · due ' + escapeHtml(project.deadline) : ''}</div>
+        </div>
+        <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="project-body">
+        ${stepsHtml || '<p class="faint">No steps.</p>'}
+        <div class="replan-box">
+          <textarea placeholder="Tell the AI what changed…" rows="1" class="replanInput"></textarea>
+          <div class="replan-row">
+            <button class="btn-small replanBtn">Update plan</button>
+            <button class="btn-text-danger deleteBtn" style="margin-left:auto;">Delete goal</button>
+          </div>
+          <div class="inline-status replanStatus"></div>
+        </div>
+      </div>
+    `;
+    card.querySelector('.project-head').addEventListener('click', ()=>{
+      openProjectId = (openProjectId===project.id) ? null : project.id;
+      renderPlan();
+    });
+    const replanInput = card.querySelector('.replanInput');
+    const replanBtn = card.querySelector('.replanBtn');
+    const replanStatus = card.querySelector('.replanStatus');
+    replanInput.addEventListener('input', ()=>{
+      replanInput.style.height = 'auto'; replanInput.style.height = Math.min(100, replanInput.scrollHeight) + 'px';
+    });
+    replanBtn.addEventListener('click', async ()=>{
+      const text = replanInput.value.trim();
+      if (!text) return;
+      replanBtn.disabled = true; replanStatus.className='inline-status'; replanStatus.textContent = 'Updating plan…';
+      const ok = await replanProject(project.id, text);
+      replanBtn.disabled = false;
+      if (ok){ replanInput.value=''; replanStatus.className='inline-status ok'; replanStatus.textContent = 'Plan updated.'; }
+      else { replanStatus.className='inline-status error'; replanStatus.textContent = replanProject.lastError || 'Could not update the plan.'; }
+    });
+    card.querySelector('.deleteBtn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if (!confirm('Delete "' + project.title + '" and all its steps?')) return;
+      state.projects = state.projects.filter(p=>p.id!==project.id);
+      state.actions = state.actions.filter(a=>a.projectId!==project.id);
+      state.inbox.forEach(i=>{ if (i.projectId===project.id){ i.status='planned'; } });
+      saveProjects(); saveActions(); saveInbox();
+      renderPlan(); if (activeTab==='today') renderToday();
+    });
+    container.appendChild(card);
+  });
+}
+
+function openReplanFor(projectId){
+  openProjectId = projectId;
+  renderPlan();
+  const idx = state.projects.findIndex(p=>p.id===projectId);
+  if (idx>=0){
+    const cards = document.querySelectorAll('.project-card');
+    if (cards[idx]) cards[idx].scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+async function replanProject(projectId, feedbackText){
+  const project = state.projects.find(p=>p.id===projectId);
+  if (!project) return false;
+  const acts = state.actions.filter(a=>a.projectId===projectId);
+  const completed = acts.filter(a=>a.status==='done');
+  const pending = acts.filter(a=>a.status!=='done');
+  try{
+    const result = await requestPlan(buildReplanPrompt(project, completed, pending, feedbackText));
+    const maxOrder = completed.reduce((m,a)=>Math.max(m,a.order), -1);
+    state.actions = state.actions.filter(a=> !(a.projectId===projectId && a.status!=='done'));
+    const fresh = materializePlan(result, projectId, maxOrder+1);
+    state.actions.push(...fresh);
+    if (result.deadline) project.deadline = result.deadline;
+    project.status = 'active';
+    saveActions(); saveProjects();
+    if (activeTab==='today') renderToday();
+    return true;
+  }catch(err){
+    replanProject.lastError = err && err.message ? err.message : 'Could not update the plan.';
+    return false;
+  }
+}
+
+/* ================= Settings ================= */
+const settingsOverlay = document.getElementById('settingsOverlay');
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('apiKeyInput').value = state.settings.apiKey || '';
+  document.getElementById('modelInput').value = state.settings.model || 'gemini-2.5-flash';
+  document.getElementById('settingsStatus').textContent = '';
+  settingsOverlay.classList.add('active');
+});
+document.getElementById('settingsClose').addEventListener('click', ()=>settingsOverlay.classList.remove('active'));
+settingsOverlay.addEventListener('click', e=>{ if (e.target===settingsOverlay) settingsOverlay.classList.remove('active'); });
+
+let keyVisible = false;
+document.getElementById('toggleKeyVisibility').addEventListener('click', ()=>{
+  keyVisible = !keyVisible;
+  document.getElementById('apiKeyInput').type = keyVisible ? 'text' : 'password';
+});
+
+document.getElementById('saveSettingsBtn').addEventListener('click', ()=>{
+  state.settings.apiKey = document.getElementById('apiKeyInput').value.trim();
+  state.settings.model = document.getElementById('modelInput').value.trim() || 'gemini-2.5-flash';
+  saveSettings();
+  document.getElementById('settingsStatus').className = 'inline-status ok';
+  document.getElementById('settingsStatus').textContent = 'Saved.';
+  showToast('Settings saved');
+  setTimeout(()=>settingsOverlay.classList.remove('active'), 500);
+});
+
+document.getElementById('clearDataBtn').addEventListener('click', ()=>{
+  if (!confirm('Delete every goal, task and inbox item? This cannot be undone.')) return;
+  state.inbox = []; state.projects = []; state.actions = [];
+  saveInbox(); saveProjects(); saveActions();
+  renderInbox(); renderToday(); renderPlan();
+  settingsOverlay.classList.remove('active');
+  showToast('All data cleared');
+});
+
+/* ================= Retry stuck processing items on load ================= */
+function retryStuckItems(){
+  state.inbox.filter(i=>i.status==='processing').forEach(i=>{
+    if (state.settings.apiKey) planInboxItem(i.id, false);
+    else { i.status='error'; i.error='Add your Gemini API key in Settings.'; }
+  });
+  saveInbox();
+}
+
+/* ================= Boot ================= */
+retryStuckItems();
+switchTab('inbox');
+renderInbox();
+
+})();
+</script>
+</body>
+</html>

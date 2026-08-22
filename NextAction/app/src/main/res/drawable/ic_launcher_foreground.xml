@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rounded card representing a single next-action -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,34 Q28,26 36,26 L72,26 Q80,26 80,34 L80,74 Q80,82 72,82 L36,82 Q28,82 28,74 Z" />
+
+    <!-- Text lines -->
+    <path
+        android:fillColor="#5B4FE5"
+        android:pathData="M38,42 L70,42 L70,48 L38,48 Z" />
+    <path
+        android:fillColor="#C7C2F7"
+        android:pathData="M38,54 L62,54 L62,60 L38,60 Z" />
+
+    <!-- Check circle -->
+    <circle android:fillColor="#5B4FE5" android:cx="54" android:cy="70" android:r="10" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,70 L52.5,73.5 L59.5,66.5 L61,68 L52.5,76.5 L47.5,71.5 Z" />
+
+</vector>
