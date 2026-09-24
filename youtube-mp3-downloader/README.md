@@ -1,67 +1,25 @@
-# YouTube to MP3 Downloader
+# YouTube to MP3 (Android app)
 
-A small web app that downloads the audio from a YouTube video, converts it to MP3 and saves it to your phone.
+An Android app that downloads the audio from a YouTube video, converts it to MP3 and saves it to your phone's **Downloads** folder.
 
-It uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to download and [FFmpeg](https://ffmpeg.org/) to convert. The page is built for phone screens: paste a link, tap **Download MP3**, and your browser saves the file to your **Downloads** folder.
+It runs entirely on the phone. You don't need a computer or server once it's installed. The app uses [youtubedl-android](https://github.com/yausername/youtubedl-android), which bundles yt-dlp and FFmpeg.
 
-> **Note:** Only download videos you own or have permission to download, such as your own uploads or videos with a Creative Commons license. Downloading other content may break YouTube's Terms of Service and copyright law.
+> **Note:** Only download videos you own or have permission to download, such as your own uploads or Creative Commons videos.
 
-## How it works
+## Install with Android Studio
 
-1. You paste a YouTube link into the page on your phone.
-2. The Flask server downloads the best audio stream with yt-dlp.
-3. FFmpeg converts it to MP3 at the quality you pick (128, 192 or 320 kbps) and keeps the title tags.
-4. The server sends the MP3 back as a download, so the phone saves it to Downloads. Then the server deletes its temporary copy.
+1. Open Android Studio, choose **File > Open** and select this `youtube-mp3-downloader` folder.
+2. Wait for the Gradle sync to finish.
+3. On your phone, turn on **Developer options > USB debugging**, then plug the phone in with a USB cable.
+4. Pick your phone in the device list and press **Run**.
 
-## Option A: Run it on your computer and use it from your phone
+To get an APK file instead, choose **Build > Build App Bundle(s) / APK(s) > Build APK(s)**. The file is at `app/build/outputs/apk/debug/app-debug.apk`. Copy it to your phone and open it to install.
 
-Your phone and computer must be on the same Wi-Fi network.
+## Use it
 
-1. Install Python 3.9 or newer and FFmpeg:
-   - macOS: `brew install ffmpeg`
-   - Windows: `winget install ffmpeg`
-   - Ubuntu/Debian: `sudo apt install ffmpeg`
-2. Install the app and start it:
+- Paste a YouTube link and tap **Download MP3**, or
+- In the YouTube app, tap **Share** and choose **YouTube to MP3**. The link is filled in for you.
 
-   ```bash
-   cd youtube-mp3-downloader
-   python3 -m venv venv
-   source venv/bin/activate      # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   python app.py
-   ```
+The first launch takes a few seconds while the app unpacks its downloader and checks for updates.
 
-3. Find your computer's local IP address, for example `192.168.1.20`:
-   - macOS/Linux: `ipconfig getifaddr en0` or `hostname -I`
-   - Windows: `ipconfig`
-4. On your phone, open `http://192.168.1.20:5000`. Use your own IP address.
-5. Optional: tap **Add to Home Screen** in the browser menu so it opens like an app.
-
-## Option B: Run it on your Android phone (no computer needed)
-
-1. Install [Termux](https://f-droid.org/packages/com.termux/) from F-Droid. The Play Store version is outdated.
-2. Copy this folder to the phone, or clone the repository inside Termux with `pkg install git`.
-3. In Termux, run:
-
-   ```bash
-   cd youtube-mp3-downloader
-   bash termux-setup.sh
-   python app.py
-   ```
-
-4. Open `http://localhost:5000` in Chrome on the phone. MP3s are saved to **Downloads**.
-
-## iPhone
-
-iOS can't run the server itself, so use Option A. Safari saves the MP3 to the **Files** app, under **Downloads**. From there you can play it or share it to a music app.
-
-## Troubleshooting
-
-| Problem | Fix |
-| --- | --- |
-| `Conversion to MP3 failed` | FFmpeg isn't installed or isn't on your `PATH`. |
-| `Download failed: ... Sign in to confirm` or other YouTube errors | YouTube changes often. Update yt-dlp: `pip install -U yt-dlp` |
-| The phone can't open the page | Check that both devices are on the same Wi-Fi and that your computer's firewall allows port 5000. |
-| The **Paste** button does nothing | Browsers only allow clipboard access on `localhost` or HTTPS. Long-press the box and paste instead. |
-
-To use a different port, set the `PORT` environment variable, for example `PORT=8080 python app.py`.
+If downloads start failing, close and reopen the app. It updates yt-dlp on every launch, which usually fixes YouTube changes.
