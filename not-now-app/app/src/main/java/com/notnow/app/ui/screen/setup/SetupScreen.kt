@@ -144,7 +144,7 @@ private fun hasUsageStatsPermission(context: Context): Boolean {
     return try {
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
         val stats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-            System.currentTimeMillis() - 1000, System.currentTimeMillis())
+            System.currentTimeMillis() - 60_000L, System.currentTimeMillis())
         stats != null && stats.isNotEmpty()
     } catch (e: Exception) { false }
 }

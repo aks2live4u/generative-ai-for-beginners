@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -97,6 +98,7 @@ private fun VaultItemCard(item: ShoppingVaultItem, onMarkPurchased: () -> Unit, 
         SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(item.savedAt))
     }
     val isOld = System.currentTimeMillis() - item.savedAt > 24 * 60 * 60 * 1000L
+    val uriHandler = LocalUriHandler.current
 
     Surface(shape = RoundedCornerShape(12.dp), color = if (isOld) AccentAmber.copy(alpha = 0.08f) else CardDark) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -104,6 +106,22 @@ private fun VaultItemCard(item: ShoppingVaultItem, onMarkPurchased: () -> Unit, 
                 Column(Modifier.weight(1f)) {
                     Text(item.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     if (item.price.isNotBlank()) Text(item.price, style = MaterialTheme.typography.bodyMedium, color = AccentAmber)
+                    if (item.url.isNotBlank()) {
+                        TextButton(
+                            onClick = {
+                                try {
+                                    val uri = if (item.url.startsWith("http")) item.url else "https://${item.url}"
+                                    uriHandler.openUri(uri)
+                                } catch (_: Exception) {}
+                            },
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(Icons.Default.Launch, null, tint = AccentAmber, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Open Link", color = AccentAmber, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.DeleteOutline, null, tint = TextSecondary, modifier = Modifier.size(18.dp))

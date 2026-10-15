@@ -235,13 +235,15 @@ class OverlayManager(
 
     private fun launchApp(packageName: String) {
         if (packageName.startsWith("web:")) {
-            // Website — just open Chrome; user is already on the correct domain
-            val chromeIntent = context.packageManager
-                .getLaunchIntentForPackage("com.android.chrome")
-            if (chromeIntent != null) {
-                chromeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                try { context.startActivity(chromeIntent) } catch (_: Exception) {}
-            }
+            // Reopen whichever browser triggered the block; fall back to Chrome if unavailable
+            val triggerPkg = GuardrailAccessibilityService.lastTriggerBrowserPkg
+            val intent = if (triggerPkg.isNotEmpty())
+                context.packageManager.getLaunchIntentForPackage(triggerPkg) else null
+            val toOpen = intent
+                ?: context.packageManager.getLaunchIntentForPackage("com.android.chrome")
+                ?: return
+            toOpen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            try { context.startActivity(toOpen) } catch (_: Exception) {}
             return
         }
         try {

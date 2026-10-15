@@ -230,6 +230,8 @@ fun NightBlockContent(appName: String, onBack: () -> Unit) {
 fun WorkWarningContent(initialSecondsLeft: Int, onVerticalDrag: (Float) -> Unit = {}) {
     var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
 
+    LaunchedEffect(initialSecondsLeft) { secondsLeft = initialSecondsLeft }
+
     LaunchedEffect(secondsLeft) {
         if (secondsLeft <= 0) return@LaunchedEffect
         delay(1000L)
@@ -266,6 +268,7 @@ fun WorkWarningContent(initialSecondsLeft: Int, onVerticalDrag: (Float) -> Unit 
 @Composable
 fun PhoneGraceBannerContent(initialSecondsLeft: Int, onVerticalDrag: (Float) -> Unit = {}) {
     var secondsLeft by remember { mutableIntStateOf(initialSecondsLeft) }
+    LaunchedEffect(initialSecondsLeft) { secondsLeft = initialSecondsLeft }
     LaunchedEffect(secondsLeft) {
         if (secondsLeft <= 0) return@LaunchedEffect
         delay(1000L)

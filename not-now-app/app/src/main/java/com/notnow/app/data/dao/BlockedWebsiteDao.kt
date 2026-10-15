@@ -9,6 +9,9 @@ interface BlockedWebsiteDao {
     @Query("SELECT * FROM blocked_websites ORDER BY label ASC")
     fun observeAll(): Flow<List<BlockedWebsite>>
 
+    @Query("SELECT COUNT(*) FROM blocked_websites WHERE domain = :domain")
+    suspend fun countByDomain(domain: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(site: BlockedWebsite): Long
 

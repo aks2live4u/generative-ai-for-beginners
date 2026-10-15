@@ -19,15 +19,11 @@ import androidx.compose.ui.unit.sp
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.ShoppingVaultItem
 import com.notnow.app.ui.theme.*
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 class ShoppingOverlayActivity : ComponentActivity() {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +50,7 @@ class ShoppingOverlayActivity : ComponentActivity() {
                         finish()
                     },
                     onSaveForLater = { title, url, price ->
-                        scope.launch(Dispatchers.IO) {
+                        GlobalScope.launch(Dispatchers.IO) {
                             app.shoppingVaultRepository.save(
                                 ShoppingVaultItem(title = title, url = url, price = price)
                             )
@@ -67,10 +63,6 @@ class ShoppingOverlayActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        scope.cancel()
-    }
 }
 
 @Composable

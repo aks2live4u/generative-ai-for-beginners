@@ -1,9 +1,13 @@
 package com.notnow.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +45,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
+        }
+
         val app = application as NotNowApplication
 
         lifecycleScope.launch {
@@ -52,7 +63,12 @@ class MainActivity : ComponentActivity() {
                 BootReceiver.scheduleWorkers(applicationContext)
             }
 
-            val startDest = if (isFirst) Route.Setup.path else Route.Home.path
+            val openVault = intent?.getBooleanExtra("open_vault", false) == true
+            val startDest = when {
+                isFirst   -> Route.Setup.path
+                openVault -> Route.Vault.path
+                else      -> Route.Home.path
+            }
 
             setContent {
                 NotNowTheme {

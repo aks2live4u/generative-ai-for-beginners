@@ -23,12 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.notnow.app.NotNowApplication
 import com.notnow.app.data.entity.AccessOutcome
+import com.notnow.app.service.GuardrailAccessibilityService
 import com.notnow.app.ui.theme.*
 import kotlinx.coroutines.*
 
 class CountdownOverlayActivity : ComponentActivity() {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +42,7 @@ class CountdownOverlayActivity : ComponentActivity() {
             NotNowTheme {
                 if (isNight) {
                     NightBlockScreen(appName = appName, onBack = {
-                        scope.launch {
+                        GlobalScope.launch(Dispatchers.IO) {
                             app.usageRepository.record(packageName, appName, AccessOutcome.NIGHT_BLOCKED)
                         }
                         finish()
@@ -52,23 +51,24 @@ class CountdownOverlayActivity : ComponentActivity() {
                     CountdownScreen(
                         appName    = appName,
                         totalSec   = delaySec,
+                        emergencyAvailable = !GuardrailAccessibilityService.isEmergencyOnCooldown(),
                         onComplete = {
-                            scope.launch {
+                            GlobalScope.launch(Dispatchers.IO) {
                                 app.usageRepository.record(packageName, appName, AccessOutcome.WAITED, delaySec)
                                 app.preferences.addProtectedTimeSeconds(delaySec)
                             }
                             finish()
                         },
                         onGoBack = {
-                            scope.launch {
+                            GlobalScope.launch(Dispatchers.IO) {
                                 app.usageRepository.record(packageName, appName, AccessOutcome.WENT_BACK)
                             }
                             finish()
                         },
                         onEmergency = {
-                            scope.launch {
-                                // 15-minute emergency unlock
-                                app.preferences.setEmergencyUnlockUntil(System.currentTimeMillis() + 15 * 60 * 1000L)
+                            // Grant via in-memory map so the service sees it immediately
+                            GuardrailAccessibilityService.grantEmergency(packageName)
+                            GlobalScope.launch(Dispatchers.IO) {
                                 app.usageRepository.record(packageName, appName, AccessOutcome.EMERGENCY_UNLOCKED)
                             }
                             finish()
@@ -79,17 +79,13 @@ class CountdownOverlayActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        scope.cancel()
-    }
 }
 
 @Composable
 private fun CountdownScreen(
     appName: String,
     totalSec: Long,
+    emergencyAvailable: Boolean,
     onComplete: () -> Unit,
     onGoBack: () -> Unit,
     onEmergency: () -> Unit,
@@ -203,7 +199,14 @@ private fun CountdownScreen(
                 Text("Go Back", color = TextPrimary)
             }
 
-            if (!showEmergencyConfirm) {
+            if (!emergencyAvailable) {
+                Text(
+                    "Emergency unlock used — available again in 8 hours.",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+            } else if (!showEmergencyConfirm) {
                 TextButton(onClick = { showEmergencyConfirm = true }) {
                     Text("Emergency Unlock (15 min)", color = TextSecondary, fontSize = 12.sp)
                 }

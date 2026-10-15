@@ -9,11 +9,11 @@ import com.notnow.app.data.entity.*
 
 class Converters {
     @TypeConverter fun fromFriction(v: FrictionLevel) = v.name
-    @TypeConverter fun toFriction(v: String) = FrictionLevel.valueOf(v)
+    @TypeConverter fun toFriction(v: String) = try { FrictionLevel.valueOf(v) } catch (_: Exception) { FrictionLevel.LEVEL_1_MINOR }
     @TypeConverter fun fromCategory(v: AppCategory) = v.name
-    @TypeConverter fun toCategory(v: String) = AppCategory.valueOf(v)
+    @TypeConverter fun toCategory(v: String) = try { AppCategory.valueOf(v) } catch (_: Exception) { AppCategory.OTHER }
     @TypeConverter fun fromOutcome(v: AccessOutcome) = v.name
-    @TypeConverter fun toOutcome(v: String) = AccessOutcome.valueOf(v)
+    @TypeConverter fun toOutcome(v: String) = try { AccessOutcome.valueOf(v) } catch (_: Exception) { AccessOutcome.WENT_BACK }
 }
 
 @Database(

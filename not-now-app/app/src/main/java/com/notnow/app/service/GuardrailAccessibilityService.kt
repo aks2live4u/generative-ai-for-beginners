@@ -86,6 +86,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
             return emergencyGrants.filter { now - it.value < EMERGENCY_MS }
         }
 
+        /** Package name of the browser that most recently triggered a web block. Used to
+         *  reopen the same browser after the countdown, instead of always defaulting to Chrome. */
+        @Volatile var lastTriggerBrowserPkg: String = ""
+
         fun isEnabled(context: Context): Boolean {
             val enabled = android.provider.Settings.Secure.getString(
                 context.contentResolver,
@@ -249,8 +253,14 @@ class GuardrailAccessibilityService : AccessibilityService() {
         scope.launch { try { app.preferences.nightEndHour.collect         { nightEndHour     = it } } catch (_: Exception) {} }
         scope.launch {
             try {
+                var firstEmission = true
                 app.preferences.workModeEnabled.collect {
-                    if (it && !workModeEnabled) workModeActivatedAt = System.currentTimeMillis()
+                    // Skip the first emission so a service restart while Work Mode is already
+                    // on doesn't reset activatedAt and hand out a free 1-minute grace window.
+                    if (it && !workModeEnabled && !firstEmission) {
+                        workModeActivatedAt = System.currentTimeMillis()
+                    }
+                    firstEmission = false
                     workModeEnabled = it
                 }
             } catch (_: Exception) {}
@@ -340,10 +350,9 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
         val isNight = nightLockdownOn && isNightTime(nightStartHour, nightEndHour)
         val shouldBlock = when {
-            isNight && rule.blockedAtNight -> true
-            currentMode == "FOCUS" && rule.blockedInFocusMode -> true
-            rule.frictionLevel != FrictionLevel.LEVEL_4_BLOCKED -> true
-            else -> false
+            isNight -> rule.blockedAtNight          // night mode: only if flagged for night
+            currentMode == "FOCUS" -> rule.blockedInFocusMode  // focus mode: only if flagged
+            else -> true                           // LIFE mode: always apply friction
         }
         if (!shouldBlock) return
 
@@ -363,28 +372,18 @@ class GuardrailAccessibilityService : AccessibilityService() {
     private val URL_STABLE_MS = 400L
 
     private fun checkBrowserUrl(browserPkg: String, immediate: Boolean) {
+        val root = rootInActiveWindow ?: return
         try {
-            val root = rootInActiveWindow ?: return
             val viewId = browserUrlBarId[browserPkg] ?: return
             val candidates = root.findAccessibilityNodeInfosByViewId(viewId) ?: return
-            // The same resource id can be shared by the actual address bar EditText AND
-            // the autocomplete suggestion rows below it (e.g. a suggestion row showing
-            // "flipkart.com" from history while the address bar itself only has "f"
-            // typed in it). Only the address bar field is editable — pick that one
-            // specifically rather than whichever node happens to come first.
             val node = candidates.firstOrNull { it.isEditable } ?: candidates.firstOrNull() ?: return
             val rawText = node.text?.toString() ?: return
 
-            // While typing, Chrome's omnibox can also show an inline autocomplete
-            // suggestion as selected text appended right after what was actually typed.
-            // The unselected prefix is what was actually typed, so use that instead of
-            // the full (possibly auto-completed) text.
             val selStart = node.textSelectionStart
             val selEnd = node.textSelectionEnd
             val typedText = if (selStart in 0..rawText.length && selEnd in 0..rawText.length && selStart < selEnd) {
                 rawText.substring(0, selStart)
             } else rawText
-            root.recycle()
 
             val urlText = typedText.trim()
             if (urlText.isEmpty()) return
@@ -410,6 +409,8 @@ class GuardrailAccessibilityService : AccessibilityService() {
 
             performGlobalAction(GLOBAL_ACTION_HOME)
 
+            lastTriggerBrowserPkg = browserPkg  // remember which browser to reopen after countdown
+
             val fakeRule = AppRule(
                 packageName   = webKey,
                 appName       = site.label,
@@ -419,7 +420,10 @@ class GuardrailAccessibilityService : AccessibilityService() {
             scope.launch(Dispatchers.Main) {
                 overlayManager?.show(webKey, fakeRule, isNight = false)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        } finally {
+            root.recycle()
+        }
     }
 
     private fun extractDomain(url: String): String? = try {
@@ -448,16 +452,52 @@ class GuardrailAccessibilityService : AccessibilityService() {
         if (!workModeEnabled) return WorkPhase()
 
         val cal = Calendar.getInstance().apply { timeInMillis = now }
-        if (cal.get(Calendar.DAY_OF_WEEK) !in workDays) return WorkPhase()
+        val currentHour = cal.get(Calendar.HOUR_OF_DAY)
+        val isCrossMidnight = workEndHour <= workStartHour
 
-        val shiftStart = (cal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, workStartHour); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val shiftEnd = (cal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, workEndHour); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
+        // For cross-midnight shifts, the day-of-week check depends on which portion we're in.
+        // In the post-midnight portion (hour < workEndHour), the shift actually started yesterday.
+        val checkDayOfWeek = if (isCrossMidnight && currentHour < workEndHour) {
+            (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -1) }.get(Calendar.DAY_OF_WEEK)
+        } else {
+            cal.get(Calendar.DAY_OF_WEEK)
+        }
+        if (checkDayOfWeek !in workDays) return WorkPhase()
+
+        val shiftStart: Long
+        val shiftEnd: Long
+        if (isCrossMidnight && currentHour < workEndHour) {
+            // Post-midnight: shift started yesterday
+            shiftStart = (cal.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_MONTH, -1)
+                set(Calendar.HOUR_OF_DAY, workStartHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            shiftEnd = (cal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, workEndHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        } else if (isCrossMidnight) {
+            // Pre-midnight: shift ends tomorrow
+            shiftStart = (cal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, workStartHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            shiftEnd = (cal.clone() as Calendar).apply {
+                add(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, workEndHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        } else {
+            shiftStart = (cal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, workStartHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            shiftEnd = (cal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, workEndHour); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }
 
         if (shiftEnd <= shiftStart) return WorkPhase()
 
@@ -545,24 +585,40 @@ class GuardrailAccessibilityService : AccessibilityService() {
                                 }
                             }
                             phase.showLockdown && !hasWorkEmergencyGrant() -> {
-                                if (workOverlayKind != WorkOverlayKind.LOCKDOWN) {
-                                    workOverlayKind = WorkOverlayKind.LOCKDOWN
-                                    performGlobalAction(GLOBAL_ACTION_HOME)
-                                    // Lock once on entry — repeating this every loop tick
-                                    // fights the user's fingerprint unlock in an endless cycle.
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                        performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                                // Only show the lockdown overlay when the user is actually
+                                // in a restricted app. Utility apps (banking, settings, etc.)
+                                // that are NOT in the managed rule set can be used freely —
+                                // the lockdown re-engages the moment they open a blocked app.
+                                val fgPkg = lastForegroundPkg
+                                val isRestrictedForeground = fgPkg.isNotEmpty() &&
+                                    (fgPkg in ruleCache || fgPkg in browserPackages)
+
+                                if (isRestrictedForeground) {
+                                    if (workOverlayKind != WorkOverlayKind.LOCKDOWN) {
+                                        workOverlayKind = WorkOverlayKind.LOCKDOWN
+                                        performGlobalAction(GLOBAL_ACTION_HOME)
+                                        // Lock once on entry — repeating this every loop tick
+                                        // fights the user's fingerprint unlock in an endless cycle.
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                            performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                                        }
+                                    }
+                                    overlayManager?.showWorkLockdown(
+                                        remainingMs = phase.lockdownRemainingMs,
+                                        emergencyAvailable = !isWorkEmergencyOnCooldown(),
+                                        emergencyCooldownRemainingMs = workEmergencyCooldownRemainingMs(),
+                                        onEmergency = {
+                                            grantWorkEmergency()
+                                            scope.launch { app.preferences.setWorkEmergencyUsedAt(System.currentTimeMillis()) }
+                                        }
+                                    )
+                                } else {
+                                    // Not in a restricted app — dismiss lockdown overlay
+                                    if (workOverlayKind != WorkOverlayKind.NONE) {
+                                        workOverlayKind = WorkOverlayKind.NONE
+                                        overlayManager?.dismissWorkOverlay()
                                     }
                                 }
-                                overlayManager?.showWorkLockdown(
-                                    remainingMs = phase.lockdownRemainingMs,
-                                    emergencyAvailable = !isWorkEmergencyOnCooldown(),
-                                    emergencyCooldownRemainingMs = workEmergencyCooldownRemainingMs(),
-                                    onEmergency = {
-                                        grantWorkEmergency()
-                                        scope.launch { app.preferences.setWorkEmergencyUsedAt(System.currentTimeMillis()) }
-                                    }
-                                )
                             }
                             phase.showWarning && !hasWorkEmergencyGrant() -> {
                                 workOverlayKind = WorkOverlayKind.WARNING

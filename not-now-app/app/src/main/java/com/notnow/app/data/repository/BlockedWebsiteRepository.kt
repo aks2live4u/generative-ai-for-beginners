@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.Flow
 class BlockedWebsiteRepository(private val dao: BlockedWebsiteDao) {
     val allSites: Flow<List<BlockedWebsite>> = dao.observeAll()
 
-    suspend fun add(site: BlockedWebsite) = dao.insert(site)
+    suspend fun add(site: BlockedWebsite) {
+        if (dao.countByDomain(site.domain) == 0) dao.insert(site)
+    }
 
     suspend fun delete(site: BlockedWebsite) = dao.delete(site)
 

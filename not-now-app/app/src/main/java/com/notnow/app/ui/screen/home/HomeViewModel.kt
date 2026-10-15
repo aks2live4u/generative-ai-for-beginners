@@ -15,8 +15,9 @@ import kotlinx.coroutines.launch
 class HomeViewModel(
     private val ruleRepo: AppRuleRepository,
     private val prefs: AppPreferences,
-    private val context: Context
+    context: Context
 ) : ViewModel() {
+    private val context: Context = context.applicationContext
 
     val operatingMode: StateFlow<String> = prefs.operatingMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "LIFE")
@@ -99,6 +100,6 @@ class HomeViewModel(
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            HomeViewModel(ruleRepo, prefs, context) as T
+            HomeViewModel(ruleRepo, prefs, context.applicationContext) as T
     }
 }
