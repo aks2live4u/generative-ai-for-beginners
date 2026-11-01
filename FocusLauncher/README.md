@@ -8,6 +8,9 @@ aimless browsing.
 - **Only essentials on the home screen.** Pin as many as you need (up to 30), in one or two
   columns, and the list scrolls if it gets long. Apps are shown as text with no icons or badges.
   On first run it picks Phone, Messages, Camera and Clock.
+- **Clone apps included.** Dual or cloned apps (for example a second WhatsApp) and work-profile
+  apps are listed and labelled the way your phone names them, such as "Dual WhatsApp" or
+  "WhatsApp (2)".
 - **Everything else is behind a wall.** Swipe up, or tap "everything else", to reach it. You first
   wait a few seconds on a "What do you need?" screen. By default the wall only searches, so you
   type the app you came for and there's no list to scroll through.
