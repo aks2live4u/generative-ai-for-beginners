@@ -111,6 +111,10 @@ fun LauncherRoot(
     // A launcher should never "exit" on back; deeper screens go back home.
     BackHandler(enabled = true) { if (screen != Screen.Home) navigate(Screen.Home) }
 
+    var isDefault by remember { mutableStateOf(true) }
+    LaunchedEffect(resumeTick) { isDefault = DefaultLauncher.isDefault(context) }
+    val makeDefault = rememberMakeDefaultRequest { isDefault = DefaultLauncher.isDefault(context) }
+
     var screenTime by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(resumeTick, settings.showScreenTime) {
         screenTime = if (settings.showScreenTime && Usage.hasAccess(context)) {
@@ -123,6 +127,8 @@ fun LauncherRoot(
             settings = settings,
             apps = apps,
             screenTimeMs = screenTime,
+            isDefault = isDefault,
+            onMakeDefault = makeDefault,
             onOpen = ::open,
             onOpenWall = ::openWall,
             onOpenSettings = { navigate(Screen.Settings) },
@@ -147,6 +153,8 @@ fun LauncherRoot(
         Screen.Settings -> SettingsScreen(
             settings = settings,
             apps = apps,
+            isDefault = isDefault,
+            onMakeDefault = makeDefault,
             onBack = { navigate(Screen.Home) },
         )
     }

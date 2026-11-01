@@ -17,13 +17,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +54,8 @@ fun HomeScreen(
     settings: LauncherSettings,
     apps: List<AppEntry>,
     screenTimeMs: Long?,
+    isDefault: Boolean,
+    onMakeDefault: () -> Unit,
     onOpen: (AppEntry) -> Unit,
     onOpenWall: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -83,6 +88,9 @@ fun HomeScreen(
                 .systemBarsPadding()
                 .padding(horizontal = 28.dp, vertical = 20.dp)
         ) {
+            if (!isDefault) {
+                MakeDefaultBanner(textColor, onMakeDefault)
+            }
             Spacer(Modifier.height(36.dp))
             ClockView(settings.clockStyle, settings.use24h, family, textColor, settings.clockScale, now)
 
@@ -156,6 +164,31 @@ fun HomeScreen(
                 )
             }
         }
+    }
+}
+
+/** Shown until Focus Launcher is the phone's default home app. */
+@Composable
+fun MakeDefaultBanner(textColor: Color, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Make this your home screen", color = textColor, fontSize = 15.sp)
+            Text(
+                "So the Home button brings you here, not to your old icons.",
+                color = textColor.copy(alpha = 0.6f),
+                fontSize = 12.sp,
+            )
+        }
+        Text("Set", color = Sage, fontSize = 15.sp, modifier = Modifier.padding(start = 12.dp))
     }
 }
 

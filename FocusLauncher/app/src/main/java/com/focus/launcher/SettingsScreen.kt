@@ -1,8 +1,5 @@
 package com.focus.launcher
 
-import android.app.role.RoleManager
-import android.content.Intent
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -66,13 +63,18 @@ private val backgrounds = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(settings: LauncherSettings, apps: List<AppEntry>, onBack: () -> Unit) {
+fun SettingsScreen(
+    settings: LauncherSettings,
+    apps: List<AppEntry>,
+    isDefault: Boolean,
+    onMakeDefault: () -> Unit,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pickEssentials by remember { mutableStateOf(false) }
     var pickDistracting by remember { mutableStateOf(false) }
 
-    val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
             val ok = withContext(Dispatchers.IO) { Media.copy(context, uri, Media.wallpaperFile(context)) }
@@ -108,17 +110,19 @@ fun SettingsScreen(settings: LauncherSettings, apps: List<AppEntry>, onBack: () 
             TextButton(onClick = onBack) { Text("Done") }
         }
 
-        Button(
-            onClick = {
-                val rm = if (Build.VERSION.SDK_INT >= 29) context.getSystemService(RoleManager::class.java) else null
-                if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                    roleLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
-                } else {
-                    runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_HOME_SETTINGS)) }
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        ) { Text("Set as my home screen") }
+        if (isDefault) {
+            Text("✓ Focus Launcher is your default home screen", color = Sage, modifier = Modifier.padding(top = 8.dp))
+            TextButton(onClick = { DefaultLauncher.openHomeSettings(context) }) { Text("Change default home app") }
+        } else {
+            Button(onClick = onMakeDefault, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Text("Make Focus Launcher my default home screen")
+            }
+            Text(
+                "Until it's the default, pressing Home goes back to your old launcher with all its icons.",
+                color = Muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
 
         // ---------------- Essentials ----------------
         Section("Essential apps", "Only these appear on your home screen. Everything else goes behind the wall.")
