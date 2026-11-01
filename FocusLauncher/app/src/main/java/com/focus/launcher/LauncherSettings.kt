@@ -92,6 +92,8 @@ class LauncherSettings(context: Context) {
     var wallpaperColor2 by int("wallpaper_color2", 0xFF000000.toInt())
     var dim by float("dim", 0.25f)
     var homeNote by string("home_note", "")
+    var homeColumns by int("home_columns", 1)
+    var appTextScale by float("app_text_scale", 1f)
 
     /** Bumped whenever the wallpaper / font file changes so the UI reloads it. */
     var wallpaperVersion by int("wallpaper_version", 0)

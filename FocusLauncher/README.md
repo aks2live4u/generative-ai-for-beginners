@@ -5,7 +5,8 @@ aimless browsing.
 
 ## What it does
 
-- **Only essentials on the home screen.** Up to 8 apps, shown as text with no icons or badges.
+- **Only essentials on the home screen.** Pin as many as you need (up to 30), in one or two
+  columns, and the list scrolls if it gets long. Apps are shown as text with no icons or badges.
   On first run it picks Phone, Messages, Camera and Clock.
 - **Everything else is behind a wall.** Swipe up, or tap "everything else", to reach it. You first
   wait a few seconds on a "What do you need?" screen. By default the wall only searches, so you

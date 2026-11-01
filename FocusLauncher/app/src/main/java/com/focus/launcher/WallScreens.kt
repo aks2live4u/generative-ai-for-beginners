@@ -205,7 +205,7 @@ fun WallScreen(
                         menuFor = null
                     }) { Text(if (isDistracting) "Stop pausing before open" else "Mark as distracting (pause first)") }
                     TextButton(onClick = {
-                        AppRepository.openAppInfo(context, app.pkg)
+                        AppRepository.openAppInfo(context, app)
                         menuFor = null
                     }) { Text("App info / uninstall") }
                 }

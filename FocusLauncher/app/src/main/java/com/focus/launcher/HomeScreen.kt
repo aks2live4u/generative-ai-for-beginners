@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -126,19 +129,38 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(Modifier.weight(1f))
-
-            essentials.forEach { app ->
-                Text(
-                    app.label,
-                    color = textColor,
-                    fontFamily = family,
-                    fontSize = 26.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpen(app) }
-                        .padding(vertical = 10.dp),
-                )
+            // Essentials sit at the bottom (thumb reach) and scroll if you pin a lot of them.
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                val columns = settings.homeColumns.coerceIn(1, 2)
+                val baseSize = when {
+                    columns == 2 -> 19f
+                    essentials.size <= 8 -> 26f
+                    essentials.size <= 14 -> 22f
+                    else -> 19f
+                }
+                val size = (baseSize * settings.appTextScale).sp
+                val rowPadding = if (essentials.size > 10 || columns == 2) 7.dp else 10.dp
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    essentials.chunked(columns).forEach { row ->
+                        Row(Modifier.fillMaxWidth()) {
+                            row.forEach { app ->
+                                Text(
+                                    app.label,
+                                    color = textColor,
+                                    fontFamily = family,
+                                    fontSize = size,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onOpen(app) }
+                                        .padding(vertical = rowPadding),
+                                )
+                            }
+                            if (row.size < columns) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
             }
             if (essentials.isEmpty() && apps.isNotEmpty()) {
                 Text(

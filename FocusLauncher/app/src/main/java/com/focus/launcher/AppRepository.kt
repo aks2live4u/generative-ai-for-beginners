@@ -4,8 +4,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Process
+import android.os.UserHandle
+import android.os.UserManager
 import android.provider.MediaStore
 import android.provider.Settings
 import android.provider.Telephony
@@ -23,6 +27,9 @@ data class AppEntry(
     val cls: String,
     val label: String,
     val kind: AppKind,
+    /** Which profile the app lives in: main, clone/dual-app, or work profile. */
+    val user: UserHandle,
+    val isClone: Boolean = false,
 )
 
 object AppRepository {
@@ -44,27 +51,47 @@ object AppRepository {
         "com.google.android.youtube", "com.netflix", "in.startv.hotstar", "com.amazon.avod",
     )
 
+    /**
+     * Lists launchable apps from every profile the phone exposes to launchers, so clone apps
+     * (Dual apps / App twin / Parallel apps, e.g. a second WhatsApp) and work apps show up too.
+     */
     fun load(context: Context): List<AppEntry> {
         val pm = context.packageManager
+        val launcherApps = context.getSystemService(LauncherApps::class.java)
+        val userManager = context.getSystemService(UserManager::class.java)
+        val me = Process.myUserHandle()
         val browsers = pm.queryIntentActivities(
             Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")), PackageManager.MATCH_ALL
         ).map { it.activityInfo.packageName }.toSet()
 
-        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return pm.queryIntentActivities(launcherIntent, 0)
-            .filter { it.activityInfo.packageName != context.packageName }
-            .map { ri ->
-                val info = ri.activityInfo
-                AppEntry(
-                    key = "${info.packageName}/${info.name}",
-                    pkg = info.packageName,
-                    cls = info.name,
-                    label = ri.loadLabel(pm).toString(),
-                    kind = classify(info.packageName, info.applicationInfo, browsers),
+        val profiles = runCatching { launcherApps.profiles }.getOrNull()?.takeIf { it.isNotEmpty() } ?: listOf(me)
+        val result = mutableListOf<AppEntry>()
+        for (user in profiles) {
+            val isMain = user == me
+            val serial = runCatching { userManager.getSerialNumberForUser(user) }.getOrDefault(0L)
+            val activities = runCatching { launcherApps.getActivityList(null, user) }.getOrDefault(emptyList())
+            for (info in activities) {
+                val cn = info.componentName
+                if (cn.packageName == context.packageName) continue
+                val baseLabel = info.label?.toString() ?: cn.packageName
+                val label = if (isMain) baseLabel else {
+                    // Uses the phone's own wording ("Dual WhatsApp", "Work Gmail") when it has one.
+                    val badged = runCatching { pm.getUserBadgedLabel(baseLabel, user).toString() }.getOrDefault(baseLabel)
+                    if (badged == baseLabel) "$baseLabel (2)" else badged
+                }
+                result += AppEntry(
+                    // Main-profile keys keep the old format so saved essentials survive updates.
+                    key = if (isMain) "${cn.packageName}/${cn.className}" else "${cn.packageName}/${cn.className}@$serial",
+                    pkg = cn.packageName,
+                    cls = cn.className,
+                    label = label,
+                    kind = classify(cn.packageName, info.applicationInfo, browsers),
+                    user = user,
+                    isClone = !isMain,
                 )
             }
-            .distinctBy { it.key }
-            .sortedBy { it.label.lowercase() }
+        }
+        return result.distinctBy { it.key }.sortedBy { it.label.lowercase() }
     }
 
     private fun classify(pkg: String, ai: ApplicationInfo, browsers: Set<String>): AppKind = when {
@@ -90,24 +117,36 @@ object AppRepository {
             pkgFor(Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)),
             pkgFor(Intent(android.provider.AlarmClock.ACTION_SHOW_ALARMS)),
         )
-        return wanted.distinct().mapNotNull { pkg -> apps.firstOrNull { it.pkg == pkg }?.key }
+        return wanted.distinct().mapNotNull { pkg -> apps.firstOrNull { it.pkg == pkg && !it.isClone }?.key }
     }
 
     fun launch(context: Context, app: AppEntry): Boolean = runCatching {
-        val intent = Intent(Intent.ACTION_MAIN)
-            .addCategory(Intent.CATEGORY_LAUNCHER)
-            .setComponent(ComponentName(app.pkg, app.cls))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        context.startActivity(intent)
+        context.getSystemService(LauncherApps::class.java)
+            .startMainActivity(ComponentName(app.pkg, app.cls), app.user, null, null)
+        true
+    }.recoverCatching {
+        // Fallback for the main profile if LauncherApps refuses for some reason.
+        if (app.user != Process.myUserHandle()) throw it
+        context.startActivity(
+            Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .setComponent(ComponentName(app.pkg, app.cls))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        )
         true
     }.getOrDefault(false)
 
-    fun openAppInfo(context: Context, pkg: String) {
+    fun openAppInfo(context: Context, app: AppEntry) {
         runCatching {
-            context.startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+            context.getSystemService(LauncherApps::class.java)
+                .startAppDetailsActivity(ComponentName(app.pkg, app.cls), app.user, null, null)
+        }.onFailure {
+            runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.pkg, null))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
         }
     }
 }

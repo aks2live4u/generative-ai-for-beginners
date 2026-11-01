@@ -45,7 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val MAX_ESSENTIALS = 8
+private const val MAX_ESSENTIALS = 30
 
 private val textColors = listOf(
     0xFFE8E2D6, 0xFFFFFFFF, 0xFFB8B8B8, 0xFFA8C3A0, 0xFF9CC4E4, 0xFFE8A9A0, 0xFFF0C674, 0xFF111111,
@@ -135,7 +135,14 @@ fun SettingsScreen(
                 TextButton(onClick = { settings.essentials = settings.essentials - app.key }) { Text("✕") }
             }
         }
-        OutlinedButton(onClick = { pickEssentials = true }) { Text("Choose essentials (max $MAX_ESSENTIALS)") }
+        OutlinedButton(onClick = { pickEssentials = true }) { Text("Choose essential apps") }
+        Text("Layout on home screen", color = Cream, modifier = Modifier.padding(top = 12.dp))
+        Chips(listOf(1, 2), settings.homeColumns, { if (it == 1) "1 column" else "2 columns" }) { settings.homeColumns = it }
+        LabeledSlider(
+            label = "App name size: ${(settings.appTextScale * 100).toInt()}%",
+            value = settings.appTextScale,
+            range = 0.6f..1.4f,
+        ) { settings.appTextScale = it }
 
         // ---------------- Distracting ----------------
         Section(
