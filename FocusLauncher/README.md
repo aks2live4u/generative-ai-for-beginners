@@ -39,9 +39,9 @@ aimless browsing.
 
 ## Install
 
-1. Open the repository's **Actions** tab, then the latest **Build Focus Launcher APK** run.
-2. Download the `focus-launcher-apk` artifact, unzip it, and open the `.apk` on your phone.
-   You'll need to allow installs from that source.
+1. On your phone, download the APK (about 8 MB):
+   [FocusLauncher.apk](https://github.com/aks2live4u/generative-ai-for-beginners/releases/download/focus-launcher-latest/FocusLauncher.apk)
+2. Open it and allow installs from your browser when Android asks.
 3. Open Focus Launcher and tap the **Make this your home screen** banner, then choose
    Focus Launcher. You can also do this from Settings.
 4. Optional: in Settings → Screen time, tap **Grant usage access** to see screen time.

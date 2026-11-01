@@ -7,6 +7,9 @@ on:
       - '.github/workflows/focus-launcher.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,3 +29,14 @@ jobs:
         with:
           name: focus-launcher-apk
           path: FocusLauncher/app/build/outputs/apk/debug/*.apk
+      - name: Name the APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk FocusLauncher.apk
+      # One stable, direct download link that always points at the newest build.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: focus-launcher-latest
+          name: Focus Launcher (latest)
+          target_commitish: ${{ github.sha }}
+          body: "Download **FocusLauncher.apk** below and open it on your Android phone."
+          files: FocusLauncher/FocusLauncher.apk
+          make_latest: true
