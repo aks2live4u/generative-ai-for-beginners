@@ -10,7 +10,6 @@ android {
 
     defaultConfig {
         applicationId = "com.nexus.launcher"
-        // 26+ because the Anthropic Java SDK uses java.time and Jackson.
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -19,9 +18,8 @@ android {
 
     buildTypes {
         release {
-            // Jackson (used by the Anthropic SDK) relies on reflection; keep R8 off
-            // until keep rules are tuned for a store build.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -65,6 +63,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // Official Anthropic SDK (Kotlin uses the Java SDK) for the AI Command Centre.
-    implementation("com.anthropic:anthropic-java:3.3.0")
+    // HTTP for the Gemini API; JSON uses Android's built-in org.json.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

@@ -17,13 +17,13 @@ data class NexusSettings(
     val webSearch: Boolean = true,
 ) {
     companion object {
-        const val DEFAULT_MODEL = "claude-opus-5-5"
+        const val DEFAULT_MODEL = "gemini-2.5-flash"
     }
 }
 
 /**
  * Settings live in private app storage. The API key never leaves the device except
- * in requests to api.anthropic.com.
+ * in requests to generativelanguage.googleapis.com (the Gemini API).
  */
 class SettingsStore(private val context: Context) {
     private val sp = context.getSharedPreferences("nexus_settings", Context.MODE_PRIVATE)
@@ -33,8 +33,8 @@ class SettingsStore(private val context: Context) {
     fun update(transform: (NexusSettings) -> NexusSettings) {
         val next = transform(_state.value)
         sp.edit()
-            .putString("apiKey", next.apiKey.trim())
-            .putString("model", next.model.trim().ifBlank { NexusSettings.DEFAULT_MODEL })
+            .putString("geminiApiKey", next.apiKey.trim())
+            .putString("geminiModel", next.model.trim().ifBlank { NexusSettings.DEFAULT_MODEL })
             .putString("userName", next.userName.trim())
             .putBoolean("reducedMotion", next.reducedMotion)
             .putBoolean("classicGrid", next.classicGrid)
@@ -51,8 +51,8 @@ class SettingsStore(private val context: Context) {
             context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f,
         ) == 0f
         return NexusSettings(
-            apiKey = sp.getString("apiKey", "") ?: "",
-            model = sp.getString("model", NexusSettings.DEFAULT_MODEL) ?: NexusSettings.DEFAULT_MODEL,
+            apiKey = sp.getString("geminiApiKey", "") ?: "",
+            model = sp.getString("geminiModel", NexusSettings.DEFAULT_MODEL) ?: NexusSettings.DEFAULT_MODEL,
             userName = sp.getString("userName", "") ?: "",
             reducedMotion = sp.getBoolean("reducedMotion", systemNoAnim),
             classicGrid = sp.getBoolean("classicGrid", false),

@@ -33,6 +33,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nexus.launcher.NexusGraph
+import com.nexus.launcher.ai.NexusAIException
+import kotlinx.coroutines.launch
 import com.nexus.launcher.data.NexusSettings
 import com.nexus.launcher.ui.components.GlassCard
 import com.nexus.launcher.ui.components.HudLabel
@@ -45,6 +47,8 @@ import com.nexus.launcher.ui.theme.Nx
 fun SettingsScreen(graph: NexusGraph, settings: NexusSettings, onDone: () -> Unit) {
     val context = LocalContext.current
     var keyVisible by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = Nx.Cyan, unfocusedBorderColor = Nx.Line,
         focusedContainerColor = Nx.Surface, unfocusedContainerColor = Nx.Surface, cursorColor = Nx.Cyan,
@@ -67,7 +71,7 @@ fun SettingsScreen(graph: NexusGraph, settings: NexusSettings, onDone: () -> Uni
             OutlinedTextField(
                 value = settings.apiKey,
                 onValueChange = { v -> graph.settings.update { it.copy(apiKey = v) } },
-                label = { Text("Anthropic API key") },
+                label = { Text("Gemini API key") },
                 singleLine = true,
                 visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -83,14 +87,14 @@ fun SettingsScreen(graph: NexusGraph, settings: NexusSettings, onDone: () -> Uni
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Stored only on this phone. Create one at console.anthropic.com.",
+                "Stored only on this phone. Get a free key at aistudio.google.com/apikey.",
                 style = MaterialTheme.typography.bodyMedium, color = Nx.Muted, modifier = Modifier.padding(top = 6.dp),
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = settings.model,
                 onValueChange = { v -> graph.settings.update { it.copy(model = v) } },
-                label = { Text("Claude model") },
+                label = { Text("Gemini model") },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = fieldColors,
@@ -106,6 +110,34 @@ fun SettingsScreen(graph: NexusGraph, settings: NexusSettings, onDone: () -> Uni
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(12.dp))
+            Pill(
+                if (testing) "Testing connection…" else "Test connection",
+                onClick = {
+                    if (!testing) {
+                        testing = true
+                        testResult = null
+                        graph.scope.launch {
+                            testResult = try {
+                                graph.ai.testConnection() to true
+                            } catch (e: NexusAIException) {
+                                (e.message ?: "Connection failed.") to false
+                            } catch (e: Exception) {
+                                "Connection failed: ${e.message}" to false
+                            }
+                            testing = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            testResult?.let { (msg, ok) ->
+                Text(
+                    msg, style = MaterialTheme.typography.bodyMedium, color = if (ok) Nx.Mint else Nx.Amber,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             Spacer(Modifier.height(6.dp))
             SettingRow("Live web answers", "Lets NEXUS search the web for weather, news and other live facts.", settings.webSearch) { v ->
                 graph.settings.update { it.copy(webSearch = v) }

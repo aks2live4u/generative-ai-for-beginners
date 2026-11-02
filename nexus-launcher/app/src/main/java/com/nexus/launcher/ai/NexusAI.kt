@@ -1,23 +1,9 @@
 package com.nexus.launcher.ai
 
-import com.anthropic.client.AnthropicClient
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.errors.AnthropicIoException
-import com.anthropic.errors.AnthropicServiceException
-import com.anthropic.errors.BadRequestException
-import com.anthropic.errors.NotFoundException
-import com.anthropic.errors.PermissionDeniedException
-import com.anthropic.errors.RateLimitException
-import com.anthropic.errors.UnauthorizedException
-import com.anthropic.models.beta.messages.BetaMessage
-import com.anthropic.models.beta.messages.BetaMessageParam
-import com.anthropic.models.beta.messages.BetaOutputConfig
-import com.anthropic.models.beta.messages.BetaStopReason
-import com.anthropic.models.beta.messages.BetaWebSearchTool20260209
-import com.anthropic.models.beta.messages.MessageCreateParams
 import com.nexus.launcher.data.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 /** Something NEXUS can do on the phone, parsed from `[[verb:argument]]` tags in a reply. */
 sealed interface NexusAction {
@@ -36,35 +22,36 @@ data class NexusReply(val text: String, val actions: List<NexusAction>)
 class NexusAIException(message: String) : Exception(message)
 
 /**
- * The AI Command Centre's brain: Claude, through the official Anthropic SDK.
+ * The AI Command Centre's brain: Google Gemini.
  *
- * - Claude Opus 5.5 at low effort keeps spoken replies quick.
- * - Server-side refusal fallbacks (`fallbacks: "default"`) are on.
- * - The web search server tool lets it answer weather, news and other live questions.
- * - It acts on the phone by adding `[[verb:argument]]` tags, which the launcher runs.
+ * - Grounding with Google Search answers live questions (weather, news, scores).
+ * - Phone actions come back as `[[verb:argument]]` tags, which the launcher runs.
+ * - If the configured model isn't available to the key, NEXUS picks a working
+ *   Flash model from the key's model list and saves it.
  */
-class NexusAI(private val settings: SettingsStore) {
-    private var client: AnthropicClient? = null
-    private var clientKey: String? = null
-    private val history = mutableListOf<BetaMessageParam>()
+class NexusAI(
+    private val settings: SettingsStore,
+    private val gemini: GeminiClient = GeminiClient(),
+) {
+    private val history = mutableListOf<JSONObject>()
 
     fun reset() = synchronized(history) { history.clear() }
 
     /** One turn of the ongoing voice conversation. */
     suspend fun ask(prompt: String, deviceContext: String, appNames: List<String>): NexusReply =
         withContext(Dispatchers.IO) {
-            val userTurn = BetaMessageParam.ofUser("[$deviceContext]\n$prompt")
+            val userTurn = GeminiClient.turn("user", "[$deviceContext]\n$prompt")
             val conversation = synchronized(history) { history.toList() } + userTurn
-            val (text, turn) = run(conversation, systemPrompt(appNames), allowTools = true)
+            val result = generate(conversation, systemPrompt(appNames), allowSearch = true)
+            val reply = parse(replyText(result))
             synchronized(history) {
                 history += userTurn
-                history += turn
-                // Keep the conversation short: about the last 12 turns.
+                history += result.content ?: GeminiClient.turn("model", reply.text)
+                // Keep about the last 12 exchanges, always starting on a user turn.
                 while (history.size > 24) history.removeAt(0)
-                // A conversation must start with a user message.
-                while (history.isNotEmpty() && isAssistant(history.first())) history.removeAt(0)
+                while (history.isNotEmpty() && history.first().optString("role") != "user") history.removeAt(0)
             }
-            parse(text)
+            reply
         }
 
     /** Stand-alone summary of the current notifications (not added to the conversation). */
@@ -74,75 +61,80 @@ class NexusAI(private val settings: SettingsStore) {
             lines.take(40).forEach { appendLine("- $it") }
             append("Give me a spoken briefing: what needs me now, what can wait. Three sentences at most.")
         }
-        val (text, _) = run(listOf(BetaMessageParam.ofUser(prompt)), BRIEFING_SYSTEM, allowTools = false)
-        parse(text).text
+        val result = generate(listOf(GeminiClient.turn("user", prompt)), BRIEFING_SYSTEM, allowSearch = false)
+        parse(replyText(result)).text
     }
 
-    private fun run(
-        messages: List<BetaMessageParam>,
-        system: String,
-        allowTools: Boolean,
-    ): Pair<String, List<BetaMessageParam>> {
+    /** Checks the key and model; returns a human-readable status line. */
+    suspend fun testConnection(): String = withContext(Dispatchers.IO) {
         val s = settings.state.value
-        if (s.apiKey.isBlank()) throw NexusAIException("Add your Anthropic API key in Settings to wake NEXUS.")
-        val c = clientFor(s.apiKey)
-        val turn = mutableListOf<BetaMessageParam>()
-        val text = StringBuilder()
-        var response: BetaMessage
-        var rounds = 0
-        try {
-            do {
-                val params = MessageCreateParams.builder()
-                    .model(s.model)
-                    .maxTokens(4096L)
-                    .system(system)
-                    .messages(messages + turn)
-                    .outputConfig(BetaOutputConfig.builder().effort(BetaOutputConfig.Effort.LOW).build())
-                    // Server-side refusal fallback: if this model declines, the API retries on a fallback model.
-                    .addBeta("server-side-fallback-2026-07-01")
-                    .fallbacksDefault()
-                    .apply {
-                        if (allowTools && s.webSearch) addTool(BetaWebSearchTool20260209.builder().maxUses(3L).build())
+        if (s.apiKey.isBlank()) throw NexusAIException("Add your Gemini API key first.")
+        val models = call { gemini.listModels(s.apiKey) }
+        val model = GeminiClient.modelId(s.model)
+        val chosen = if (model in models) model else {
+            GeminiClient.pickFallbackModel(models)?.also { m -> settings.update { it.copy(model = m) } }
+                ?: throw NexusAIException("This key can't use any Gemini chat models.")
+        }
+        val result = call { gemini.generate(s.apiKey, chosen, BRIEFING_SYSTEM, listOf(GeminiClient.turn("user", "Say: NEXUS online.")), googleSearch = false, maxOutputTokens = 256) }
+        val heard = result.text.ifBlank { "(empty reply)" }
+        val note = if (chosen != model) " Switched model from $model to $chosen." else ""
+        "Connected to $chosen. It replied: \"$heard\".$note"
+    }
+
+    private fun generate(contents: List<JSONObject>, system: String, allowSearch: Boolean): GeminiClient.Result {
+        val s = settings.state.value
+        if (s.apiKey.isBlank()) throw NexusAIException("Add your Gemini API key in Settings to wake NEXUS.")
+        var model = GeminiClient.modelId(s.model)
+        var search = allowSearch && s.webSearch
+        var attempt = 0
+        while (true) {
+            attempt++
+            try {
+                return gemini.generate(s.apiKey, model, system, contents, search)
+            } catch (e: GeminiException) {
+                when {
+                    // Model retired or not enabled for this key: choose one that works and remember it.
+                    e.code == 404 && attempt == 1 -> {
+                        val fallback = runCatching { GeminiClient.pickFallbackModel(gemini.listModels(s.apiKey)) }.getOrNull()
+                        if (fallback == null || fallback == model) throw friendly(e, model)
+                        model = fallback
+                        settings.update { it.copy(model = fallback) }
                     }
-                    .build()
-                response = c.beta().messages().create(params)
-                turn += response.toParam()
-                response.content().forEach { block -> block.text().ifPresent { text.append(it.text()) } }
-                rounds++
-                // Web search can pause a long turn; send it back to let Claude continue.
-            } while (response.stopReason().orElse(null) == BetaStopReason.PAUSE_TURN && rounds < 4)
-        } catch (e: UnauthorizedException) {
-            throw NexusAIException("That API key was rejected. Check it in Settings.")
-        } catch (e: PermissionDeniedException) {
-            throw NexusAIException("This API key can't use ${s.model}.")
-        } catch (e: NotFoundException) {
-            throw NexusAIException("Model \"${s.model}\" wasn't found. Check the model ID in Settings.")
-        } catch (e: RateLimitException) {
-            throw NexusAIException("Rate limited. Give me a moment and try again.")
-        } catch (e: BadRequestException) {
-            throw NexusAIException("The request was rejected: ${e.message}")
-        } catch (e: AnthropicServiceException) {
-            throw NexusAIException("Claude is having trouble right now (HTTP ${e.statusCode()}).")
-        } catch (e: AnthropicIoException) {
-            throw NexusAIException("I can't reach the network.")
-        }
-        if (response.stopReason().orElse(null) == BetaStopReason.REFUSAL && text.isBlank()) {
-            return "I can't help with that one." to turn
-        }
-        return text.toString().trim() to turn
-    }
-
-    private fun clientFor(key: String): AnthropicClient {
-        val existing = client
-        if (existing != null && clientKey == key) return existing
-        existing?.close()
-        return AnthropicOkHttpClient.builder().apiKey(key).build().also {
-            client = it
-            clientKey = key
+                    // Some models or regions reject Search grounding; answer without it.
+                    e.code == 400 && search && e.message.orEmpty().contains("search", ignoreCase = true) && attempt <= 2 -> search = false
+                    // Transient overload: one quick retry.
+                    (e.code == 503 || e.code == 500) && attempt <= 2 -> Thread.sleep(800)
+                    else -> throw friendly(e, model)
+                }
+            }
         }
     }
 
-    private fun isAssistant(p: BetaMessageParam): Boolean = p.isAssistant()
+    private fun <T> call(block: () -> T): T = try {
+        block()
+    } catch (e: GeminiException) {
+        throw friendly(e, GeminiClient.modelId(settings.state.value.model))
+    }
+
+    private fun replyText(r: GeminiClient.Result): String = when {
+        r.blockReason != null -> "I can't help with that one."
+        r.text.isNotBlank() -> r.text
+        r.finishReason == "SAFETY" || r.finishReason == "PROHIBITED_CONTENT" -> "I can't help with that one."
+        r.finishReason == "MAX_TOKENS" -> "That answer ran long. Try asking for a shorter version."
+        else -> "Done."
+    }
+
+    private fun friendly(e: GeminiException, model: String): NexusAIException = NexusAIException(
+        when {
+            e.code == 0 -> "I can't reach the network."
+            e.code == 400 && e.message.orEmpty().contains("API key", ignoreCase = true) -> "That Gemini API key isn't valid. Check it in Settings."
+            e.code == 401 || e.code == 403 -> "This API key isn't allowed to use Gemini ($model). Check it in Google AI Studio."
+            e.code == 404 -> "Model \"$model\" isn't available. Pick another in Settings."
+            e.code == 429 -> "Gemini quota reached. Give it a minute and try again."
+            e.code >= 500 -> "Gemini is having trouble right now (HTTP ${e.code})."
+            else -> "Gemini rejected the request: ${e.message}"
+        },
+    )
 
     private fun systemPrompt(appNames: List<String>) = """
         You are NEXUS, the AI built into this Android phone's home screen. You're calm, precise and
@@ -150,7 +142,7 @@ class NexusAI(private val settings: SettingsStore) {
         text-to-speech, so:
         - Answer in one to three short sentences unless they ask for more.
         - No markdown, bullet points, emoji or URLs. Write numbers and times the way they're spoken.
-        - Use web search for anything live (weather, news, scores, opening hours). Don't guess.
+        - Use Google Search for anything live (weather, news, scores, opening hours). Don't guess.
 
         You can act on the phone. When the user asks for one of these, say briefly what you're doing
         and put the tag on its own line at the end of your reply:
@@ -200,7 +192,8 @@ class NexusAI(private val settings: SettingsStore) {
                     else -> null
                 }
             }.toList()
-            val text = raw.replace(TAG, "").replace(Regex("\n{3,}"), "\n\n").trim()
+            // Gemini sometimes wraps tags in backticks; strip those too.
+            val text = raw.replace(Regex("`*" + TAG.pattern + "`*"), "").replace(Regex("\n{3,}"), "\n\n").trim()
             return NexusReply(text, actions)
         }
     }
