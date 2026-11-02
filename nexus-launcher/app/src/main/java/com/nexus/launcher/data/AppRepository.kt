@@ -41,13 +41,27 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
     private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
     val apps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
 
-    private val _usage = MutableStateFlow(readUsage())
+    /** Opens counted by NEXUS itself, used when Android usage access is off. */
+    private val launches = MutableStateFlow(readUsage())
+
+    /** Foreground minutes per app over the last 14 days, from Android's usage stats. */
+    private val systemMinutes = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    private val _hasUsageAccess = MutableStateFlow(false)
+    val hasUsageAccess: StateFlow<Boolean> = _hasUsageAccess.asStateFlow()
+
+    /**
+     * Ranking score per package: real screen time from Android (when allowed) plus a small
+     * boost for apps opened through NEXUS. Home, the orbit and Focus all rank by this one map.
+     */
+    private val _usage = MutableStateFlow(launches.value)
     val usage: StateFlow<Map<String, Int>> = _usage.asStateFlow()
 
     private var lastLoad = 0L
 
     init {
         reload()
+        refreshUsage()
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -66,6 +80,25 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
 
     fun refreshIfStale() {
         if (SystemClock.elapsedRealtime() - lastLoad > 5 * 60_000) reload()
+        refreshUsage()
+    }
+
+    /** Re-reads Android usage stats. Cheap; call on every resume. */
+    fun refreshUsage() {
+        scope.launch {
+            val access = UsageAccess.isGranted(context)
+            _hasUsageAccess.value = access
+            systemMinutes.value = if (access) withContext(Dispatchers.IO) { UsageAccess.foregroundMinutes(context, days = 14) } else emptyMap()
+            recompute()
+        }
+    }
+
+    private fun recompute() {
+        val minutes = systemMinutes.value
+        val opens = launches.value
+        _usage.value = (minutes.keys + opens.keys).associateWith { pkg ->
+            (minutes[pkg] ?: 0) + (opens[pkg] ?: 0) * 5
+        }
     }
 
     fun reload() {
@@ -136,9 +169,10 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
     }
 
     private fun recordLaunch(pkg: String) {
-        val next = _usage.value.toMutableMap().apply { this[pkg] = (this[pkg] ?: 0) + 1 }
+        val next = launches.value.toMutableMap().apply { this[pkg] = (this[pkg] ?: 0) + 1 }
         usagePrefs.edit().putInt(pkg, next[pkg] ?: 1).apply()
-        _usage.value = next
+        launches.value = next
+        recompute()
     }
 
     private fun readUsage(): Map<String, Int> =

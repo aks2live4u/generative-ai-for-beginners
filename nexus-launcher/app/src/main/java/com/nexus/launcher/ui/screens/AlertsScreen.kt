@@ -79,9 +79,9 @@ fun AlertsScreen(graph: NexusGraph, settings: NexusSettings) {
 
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         ScreenHeader(
-            "Notifications",
+            "Alerts",
             when {
-                !enabled -> "Signals offline"
+                !enabled -> "Alerts are off"
                 items.isEmpty() -> "All clear"
                 else -> "${priority.size} priority · ${digest.size} digest"
             },
@@ -91,7 +91,7 @@ fun AlertsScreen(graph: NexusGraph, settings: NexusSettings) {
             GlassCard(Modifier.fillMaxWidth()) {
                 Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = Nx.Cyan)
                 Spacer(Modifier.height(10.dp))
-                Text("Let NEXUS read your notifications", style = MaterialTheme.typography.titleLarge)
+                Text("Turn on alerts", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "NEXUS sorts them into Priority (people, calls, reminders) and a quiet Digest, and can brief you aloud. " +
@@ -99,7 +99,7 @@ fun AlertsScreen(graph: NexusGraph, settings: NexusSettings) {
                     style = MaterialTheme.typography.bodyMedium, color = Nx.Muted,
                 )
                 Spacer(Modifier.height(14.dp))
-                Pill("Grant notification access", onClick = {
+                Pill("Allow notification access", onClick = {
                     runCatching {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }

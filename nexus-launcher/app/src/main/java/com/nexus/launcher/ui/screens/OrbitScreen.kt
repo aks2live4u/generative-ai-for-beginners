@@ -143,6 +143,10 @@ fun OrbitScreen(graph: NexusGraph, settings: NexusSettings) {
             ),
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         )
+        val usageAccess by graph.apps.hasUsageAccess.collectAsStateWithLifecycle()
+        if (!usageAccess && query.isBlank()) {
+            UsageAccessNudge(Modifier.padding(bottom = 8.dp))
+        }
         if (focus.active && focus.allowedPackages.isNotEmpty()) {
             HudLabel("Focus Mode: only allowed apps are lit", color = Nx.Amber, modifier = Modifier.padding(bottom = 6.dp))
         }

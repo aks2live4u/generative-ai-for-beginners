@@ -1,9 +1,5 @@
 package com.nexus.launcher.ui
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.AlarmClock
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -13,6 +9,16 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.style.TextOverflow
+import com.nexus.launcher.system.NexusNotificationService
+import com.nexus.launcher.system.Tier
+import com.nexus.launcher.ui.screens.Countdown
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -98,48 +104,7 @@ fun NexusApp(graph: NexusGraph) {
     // Back always returns Home; the launcher itself never closes.
     BackHandler { if (screen != Screen.HOME) screen = Screen.HOME }
 
-    val runAction: (NexusAction) -> Unit = { action ->
-        fun start(intent: Intent) = runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { Toast.makeText(context, "No app on this phone can do that.", Toast.LENGTH_SHORT).show() }
-        when (action) {
-            is NexusAction.OpenApp -> {
-                val app = graph.apps.find(action.name)
-                when {
-                    app == null -> Toast.makeText(context, "Couldn't find ${action.name}.", Toast.LENGTH_SHORT).show()
-                    !graph.focus.allows(app.packageName) -> Toast.makeText(context, "${app.label} is held by Focus Mode.", Toast.LENGTH_SHORT).show()
-                    else -> graph.apps.launch(app)
-                }
-            }
-            is NexusAction.StartFocus -> { graph.focus.start(action.minutes); screen = Screen.FOCUS }
-            NexusAction.StopFocus -> graph.focus.stop()
-            is NexusAction.Navigate -> screen = when (action.screen) {
-                "apps", "orbit" -> Screen.ORBIT
-                "alerts", "notifications" -> Screen.ALERTS
-                "focus" -> Screen.FOCUS
-                "command" -> Screen.COMMAND
-                "settings" -> Screen.SETTINGS
-                else -> Screen.HOME
-            }
-            is NexusAction.SetAlarm -> start(
-                Intent(AlarmClock.ACTION_SET_ALARM)
-                    .putExtra(AlarmClock.EXTRA_HOUR, action.hour)
-                    .putExtra(AlarmClock.EXTRA_MINUTES, action.minute)
-                    .putExtra(AlarmClock.EXTRA_MESSAGE, action.label)
-                    .putExtra(AlarmClock.EXTRA_SKIP_UI, true),
-            )
-            is NexusAction.SetTimer -> start(
-                Intent(AlarmClock.ACTION_SET_TIMER)
-                    .putExtra(AlarmClock.EXTRA_LENGTH, action.seconds)
-                    .putExtra(AlarmClock.EXTRA_MESSAGE, action.label)
-                    .putExtra(AlarmClock.EXTRA_SKIP_UI, true),
-            )
-            is NexusAction.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${action.number}")))
-            is NexusAction.WebSearch -> start(
-                Intent(Intent.ACTION_WEB_SEARCH).putExtra(android.app.SearchManager.QUERY, action.query),
-            )
-        }
-        Unit
-    }
+    val runAction = rememberActionRunner(graph, session, onScreen = { screen = it })
 
     Box(Modifier.fillMaxSize()) {
         NexusBackground(reducedMotion = settings.reducedMotion)
@@ -166,14 +131,35 @@ fun NexusApp(graph: NexusGraph) {
                     Screen.SETTINGS -> SettingsScreen(graph, settings, onDone = { go(Screen.HOME) })
                 }
             }
-            if (screen != Screen.SETTINGS) OrbitalDock(screen, settings.reducedMotion, onSelect = ::go)
+            session.countdown?.let { CountdownBanner(it, session) }
+            if (screen != Screen.SETTINGS) {
+                val notifications by NexusNotificationService.items.collectAsStateWithLifecycle()
+                OrbitalDock(
+                    current = screen,
+                    reducedMotion = settings.reducedMotion,
+                    alertCount = notifications.count { it.tier == Tier.PRIORITY },
+                    onSelect = ::go,
+                    onOrb = {
+                        // One tap: open the Command Centre and start listening (or stop, if already listening).
+                        if (settings.sounds) Sfx.listen()
+                        session.listenRequested = true
+                        screen = Screen.COMMAND
+                    },
+                )
+            }
         }
     }
 }
 
 /** Floating dock: four destinations around a central NEXUS core that opens the Command Centre. */
 @Composable
-private fun OrbitalDock(current: Screen, reducedMotion: Boolean, onSelect: (Screen) -> Unit) {
+private fun OrbitalDock(
+    current: Screen,
+    reducedMotion: Boolean,
+    alertCount: Int,
+    onSelect: (Screen) -> Unit,
+    onOrb: () -> Unit,
+) {
     Box(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp).navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter,
@@ -191,7 +177,7 @@ private fun OrbitalDock(current: Screen, reducedMotion: Boolean, onSelect: (Scre
             DockItem(Icons.Outlined.Home, Screen.HOME, current, onSelect)
             DockItem(Icons.Outlined.Apps, Screen.ORBIT, current, onSelect)
             Spacer(Modifier.size(76.dp))
-            DockItem(Icons.Outlined.NotificationsNone, Screen.ALERTS, current, onSelect)
+            DockItem(Icons.Outlined.NotificationsNone, Screen.ALERTS, current, onSelect, badge = alertCount)
             DockItem(Icons.Outlined.CenterFocusStrong, Screen.FOCUS, current, onSelect)
         }
         Box(
@@ -201,8 +187,8 @@ private fun OrbitalDock(current: Screen, reducedMotion: Boolean, onSelect: (Scre
                 .clip(CircleShape)
                 .background(Nx.Obsidian)
                 .border(1.dp, if (current == Screen.COMMAND) Nx.Cyan else Nx.Line, CircleShape)
-                .clickable(role = Role.Button) { onSelect(Screen.COMMAND) }
-                .semantics { contentDescription = "Open NEXUS AI Command Centre" },
+                .clickable(role = Role.Button, onClick = onOrb)
+                .semantics { contentDescription = "Talk to NEXUS" },
             contentAlignment = Alignment.Center,
         ) {
             NexusOrb(
@@ -215,7 +201,7 @@ private fun OrbitalDock(current: Screen, reducedMotion: Boolean, onSelect: (Scre
 }
 
 @Composable
-private fun DockItem(icon: ImageVector, target: Screen, current: Screen, onSelect: (Screen) -> Unit) {
+private fun DockItem(icon: ImageVector, target: Screen, current: Screen, onSelect: (Screen) -> Unit, badge: Int = 0) {
     val active = current == target
     Column(
         Modifier
@@ -226,11 +212,74 @@ private fun DockItem(icon: ImageVector, target: Screen, current: Screen, onSelec
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, contentDescription = target.label, tint = if (active) Nx.Cyan else Nx.Muted, modifier = Modifier.size(24.dp))
+        Box {
+            Icon(
+                icon,
+                contentDescription = if (badge > 0) "${target.label}, $badge need you" else target.label,
+                tint = if (active) Nx.Cyan else Nx.Muted,
+                modifier = Modifier.size(24.dp),
+            )
+            if (badge > 0) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 8.dp, y = (-6).dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(Nx.Amber),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (badge > 9) "9+" else "$badge", color = Nx.Obsidian, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         Spacer(Modifier.height(3.dp))
         Text(
             target.label.uppercase(), fontFamily = Hud, fontSize = 9.sp, letterSpacing = 1.sp,
             fontWeight = FontWeight.Medium, color = if (active) Nx.Cyan else Nx.Muted,
         )
+    }
+}
+
+/** The 3-second window before NEXUS places a call or sends a text. Visible on every screen. */
+@Composable
+private fun CountdownBanner(c: Countdown, session: CommandSession) {
+    var remaining by remember(c) { mutableStateOf(c.seconds) }
+    LaunchedEffect(c) {
+        while (true) {
+            remaining = (((c.endsAt - System.currentTimeMillis()) + 999) / 1000).toInt().coerceAtLeast(0)
+            if (remaining == 0) break
+            delay(100)
+        }
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Nx.SurfaceHi)
+            .border(1.dp, Nx.Cyan.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
+            .padding(start = 18.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("$remaining", fontFamily = Hud, fontSize = 28.sp, color = Nx.Cyan, fontWeight = FontWeight.Light)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text("${c.verb} ${c.who}", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Nx.Text, maxLines = 1)
+            Text(c.detail, fontSize = 13.sp, color = Nx.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        TextButton(onClick = { session.runNow() }) { Text("Now", color = Nx.Cyan) }
+        Box(
+            Modifier
+                .height(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Nx.Amber)
+                .clickable(role = Role.Button) { session.cancelCountdown() }
+                .padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Cancel", color = Nx.Obsidian, fontWeight = FontWeight.SemiBold)
+        }
     }
 }

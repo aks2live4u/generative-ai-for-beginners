@@ -169,6 +169,10 @@ fun SettingsScreen(graph: NexusGraph, settings: NexusSettings, onDone: () -> Uni
                 runCatching { context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
+            Pill("Usage access (rank your most-used apps)", onClick = {
+                com.nexus.launcher.data.UsageAccess.openSettings(context)
+            }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
             Pill("Notification access", onClick = {
                 runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }, modifier = Modifier.fillMaxWidth())

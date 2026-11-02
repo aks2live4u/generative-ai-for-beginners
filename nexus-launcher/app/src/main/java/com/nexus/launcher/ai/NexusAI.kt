@@ -13,7 +13,17 @@ sealed interface NexusAction {
     data class Navigate(val screen: String) : NexusAction
     data class SetAlarm(val hour: Int, val minute: Int, val label: String) : NexusAction
     data class SetTimer(val seconds: Int, val label: String) : NexusAction
-    data class Dial(val number: String) : NexusAction
+    data class Call(val who: String) : NexusAction
+    data class Text(val who: String, val message: String) : NexusAction
+    data class WhatsApp(val who: String, val message: String) : NexusAction
+    data class Email(val to: String, val subject: String, val body: String) : NexusAction
+    data class Directions(val place: String) : NexusAction
+    data class Play(val query: String) : NexusAction
+    data class Camera(val video: Boolean) : NexusAction
+    data class Event(val title: String, val start: String, val minutes: Int) : NexusAction
+    data class Torch(val on: Boolean) : NexusAction
+    data class Volume(val percent: Int) : NexusAction
+    data class Panel(val which: String) : NexusAction
     data class WebSearch(val query: String) : NexusAction
 }
 
@@ -144,17 +154,29 @@ class NexusAI(
         - No markdown, bullet points, emoji or URLs. Write numbers and times the way they're spoken.
         - Use Google Search for anything live (weather, news, scores, opening hours). Don't guess.
 
-        You can act on the phone. When the user asks for one of these, say briefly what you're doing
-        and put the tag on its own line at the end of your reply:
-        [[open:App Name]]          open an installed app (use a name from the list below)
-        [[focus:25]]               start Focus Mode for this many minutes
-        [[focus:stop]]             end Focus Mode
-        [[screen:home|apps|alerts|focus|command]]   show a NEXUS screen
-        [[alarm:07:30|Label]]      set an alarm (24-hour time)
-        [[timer:300|Label]]        start a countdown timer in seconds
-        [[dial:+15551234567]]      open the dialler with a number (it never calls on its own)
-        [[search:query]]           open a web search on the phone
-        Only use a tag when the user asked for that action. Never invent apps that aren't listed.
+        You control this phone. When the user asks you to do something, DO it: reply with one short
+        sentence saying what you're doing, then the action tag on its own line. Never say you can't
+        make calls or send messages; you can. Several tags are allowed, one per line.
+        [[call:Name or number]]            phone someone (a contact name exactly as the user said it)
+        [[text:Name or number|message]]    send an SMS
+        [[whatsapp:Name or number|message]] open WhatsApp to that person with the message typed in
+        [[email:address|subject|body]]     draft an email
+        [[open:App Name]]                  open an installed app (use a name from the list below)
+        [[navigate:place]]                 start turn-by-turn directions
+        [[play:song, artist or playlist]]  play music
+        [[camera:photo]] or [[camera:video]]
+        [[alarm:07:30|Label]]              set an alarm (24-hour time)
+        [[timer:300|Label]]                start a countdown timer in seconds
+        [[event:Title|2026-11-03T15:00|60]] add a calendar event (local time, minutes)
+        [[torch:on]] or [[torch:off]]      flashlight
+        [[volume:40]]                      media volume percent
+        [[panel:wifi|bluetooth|internet|volume|display|battery|location|hotspot|airplane]]
+        [[focus:25]] / [[focus:stop]]      Focus Mode
+        [[screen:home|apps|alerts|focus]]  show a NEXUS screen
+        [[search:query]]                   open a web search
+        Calls and texts run after a three-second countdown the user can cancel, so act without
+        asking for confirmation. Write messages exactly as the user would send them. Only open apps
+        from the list below.
 
         Each user message starts with bracketed device context (time, battery, focus, notifications).
         Use it when it's relevant; don't recite it.
@@ -187,7 +209,22 @@ class NexusAI(
                         val (sec, label) = arg.split("|", limit = 2).let { it[0] to it.getOrElse(1) { "NEXUS" } }
                         sec.trim().toIntOrNull()?.takeIf { it in 1..86_400 }?.let { NexusAction.SetTimer(it, label.trim()) }
                     }
-                    "dial" -> NexusAction.Dial(arg.filter { it.isDigit() || it == '+' })
+                    "call", "dial" -> NexusAction.Call(arg).takeIf { arg.isNotBlank() }
+                    "text", "sms" -> arg.split("|", limit = 2).takeIf { it.size == 2 && it[0].isNotBlank() }
+                        ?.let { NexusAction.Text(it[0].trim(), it[1].trim()) }
+                    "whatsapp" -> arg.split("|", limit = 2).let { NexusAction.WhatsApp(it[0].trim(), it.getOrElse(1) { "" }.trim()) }
+                    "email" -> arg.split("|", limit = 3).let {
+                        NexusAction.Email(it[0].trim(), it.getOrElse(1) { "" }.trim(), it.getOrElse(2) { "" }.trim())
+                    }
+                    "navigate", "directions" -> NexusAction.Directions(arg)
+                    "play", "music" -> NexusAction.Play(arg)
+                    "camera" -> NexusAction.Camera(video = arg.equals("video", true))
+                    "event" -> arg.split("|", limit = 3).let {
+                        NexusAction.Event(it[0].trim(), it.getOrElse(1) { "" }.trim(), it.getOrElse(2) { "60" }.trim().toIntOrNull() ?: 60)
+                    }
+                    "torch", "flashlight" -> NexusAction.Torch(on = !arg.equals("off", true))
+                    "volume" -> arg.filter(Char::isDigit).toIntOrNull()?.let { NexusAction.Volume(it.coerceIn(0, 100)) }
+                    "panel", "settings" -> NexusAction.Panel(arg)
                     "search" -> NexusAction.WebSearch(arg)
                     else -> null
                 }

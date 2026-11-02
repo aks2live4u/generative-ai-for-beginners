@@ -71,25 +71,76 @@ import com.nexus.launcher.ui.components.NexusOrb
 import com.nexus.launcher.ui.components.OrbMode
 import com.nexus.launcher.ui.components.Pill
 import com.nexus.launcher.ui.theme.Nx
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 data class Exchange(val fromUser: Boolean, val text: String, val isError: Boolean = false)
 
+/** A call or text waiting out its 3-second cancel window. [run] returns a message to log, or null. */
+class Countdown(
+    val verb: String,
+    val who: String,
+    val detail: String,
+    val seconds: Int = 3,
+    val run: () -> String?,
+) {
+    val endsAt: Long = System.currentTimeMillis() + seconds * 1_000L
+}
+
 /** Conversation state that survives switching screens. */
 class CommandSession {
     val log = mutableStateListOf<Exchange>()
     var thinking by mutableStateOf(false)
     var pendingPrompt: String? by mutableStateOf(null)
+
+    /** Set by the dock's centre orb: open the Command Centre already listening. */
+    var listenRequested by mutableStateOf(false)
+
+    var countdown: Countdown? by mutableStateOf(null)
+        private set
+    private var countdownJob: Job? = null
+
+    fun startCountdown(scope: CoroutineScope, c: Countdown) {
+        countdownJob?.cancel()
+        countdown = c
+        countdownJob = scope.launch {
+            delay((c.endsAt - System.currentTimeMillis()).coerceAtLeast(0))
+            fire(c)
+        }
+    }
+
+    fun runNow() {
+        val c = countdown ?: return
+        countdownJob?.cancel()
+        fire(c)
+    }
+
+    fun cancelCountdown() {
+        val c = countdown ?: return
+        countdownJob?.cancel()
+        countdown = null
+        log += Exchange(false, "Cancelled. I won't ${if (c.verb == "Calling") "call" else "text"} ${c.who}.")
+    }
+
+    private fun fire(c: Countdown) {
+        if (countdown !== c) return
+        countdown = null
+        c.run()?.let { log += Exchange(false, it, isError = it.startsWith("Couldn") || it.contains("didn't")) }
+    }
 }
 
 private val QUICK = listOf(
-    "What's the weather?",
-    "Focus for 25 minutes",
-    "Summarise my notifications",
-    "Set a 10 minute timer",
-    "Open the camera",
+    "Call Mum",
+    "Text Raj I'm running ten minutes late",
+    "Navigate home",
+    "Torch on",
+    "Play my liked songs",
+    "Summarise my alerts",
+    "Weather today?",
 )
 
 @Composable
@@ -129,7 +180,7 @@ fun CommandCentreScreen(
         // App-wide scope so a reply still lands if you switch screens while NEXUS is thinking.
         graph.scope.launch {
             try {
-                val wantsSummary = prompt.contains("notification", true) &&
+                val wantsSummary = (prompt.contains("notification", true) || prompt.contains("alert", true)) &&
                     (prompt.contains("summar", true) || prompt.contains("brief", true))
                 if (wantsSummary && notifications.isNotEmpty()) {
                     val lines = notifications.map { "${it.appLabel}: ${it.title} — ${it.text.take(140)}" }
@@ -180,6 +231,13 @@ fun CommandCentreScreen(
         val p = session.pendingPrompt ?: return@LaunchedEffect
         session.pendingPrompt = null
         if (p.isBlank()) toggleMic() else send(p)
+    }
+    // Centre orb in the dock: start listening straight away (tap it again to stop).
+    LaunchedEffect(session.listenRequested) {
+        if (session.listenRequested) {
+            session.listenRequested = false
+            toggleMic()
+        }
     }
     LaunchedEffect(session.log.size) {
         if (session.log.isNotEmpty()) listState.animateScrollToItem(session.log.size - 1)
@@ -249,7 +307,7 @@ fun CommandCentreScreen(
             if (session.log.isEmpty()) {
                 item {
                     Text(
-                        "Ask anything, or tell me what to do: open apps, set alarms and timers, start Focus Mode, brief you on your notifications.",
+                        "Tell me what to do. I can call and text your contacts, message on WhatsApp, navigate, play music, set alarms and timers, switch the torch, change volume, add calendar events, open apps and brief you on your alerts.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Nx.Muted,
                         modifier = Modifier.padding(horizontal = 12.dp),

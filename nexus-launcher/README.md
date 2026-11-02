@@ -8,10 +8,10 @@ The design aim: it should feel like technology from 2035 without being hard to u
 
 | Screen | What it does |
 | --- | --- |
-| **Home** | A large clock and date with a greeting that changes through the day. NEXUS suggests actions that adapt to the time and to low battery. Widgets show a battery ring, today's focus minutes or the live timer, and a count of urgent notifications. A row of "Predicted for you" apps is ranked by how often you open them. Swipe up for apps, down for notifications. |
-| **AI Command Centre** | Tap the orb and speak, or type. Gemini answers, and the answer is read aloud. NEXUS can also act on the phone: open apps, start or stop Focus Mode, set alarms and timers, open the dialler, run a web search, or switch screens. It can look up live facts such as weather and news with Google Search grounding. |
-| **App Navigation** | Your 30 most-used apps sit on three counter-rotating rings. Drag to spin them, with momentum. Tap the core for every app as a grid with category filters. Search is always at the top. Long-press any app for App info. |
-| **Notifications** | Real notifications (once you grant access), split into **Priority** (people, calls, reminders, alarms, events) and a quiet **Digest**. "Brief me" gives a spoken Gemini summary of what needs you and what can wait. You can dismiss one notification or clear the whole digest. |
+| **Home** | A large clock and greeting, then **your four most-used apps**, the same apps that sit on the orbit's inner ring. Suggestions adapt to the time of day and low battery, and the battery and focus widgets sit below. Swipe up for apps, down for alerts. |
+| **AI Command Centre** | Tap the orb in the dock and NEXUS is **already listening**; tap it again to stop. It acts rather than just talks: it calls and texts your contacts (after a 3-second countdown with a Cancel button), opens WhatsApp chats with your message typed in, drafts emails, starts navigation, plays music, sets alarms, timers and calendar events, switches the torch, sets the volume, opens Wi-Fi, Bluetooth and other settings panels, opens apps and runs Focus Mode. Live facts such as weather come from Google Search grounding. |
+| **App Navigation** | Your 30 most-used apps on three rings, with the most-used closest to the core. Ranking uses Android's real screen time once you turn on **Usage access**. Drag to spin the rings; tap the core for every app as a grid. Search is always at the top, and a long-press opens App info. |
+| **Alerts** | The one place for notifications. The dock's Alerts tab shows an amber badge with the number of priority alerts. Inside, alerts are split into **Priority** (people, calls, reminders, alarms, events) and a quiet **Digest**, and "Brief me" reads you a short summary. |
 | **Focus Mode** | A 15, 25, 50 or 90-minute countdown ring. It can switch Do Not Disturb to priority-only and limit the launcher to up to four allowed apps; the rest dim. Today's minutes and sessions are tracked. |
 
 A **Settings** page (the gear icon on Home) holds your API key, the model, your name, and toggles for web answers, spoken replies, reduced motion, the classic grid and interface sounds. It also has a shortcut to set NEXUS as your default home app.
@@ -30,8 +30,10 @@ Or open the `nexus-launcher` folder in Android Studio and press Run. Then:
 
 1. Press Home and choose **NEXUS**, or go to Settings › Make NEXUS the default home app.
 2. Open Settings (gear icon), paste a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey), and tap **Test connection**.
-3. Tap **Grant notification access** on the Notifications screen.
-4. Optionally allow Do Not Disturb access from Focus Mode so sessions can silence interruptions.
+3. On the **Alerts** tab, tap **Allow notification access**.
+4. Tap the card **Rank apps by how you really use them** (or Settings › Usage access) and switch NEXUS on, so Home and the orbit show your real most-used apps.
+5. The first time you say "call …" or "text …", Android asks for Phone, SMS and Contacts permission. Allow them.
+6. Optionally allow Do Not Disturb access from Focus Mode so sessions can silence interruptions.
 
 ## How the AI works
 
@@ -40,7 +42,7 @@ NEXUS runs on **Google Gemini**. `app/src/main/java/com/nexus/launcher/ai/Gemini
 - **Key:** a free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey), pasted into Settings. Settings › **Test connection** checks the key and model end to end and reports the result.
 - **Model:** `gemini-2.5-flash` by default, with thinking switched off so spoken replies are quick. If the model you set is retired or your key can't use it, NEXUS reads your key's model list, switches to a working Flash model, and saves the choice.
 - **Live facts:** Grounding with Google Search for weather, news, scores and similar. You can turn it off in Settings. If a model rejects search, NEXUS answers without it.
-- **Phone actions:** the system prompt teaches Gemini a small tag vocabulary such as `[[open:Spotify]]`, `[[focus:25]]`, `[[alarm:07:30|Gym]]`, `[[timer:300|Tea]]`, `[[dial:+15551234567]]`, `[[search:query]]` and `[[screen:alerts]]`. The launcher strips the tags from the reply and runs them. Dialling only opens the dialler; it never places a call.
+- **Phone actions:** the system prompt teaches Gemini action tags such as `[[call:Mum]]`, `[[text:Raj|Running late]]`, `[[whatsapp:Priya|On my way]]`, `[[navigate:home]]`, `[[play:lofi]]`, `[[torch:on]]`, `[[volume:40]]`, `[[event:Dentist|2026-11-03T15:00|30]]`, `[[panel:wifi]]`, `[[alarm:07:30|Gym]]` and `[[focus:25]]`. The launcher strips the tags and runs them (`ui/ActionRunner.kt`, `system/PhoneActions.kt`). Contact names are matched on the phone; names are never sent to Gemini beyond what you say. Calls and texts wait 3 seconds with **Cancel** and **Now** buttons, shown on every screen.
 - **Errors:** a bad key, quota limits, an unknown model, a server outage or no network each get a plain spoken message.
 - **Privacy:** notification text goes to Gemini only when you ask for a briefing. Your API key is stored in the app's private storage.
 

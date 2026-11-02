@@ -61,10 +61,10 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private enum class DayPhase(val greeting: String, val prompts: List<String>) {
-    MORNING("Good morning", listOf("Brief me on today's news", "What's the weather today?", "Start a 50 minute focus session")),
-    AFTERNOON("Good afternoon", listOf("Start a 25 minute focus session", "Summarise my notifications", "What's the weather this afternoon?")),
-    EVENING("Good evening", listOf("Summarise my notifications", "Set an alarm for 7am", "Recommend a film for tonight")),
-    NIGHT("Late session", listOf("Set an alarm for 7am", "Wind down: focus for 20 minutes", "Tell me something fascinating")),
+    MORNING("Good morning", listOf("Navigate to work", "What's the weather today?", "Brief me on my alerts")),
+    AFTERNOON("Good afternoon", listOf("Focus for 25 minutes", "Call Mum", "Brief me on my alerts")),
+    EVENING("Good evening", listOf("Brief me on my alerts", "Set an alarm for 7am", "Play something relaxing")),
+    NIGHT("Late session", listOf("Set an alarm for 7am", "Torch on", "Media volume to 20 percent")),
 }
 
 private fun phaseFor(hour: Int) = when (hour) {
@@ -87,17 +87,16 @@ fun HomeScreen(
     val focus by graph.focus.state.collectAsStateWithLifecycle()
     val apps by graph.apps.apps.collectAsStateWithLifecycle()
     val usage by graph.apps.usage.collectAsStateWithLifecycle()
-    val notifications by NexusNotificationService.items.collectAsStateWithLifecycle()
     val phase = phaseFor(now.hour)
+    // Same ranking as the orbit's inner ring, so Home and Apps always agree.
     val predicted = remember(apps, usage) { graph.apps.ranked(apps, usage).take(4) }
-    val priorityCount = notifications.count { it.tier == Tier.PRIORITY }
-    val listenerOn = remember(notifications) { NexusNotificationService.isEnabled(context) }
+    val usageAccess by graph.apps.hasUsageAccess.collectAsStateWithLifecycle()
 
     // Adaptive suggestion: low battery takes the top slot.
     val lowBattery = battery.percent <= 20 && !battery.charging
     val suggestions = phase.prompts
 
-    // Swiping past the top or bottom edge jumps to Apps (up) or Signals (down).
+    // Swiping past the top or bottom edge jumps to Apps (up) or Alerts (down).
     val swipeNav = remember {
         object : NestedScrollConnection {
             var overscroll = 0f
@@ -141,6 +140,31 @@ fun HomeScreen(
             style = MaterialTheme.typography.headlineMedium,
         )
 
+        if (predicted.isNotEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            HudLabel(if (usageAccess) "Your most used" else "Most opened from NEXUS")
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                predicted.forEach { app ->
+                    Column(
+                        Modifier
+                            .width(76.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable(role = Role.Button) { graph.apps.launch(app) }
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        AppGlyph(app.icon, app.label, dimmed = !graph.focus.allows(app.packageName))
+                        Spacer(Modifier.height(6.dp))
+                        Text(app.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+        if (!usageAccess) {
+            Spacer(Modifier.height(10.dp))
+            UsageAccessNudge()
+        }
         Spacer(Modifier.height(22.dp))
         GlassCard(Modifier.fillMaxWidth(), onClick = { onAsk("") }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -192,49 +216,8 @@ fun HomeScreen(
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-        GlassCard(Modifier.fillMaxWidth(), onClick = { onNavigate(Screen.ALERTS) }, accent = if (priorityCount > 0) Nx.Amber else Nx.Cyan) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    HudLabel("Signals")
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        when {
-                            !listenerOn -> "Let NEXUS sort your notifications"
-                            priorityCount > 0 -> "$priorityCount need${if (priorityCount == 1) "s" else ""} you · ${notifications.size - priorityCount} in digest"
-                            notifications.isEmpty() -> "All clear"
-                            else -> "Nothing urgent · ${notifications.size} in digest"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                }
-                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Nx.Muted)
-            }
-        }
-
-        if (predicted.isNotEmpty()) {
-            Spacer(Modifier.height(20.dp))
-            HudLabel("Predicted for you")
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                predicted.forEach { app ->
-                    Column(
-                        Modifier
-                            .width(76.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .clickable(role = Role.Button) { graph.apps.launch(app) }
-                            .padding(vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        AppGlyph(app.icon, app.label, dimmed = !graph.focus.allows(app.packageName))
-                        Spacer(Modifier.height(6.dp))
-                        Text(app.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-        }
         Spacer(Modifier.height(16.dp))
-        HudLabel("Swipe up for apps · down for signals", Modifier.align(Alignment.CenterHorizontally))
+        HudLabel("Swipe up for apps · down for alerts", Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(12.dp))
     }
 }
