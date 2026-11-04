@@ -25,6 +25,11 @@ aimless browsing.
   your home screen" banner sits at the top of the home screen. Tapping it opens Android's
   "set default home app" dialog. If that isn't available, it opens the Home-app settings.
   Settings shows whether it's the default and lets you switch back at any time.
+- **Reasons that fit the app.** Chrome asks what you're looking up, shopping apps ask what you need
+  to buy, and chat apps ask who you're messaging. Your answer shows up in the reminder when your
+  time is up.
+- **Strict mode, daily limits and session reminders** keep the friction from being switched off in
+  a weak moment.
 - **Make it yours:**
   - Wallpaper: a photo from your gallery, a colour gradient, or your phone's own wallpaper,
     with a dim slider.
