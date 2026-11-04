@@ -77,6 +77,12 @@ class HomeLook(
     val clockWeight: FontWeight,
     val textFamily: FontFamily,
     val color: Color,
+    /** Optical size correction for the clock font. */
+    val clockSize: Float,
+    /** Text font's optical correction times the user's "App name size". */
+    val textSize: Float,
+    /** Text font's optical correction alone, for small chrome like the footer. */
+    val textFontSize: Float,
 )
 
 @Composable
@@ -87,12 +93,16 @@ fun rememberHomeLook(settings: LauncherSettings): HomeLook {
     val textFont = settings.textFont
     val version = settings.fontVersion
     val color = settings.textColor
-    return remember(clockFont, clockWeight, textFont, version, color) {
+    val scale = settings.appTextScale
+    return remember(clockFont, clockWeight, textFont, version, color, scale) {
         HomeLook(
             clockFamily = Fonts.family(context, clockFont, clockWeight, version),
             clockWeight = Fonts.weight(clockFont, clockWeight),
             textFamily = Fonts.family(context, textFont, 400, version),
             color = Color(color),
+            clockSize = clockFont.size,
+            textSize = textFont.size * scale,
+            textFontSize = textFont.size,
         )
     }
 }
@@ -180,7 +190,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
             color = look.color.copy(alpha = 0.82f),
             fontFamily = look.textFamily,
-            fontSize = 17.sp,
+            fontSize = (18 * look.textSize).sp,
             letterSpacing = 0.2.sp,
             modifier = Modifier.padding(top = 10.dp),
         )
@@ -190,8 +200,8 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             settings.homeNote,
             color = look.color,
             fontFamily = look.textFamily,
-            fontSize = 16.sp,
-            lineHeight = 23.sp,
+            fontSize = (21 * look.textSize).sp,
+            lineHeight = (28 * look.textSize).sp,
             modifier = Modifier.padding(top = 18.dp),
         )
     }
@@ -205,7 +215,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             stats.joinToString("   ·   "),
             color = look.color.copy(alpha = 0.72f),
             fontFamily = look.textFamily,
-            fontSize = 14.sp,
+            fontSize = (15 * look.textSize.coerceAtMost(1.3f)).sp,
             letterSpacing = 0.3.sp,
             modifier = Modifier.padding(top = 12.dp),
         )
@@ -221,12 +231,13 @@ private fun EssentialsList(
 ) {
     val columns = settings.homeColumns.coerceIn(1, 2)
     val baseSize = when {
-        columns == 2 -> 19f
-        essentials.size <= 7 -> 27f
-        essentials.size <= 12 -> 23f
-        else -> 20f
+        columns == 2 -> 22f
+        essentials.size <= 7 -> 28f
+        essentials.size <= 12 -> 25f
+        else -> 22f
     }
-    val size = (baseSize * settings.appTextScale).sp
+    // Includes the font's optical correction, so Caveat at 100% looks as big as a sans at 100%.
+    val size = (baseSize * look.textSize).sp
     Column(
         Modifier
             .fillMaxWidth()
@@ -298,7 +309,7 @@ private fun HomeFooter(look: HomeLook, onOpenWall: () -> Unit, onOpenSettings: (
         ) {
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null, tint = tone, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Everything else", color = tone, fontFamily = look.textFamily, fontSize = 14.sp, letterSpacing = 0.3.sp)
+            Text("Everything else", color = tone, fontFamily = look.textFamily, fontSize = (15 * look.textFontSize).sp, letterSpacing = 0.3.sp)
         }
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onOpenSettings) {
@@ -375,7 +386,9 @@ fun rememberNow(minuteOnly: Boolean = false): LocalDateTime {
 }
 
 @Composable
-fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, scale: Float) {
+fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, userScale: Float) {
+    // Digits are corrected per font; the analog face has no type, so it keeps the user's size.
+    val scale = if (style == ClockStyle.ANALOG) userScale else userScale * look.clockSize
     val now = rememberNow(minuteOnly = style != ClockStyle.ANALOG)
     val hour12 = (now.hour % 12).let { if (it == 0) 12 else it }
     val hh = if (use24h) "%02d".format(now.hour) else hour12.toString()
@@ -389,6 +402,8 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, scale: Float) 
         ClockStyle.DIGITAL -> Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 "$hh:$mm",
+                maxLines = 1,
+                softWrap = false,
                 color = color,
                 fontFamily = family,
                 fontWeight = weight,

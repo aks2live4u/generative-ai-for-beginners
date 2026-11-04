@@ -17,12 +17,14 @@ object SessionReminder {
     private const val CHANNEL = "session_reminders"
     private const val EXTRA_LABEL = "label"
     private const val EXTRA_MINUTES = "minutes"
+    private const val EXTRA_INTENTION = "intention"
 
-    fun schedule(context: Context, app: AppEntry, minutes: Int) {
+    fun schedule(context: Context, app: AppEntry, minutes: Int, intention: String? = null) {
         if (minutes <= 0) return
         val intent = Intent(context, SessionReminderReceiver::class.java)
             .putExtra(EXTRA_LABEL, app.label)
             .putExtra(EXTRA_MINUTES, minutes)
+            .putExtra(EXTRA_INTENTION, intention)
         val pending = PendingIntent.getBroadcast(
             context, app.key.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -43,6 +45,7 @@ object SessionReminder {
 
         val label = intent.getStringExtra(EXTRA_LABEL) ?: return
         val minutes = intent.getIntExtra(EXTRA_MINUTES, 0)
+        val intention = intent.getStringExtra(EXTRA_INTENTION)
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL, "Session reminders", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -57,7 +60,10 @@ object SessionReminder {
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_focus)
             .setContentTitle("$minutes minutes on $label")
-            .setContentText("That was the plan. Tap to go home.")
+            .setContentText(
+                if (intention != null) "You came for: $intention. Got it? Tap to go home."
+                else "That was the plan. Tap to go home."
+            )
             .setCategory(Notification.CATEGORY_REMINDER)
             .setContentIntent(home)
             .setAutoCancel(true)

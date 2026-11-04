@@ -25,10 +25,26 @@ class LogicTest {
     @Test fun legacyFontNamesMigrate() {
         assertEquals(FontChoice.OUTFIT, FontChoice.parse("LIGHT", FontChoice.MANROPE))
         assertEquals(FontChoice.JETBRAINS_MONO, FontChoice.parse("MONO", FontChoice.MANROPE))
-        assertEquals(FontChoice.CAVEAT, FontChoice.parse("CURSIVE", FontChoice.MANROPE))
+        assertEquals(FontChoice.CURSIVE, FontChoice.parse("CURSIVE", FontChoice.MANROPE))
+        assertEquals(FontChoice.CASUAL, FontChoice.parse("CASUAL", FontChoice.MANROPE))
+        assertEquals(FontChoice.OUTFIT, FontChoice.parse("SORA", FontChoice.MANROPE))
+        assertEquals(FontChoice.MAJOR_MONO, FontChoice.parse("JETBRAINS_MONO", FontChoice.MANROPE))
         assertEquals(FontChoice.FRAUNCES, FontChoice.parse("FRAUNCES", FontChoice.MANROPE))
         assertEquals(FontChoice.MANROPE, FontChoice.parse("nonsense", FontChoice.MANROPE))
-        assertEquals(300, FontChoice.SPACE_GROTESK.clamp(100))
+        assertEquals(300, FontChoice.COMFORTAA.clamp(100))
+    }
+
+    @Test fun reasonsFitTheApp() {
+        val browser = reasonsFor(AppKind.BROWSER).map { it.label }
+        assertFalse(browser.any { "Reply" in it })
+        assertTrue(reasonsFor(AppKind.MESSAGING).any { it.label == "Reply to someone" })
+        assertTrue(reasonsFor(AppKind.SHOPPING).first().ask != null)
+        AppKind.entries.forEach { kind ->
+            val r = reasonsFor(kind)
+            assertTrue("$kind needs an honest option", r.any { it.idle })
+            assertTrue("$kind needs a purposeful option", r.any { !it.idle })
+        }
+        assertFalse(AppKind.MESSAGING.isDistracting)
     }
 
     @Test fun movingEssentialsByKey() {

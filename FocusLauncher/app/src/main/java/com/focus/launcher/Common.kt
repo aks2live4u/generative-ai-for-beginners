@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Shapes
@@ -38,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -140,8 +142,11 @@ fun FocusTheme(content: @Composable () -> Unit) {
             large = RoundedCornerShape(24.dp),
             extraLarge = RoundedCornerShape(32.dp),
         ),
-        content = content,
-    )
+    ) {
+        // Screens draw their own backgrounds instead of using Surface, so set the default
+        // content colour here; without it, icons without an explicit tint render black.
+        CompositionLocalProvider(LocalContentColor provides Cream, content = content)
+    }
 }
 
 /** True when [color] needs dark system-bar icons / dark text on top of it. */
@@ -363,8 +368,8 @@ fun FontTile(
             sample,
             fontFamily = family,
             fontWeight = Fonts.weight(choice, weight),
-            fontSize = 30.sp,
-            lineHeight = 36.sp,
+            fontSize = (30 * choice.size.coerceAtMost(1.25f)).sp,
+            lineHeight = 40.sp,
             color = Cream,
             maxLines = 1,
             overflow = TextOverflow.Clip,

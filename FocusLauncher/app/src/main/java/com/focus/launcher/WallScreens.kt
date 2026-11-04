@@ -333,8 +333,6 @@ fun WallScreen(
 
 // ---------------------------------------------------------------- pause
 
-private val reasons = listOf("Something specific", "Replying to someone", "Bored", "Habit")
-private val idleReasons = setOf("Bored", "Habit")
 private val sessionChoices = listOf(5, 10, 20, 0)
 
 /** The mindful pause in front of shopping, social, video and browser apps. */
@@ -343,12 +341,14 @@ private val sessionChoices = listOf(5, 10, 20, 0)
 fun PauseScreen(
     app: AppEntry,
     settings: LauncherSettings,
-    onProceed: (sessionMinutes: Int) -> Unit,
+    onProceed: (sessionMinutes: Int, intention: String?) -> Unit,
     onCancel: () -> Unit,
 ) {
     val context = LocalContext.current
     val countdown = rememberCountdown(settings.pauseSeconds)
-    var reason by remember { mutableStateOf<String?>(null) }
+    val reasons = remember(app.kind) { reasonsFor(app.kind) }
+    var reason by remember { mutableStateOf<Reason?>(null) }
+    var intention by remember { mutableStateOf("") }
     var extended by remember { mutableStateOf(false) }
     var session by remember { mutableIntStateOf(settings.lastSessionMinutes.takeIf { it in sessionChoices } ?: 10) }
     var usedMs by remember { mutableStateOf<Long?>(null) }
@@ -357,14 +357,15 @@ fun PauseScreen(
             if (Usage.hasAccess(context)) Usage.todayByPackage(context)[app.pkg] ?: 0L else null
         }
     }
+    val named = intention.trim().takeIf { reason?.ask != null && it.isNotEmpty() }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        onProceed(session)
+        onProceed(session, named)
     }
     fun proceed() {
         settings.lastSessionMinutes = session
         val needsPermission = session > 0 && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        if (needsPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else onProceed(session)
+        if (needsPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else onProceed(session, named)
     }
 
     val opens = settings.opensToday(app.pkg)
@@ -402,13 +403,16 @@ fun PauseScreen(
         return
     }
 
-    val ready = countdown.done && reason != null
+    // A purposeful answer that asks "what exactly?" needs a real answer (3+ letters) to unlock.
+    val intentionMissing = reason?.ask != null && intention.trim().length < 3
+    val ready = countdown.done && reason != null && !intentionMissing
     FocusScaffold(
         primary = "Not now, take me home",
         onPrimary = onCancel,
         secondary = when {
             !countdown.done -> "Wait ${countdown.remaining}s"
             reason == null -> "Choose a reason to continue"
+            intentionMissing -> "Name it to continue"
             session > 0 -> "Open ${app.label} for $session min"
             else -> "Open ${app.label}"
         },
@@ -421,7 +425,7 @@ fun PauseScreen(
         BreathingCircle(countdown.remaining)
 
         Text(
-            "Why are you opening it?",
+            "Why are you opening ${app.label}?",
             style = MaterialTheme.typography.titleMedium,
             color = Cream,
             modifier = Modifier.padding(top = 32.dp, bottom = 10.dp),
@@ -435,20 +439,37 @@ fun PauseScreen(
                     selected = reason == r,
                     onClick = {
                         reason = r
-                        // An honest "bored" or "habit" earns ten more seconds to change your mind.
-                        if (r in idleReasons && !extended) {
+                        // An honest "bored" or "just browsing" earns ten more seconds to change your mind.
+                        if (r.idle && !extended) {
                             extended = true
                             countdown.add(10)
                         }
                     },
-                    label = { Text(r) },
+                    label = { Text(r.label) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SageDeep, selectedLabelColor = Sage),
                 )
             }
         }
-        if (reason in idleReasons) {
+        reason?.ask?.let { question ->
+            OutlinedTextField(
+                value = intention,
+                onValueChange = { intention = it.take(60) },
+                label = { Text(question) },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Hairline, focusedBorderColor = Sage),
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            )
             Text(
-                "Totally human. Ten more seconds to see if you still want it.",
+                "Your reminder will tell you what you came for.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Muted,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            )
+        }
+        if (reason?.idle == true) {
+            Text(
+                idleNudge(app.kind),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Sage,
                 textAlign = TextAlign.Center,

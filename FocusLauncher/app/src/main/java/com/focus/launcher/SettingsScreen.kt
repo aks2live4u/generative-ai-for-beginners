@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -107,6 +111,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var pickEssentials by remember { mutableStateOf(false) }
     var pickDistracting by remember { mutableStateOf(false) }
+    var arrange by remember { mutableStateOf(false) }
 
     // Strict mode: friction can only be loosened after waiting a minute, once per visit.
     var unlockedThisVisit by remember { mutableStateOf(!settings.strictMode) }
@@ -183,36 +188,30 @@ fun SettingsScreen(
             // ------------------------------------------------ home screen
             SectionTitle("Home screen", "Only these apps sit on your home screen.")
             val essentialApps = settings.essentials.mapNotNull { key -> apps.firstOrNull { it.key == key } }
-            essentialApps.forEachIndexed { index, app ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text(
-                        app.label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Cream,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { settings.essentials = settings.essentials.moved(app.key, -1) }, enabled = index > 0) {
-                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move ${app.label} up")
-                    }
-                    IconButton(onClick = { settings.essentials = settings.essentials.moved(app.key, 1) }, enabled = index < essentialApps.size - 1) {
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move ${app.label} down")
-                    }
-                    IconButton(onClick = { settings.essentials = settings.essentials - app.key }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Remove ${app.label}")
-                    }
+            Text(
+                when (essentialApps.size) {
+                    0 -> "No apps yet"
+                    1 -> "1 app: ${essentialApps.first().label}"
+                    else -> "${essentialApps.size} apps: " + essentialApps.take(4).joinToString(", ") { it.label } +
+                        if (essentialApps.size > 4) " and ${essentialApps.size - 4} more" else ""
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = Muted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
+                FilledTonalButton(onClick = { pickEssentials = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(if (essentialApps.isEmpty()) "Choose apps" else "Add or remove")
                 }
-            }
-            FilledTonalButton(onClick = { pickEssentials = true }, modifier = Modifier.padding(top = 8.dp)) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text(if (essentialApps.isEmpty()) "Choose apps" else "Add or remove apps")
+                if (essentialApps.size > 1) {
+                    OutlinedButton(onClick = { arrange = true }) { Text("Change order") }
+                }
             }
 
             Label("Layout")
             Segmented(listOf(1, 2), settings.homeColumns, { if (it == 1) "One column" else "Two columns" }) { settings.homeColumns = it }
-            LabeledSlider("App name size", "${(settings.appTextScale * 100).toInt()}%", settings.appTextScale, 0.7f..1.4f) {
+            LabeledSlider("Text size", "${(settings.appTextScale * 100).toInt()}%", settings.appTextScale, 0.7f..1.8f) {
                 settings.appTextScale = it
             }
             Label("Note under the clock")
@@ -392,8 +391,8 @@ fun SettingsScreen(
             Spacer(Modifier.height(32.dp))
             Text(
                 "Swipe up on the home screen for everything else. Long-press it for these settings.\n" +
-                    "Fonts: Outfit, Manrope, Sora, Space Grotesk, Syne, Bebas Neue, Instrument Serif, DM Serif, " +
-                    "Playfair, Fraunces, JetBrains Mono, Major Mono and Caveat, under the SIL Open Font License 1.1.",
+                    "Bundled fonts are free to share under the SIL Open Font License 1.1 or Apache 2.0. " +
+                    "Cursive and Casual are your phone's own fonts.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted,
             )
@@ -413,6 +412,15 @@ fun SettingsScreen(
                 settings.essentials = settings.essentials.filter { it in chosen } + chosen.filter { it !in settings.essentials }
                 pickEssentials = false
             },
+        )
+    }
+    if (arrange) {
+        ArrangeDialog(
+            labels = settings.essentials.mapNotNull { key -> apps.firstOrNull { it.key == key }?.let { key to it.label } },
+            onMove = { key, delta -> settings.essentials = settings.essentials.moved(key, delta) },
+            onTop = { key -> settings.essentials = listOf(key) + (settings.essentials - key) },
+            onRemove = { key -> settings.essentials = settings.essentials - key },
+            onDismiss = { arrange = false },
         )
     }
     if (pickDistracting) {
@@ -474,7 +482,7 @@ fun List<String>.moved(key: String, delta: Int): List<String> {
 
 @Composable
 private fun SectionTitle(title: String, subtitle: String? = null) {
-    Spacer(Modifier.height(40.dp))
+    Spacer(Modifier.height(32.dp))
     Text(title, style = MaterialTheme.typography.headlineSmall, color = Cream)
     if (subtitle != null) {
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.padding(top = 4.dp))
@@ -488,7 +496,7 @@ private fun Label(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = Cream,
-        modifier = Modifier.padding(top = 22.dp, bottom = 8.dp),
+        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
     )
 }
 
@@ -592,4 +600,53 @@ private fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, o
             ) { Text(label(option), maxLines = 1) }
         }
     }
+}
+
+/** Compact reordering: the list scrolls inside the dialog, not the whole settings page. */
+@Composable
+private fun ArrangeDialog(
+    labels: List<Pair<String, String>>,
+    onMove: (String, Int) -> Unit,
+    onTop: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Order on home screen") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                itemsIndexed(labels, key = { _, item -> item.first }) { index, (key, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "${index + 1}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Muted,
+                            modifier = Modifier.width(24.dp),
+                        )
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(enabled = index > 0, onClickLabel = "Move $label to the top") { onTop(key) }
+                                .padding(vertical = 12.dp),
+                        )
+                        IconButton(onClick = { onMove(key, -1) }, enabled = index > 0) {
+                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move $label up")
+                        }
+                        IconButton(onClick = { onMove(key, 1) }, enabled = index < labels.size - 1) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move $label down")
+                        }
+                        IconButton(onClick = { onRemove(key) }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Remove $label", tint = Muted)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
 }

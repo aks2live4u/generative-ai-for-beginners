@@ -113,10 +113,10 @@ fun LauncherRoot(
 ) {
     val context = LocalContext.current
 
-    fun launchNow(app: AppEntry, sessionMinutes: Int = 0) {
+    fun launchNow(app: AppEntry, sessionMinutes: Int = 0, intention: String? = null) {
         if (AppRepository.launch(context, app)) {
             settings.recordOpen(app.pkg)
-            if (app.pkg in settings.distracting) SessionReminder.schedule(context, app, sessionMinutes)
+            if (app.pkg in settings.distracting) SessionReminder.schedule(context, app, sessionMinutes, intention)
         } else {
             Toast.makeText(context, "${app.label} couldn't be opened. It may have been removed.", Toast.LENGTH_SHORT).show()
         }
@@ -193,7 +193,7 @@ fun LauncherRoot(
         is Screen.Pause -> PauseScreen(
             app = screen.app,
             settings = settings,
-            onProceed = { minutes -> launchNow(screen.app, minutes) },
+            onProceed = { minutes, intention -> launchNow(screen.app, minutes, intention) },
             onCancel = ::skip,
         )
         Screen.Settings -> SettingsScreen(

@@ -16,9 +16,10 @@ import android.provider.Telephony
 
 enum class AppKind(val tag: String) {
     SHOPPING("shopping"), SOCIAL("social"), VIDEO("video"), BROWSER("browser"),
-    GAME("game"), NEWS("news"), OTHER("");
+    GAME("game"), NEWS("news"), MESSAGING("messaging"), OTHER("");
 
-    val isDistracting: Boolean get() = this != OTHER
+    /** Auto-detected as distracting. Messaging is real communication, so it's left to the user. */
+    val isDistracting: Boolean get() = this != OTHER && this != MESSAGING
 }
 
 data class AppEntry(
@@ -41,6 +42,19 @@ object AppRepository {
         "club.shopsy", "com.tatadigital", "com.ebay", "com.alibaba.aliexpress", "com.einnovation.temu",
         "com.zzkko", "com.etsy", "com.walmart", "com.target", "com.contextlogic", "com.shopify.arrive",
         "com.bestbuy", "com.lenskart", "com.firstcry", "com.purplle", "com.nykaa", "com.shein",
+    )
+
+    // Chat apps: they get messaging-specific reasons if you choose to pause them.
+    private val messagingPrefixes = listOf(
+        "com.whatsapp", "org.telegram", "org.thoughtcrime.securesms", "com.facebook.orca",
+        "com.google.android.apps.messaging", "com.discord", "com.Slack", "com.microsoft.teams",
+        "jp.naver.line", "com.viber",
+    )
+
+    // Video apps: built to keep you watching.
+    private val videoPrefixes = listOf(
+        "com.google.android.youtube", "com.netflix", "in.startv.hotstar", "com.amazon.avod",
+        "com.jio.media", "com.graymatrix.did", "com.sonyliv", "tv.twitch",
     )
 
     // Feeds that are built to keep you scrolling.
@@ -96,6 +110,8 @@ object AppRepository {
 
     private fun classify(pkg: String, ai: ApplicationInfo, browsers: Set<String>): AppKind = when {
         shoppingPrefixes.any { pkg.startsWith(it) } -> AppKind.SHOPPING
+        messagingPrefixes.any { pkg.startsWith(it) } -> AppKind.MESSAGING
+        videoPrefixes.any { pkg.startsWith(it) } -> AppKind.VIDEO
         socialPrefixes.any { pkg.startsWith(it) } -> AppKind.SOCIAL
         pkg in browsers -> AppKind.BROWSER
         ai.category == ApplicationInfo.CATEGORY_SOCIAL -> AppKind.SOCIAL

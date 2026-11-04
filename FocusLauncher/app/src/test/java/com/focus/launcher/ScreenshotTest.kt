@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.graphics.Color
@@ -123,7 +124,7 @@ class ScreenshotTest {
 
     @Test fun home_stacked_two_columns() {
         val s = settings {
-            clockStyle = ClockStyle.STACKED; clockFont = FontChoice.BEBAS_NEUE; homeColumns = 2
+            clockStyle = ClockStyle.STACKED; clockFont = FontChoice.BEBAS_NEUE; homeColumns = 2; appTextScale = 1.2f
             essentials = apps.filter { !it.kind.isDistracting }.map { it.key }
             wallpaperColor = 0xFF1E1529.toInt(); wallpaperColor2 = 0xFF5E4570.toInt()
         }
@@ -131,7 +132,7 @@ class ScreenshotTest {
     }
 
     @Test fun home_first_run_not_default() {
-        val s = settings { onboardingSeen = false; clockFont = FontChoice.SORA; clockWeight = 300 }
+        val s = settings { onboardingSeen = false; clockFont = FontChoice.CAVEAT; textFont = FontChoice.CAVEAT; homeNote = "Trust the process" }
         shot("05_home_not_default") { HomeScreenHost(s, false) }
     }
 
@@ -165,7 +166,7 @@ class ScreenshotTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             CompositionLocalProvider(LocalFixedNow provides now) {
-                FocusTheme { PauseScreen(app, s, onProceed = {}, onCancel = {}) }
+                FocusTheme { PauseScreen(app, s, onProceed = { _, _ -> }, onCancel = {}) }
             }
         }
         compose.onNodeWithText("Bored").performScrollTo()
@@ -174,11 +175,26 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage("build/screens/09_pause.png")
     }
 
+    @Test fun pause_browser_intention() {
+        val s = settings { pauseSeconds = 5 }
+        val app = apps.first { it.label == "Chrome" }
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(LocalFixedNow provides now) {
+                FocusTheme { PauseScreen(app, s, onProceed = { _, _ -> }, onCancel = {}) }
+            }
+        }
+        compose.onNodeWithText("Look something up").performScrollTo().performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("train times to Pune")
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.onRoot().captureRoboImage("build/screens/09b_pause_browser.png")
+    }
+
     @Test fun pause_limit_reached() {
         val s = settings { dailyOpenLimit = 3 }
         repeat(3) { s.recordOpen("in.amazon.mShop.android.shopping") }
         val app = apps.first { it.label == "Amazon Shopping" }
-        shot("10_pause_limit") { PauseScreen(app, s, onProceed = {}, onCancel = {}) }
+        shot("10_pause_limit") { PauseScreen(app, s, onProceed = { _, _ -> }, onCancel = {}) }
     }
 
     @Test fun settings_top() {
