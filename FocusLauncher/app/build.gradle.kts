@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -38,7 +40,7 @@ android {
                 // Screenshot tests write PNGs instead of comparing against goldens.
                 it.systemProperty("roborazzi.test.record", "true")
                 it.maxHeapSize = "2g"
-                it.timeout.set(java.time.Duration.ofMinutes(15))
+                it.timeout.set(Duration.ofMinutes(15))
                 it.testLogging {
                     events("started", "passed", "failed", "skipped")
                     showStandardStreams = false
