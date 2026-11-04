@@ -30,6 +30,20 @@ jobs:
           name: focus-launcher-apk
           path: FocusLauncher/app/build/outputs/apk/debug/*.apk
 
+      # Only commits whose message contains [release] update the public download link.
+      - name: Name the APK
+        if: contains(github.event.head_commit.message, '[release]')
+        run: cp app/build/outputs/apk/debug/app-debug.apk FocusLauncher.apk
+      - uses: softprops/action-gh-release@v2
+        if: contains(github.event.head_commit.message, '[release]')
+        with:
+          tag_name: focus-launcher-latest
+          name: Focus Launcher (latest)
+          target_commitish: ${{ github.sha }}
+          body: "Download **FocusLauncher.apk** below and open it on your Android phone."
+          files: FocusLauncher/FocusLauncher.apk
+          make_latest: true
+
       # Logic tests + screenshots of every screen (Robolectric, no emulator needed).
       - name: Tests and screenshots
         id: tests
@@ -51,16 +65,3 @@ jobs:
         if: steps.tests.outcome == 'failure'
         run: exit 1
 
-      # Only commits whose message contains [release] update the public download link.
-      - name: Name the APK
-        if: contains(github.event.head_commit.message, '[release]')
-        run: cp app/build/outputs/apk/debug/app-debug.apk FocusLauncher.apk
-      - uses: softprops/action-gh-release@v2
-        if: contains(github.event.head_commit.message, '[release]')
-        with:
-          tag_name: focus-launcher-latest
-          name: Focus Launcher (latest)
-          target_commitish: ${{ github.sha }}
-          body: "Download **FocusLauncher.apk** below and open it on your Android phone."
-          files: FocusLauncher/FocusLauncher.apk
-          make_latest: true

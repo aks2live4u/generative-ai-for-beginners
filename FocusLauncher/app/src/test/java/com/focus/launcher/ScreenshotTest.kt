@@ -183,45 +183,37 @@ class ScreenshotTest {
 
     @Test fun settings_top() {
         val s = settings()
-        shot("11_settings_top") { SettingsScreen(s, apps, isDefault = false, onMakeDefault = {}, onBack = {}) }
+        compose.setContent {
+            CompositionLocalProvider(LocalFixedNow provides now) {
+                FocusTheme { SettingsScreen(s, apps, isDefault = false, onMakeDefault = {}, onBack = {}) }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screens/11_settings_top.png")
     }
 
-    @Test fun settings_look() {
+    // Settings has no infinite animations: render it on a very tall screen instead of scrolling.
+    @Config(qualifiers = "w411dp-h3000dp-xxhdpi")
+    @Test fun settings_full() {
         val s = settings { clockFont = FontChoice.FRAUNCES; clockWeight = 300 }
-        compose.mainClock.autoAdvance = false
         compose.setContent {
             CompositionLocalProvider(LocalFixedNow provides now) {
                 FocusTheme { SettingsScreen(s, apps, isDefault = true, onMakeDefault = {}, onBack = {}) }
             }
         }
-        compose.onNodeWithText("Clock style").performScrollTo()
-        compose.mainClock.advanceTimeBy(1_200)
-        compose.onRoot().captureRoboImage("build/screens/12_settings_look.png")
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screens/12_settings_full.png")
     }
 
-    @Test fun settings_fonts() {
-        val s = settings { clockFont = FontChoice.FRAUNCES; clockWeight = 300 }
-        compose.mainClock.autoAdvance = false
-        compose.setContent {
-            CompositionLocalProvider(LocalFixedNow provides now) {
-                FocusTheme { SettingsScreen(s, apps, isDefault = true, onMakeDefault = {}, onBack = {}) }
-            }
-        }
-        compose.onNodeWithText("Text colour").performScrollTo()
-        compose.mainClock.advanceTimeBy(1_200)
-        compose.onRoot().captureRoboImage("build/screens/13_settings_fonts.png")
-    }
-
+    @Config(qualifiers = "w411dp-h3000dp-xxhdpi")
     @Test fun settings_strict_locked() {
         val s = settings { strictMode = true; dailyOpenLimit = 5 }
-        compose.mainClock.autoAdvance = false
         compose.setContent {
             CompositionLocalProvider(LocalFixedNow provides now) {
                 FocusTheme { SettingsScreen(s, apps, isDefault = true, onMakeDefault = {}, onBack = {}) }
             }
         }
-        compose.onNodeWithText("Locked by strict mode").performScrollTo()
-        compose.mainClock.advanceTimeBy(1_200)
-        compose.onRoot().captureRoboImage("build/screens/14_settings_strict.png")
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/screens/13_settings_strict.png")
     }
 }
