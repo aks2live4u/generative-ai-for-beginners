@@ -49,7 +49,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -403,8 +405,13 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, scale: Float) 
             }
         }
         ClockStyle.STACKED -> Column {
-            Text(hh.padStart(2, '0'), color = color, fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, lineHeight = (108 * scale).sp, letterSpacing = (-3 * scale).sp)
-            Text(mm, color = color.copy(alpha = 0.5f), fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, lineHeight = (108 * scale).sp, letterSpacing = (-3 * scale).sp)
+            // Trim the font's built-in line padding so the two numbers sit tightly together.
+            val tight = TextStyle(
+                lineHeight = (104 * scale).sp,
+                lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+            )
+            Text(hh.padStart(2, '0'), color = color, fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, letterSpacing = (-3 * scale).sp, style = tight)
+            Text(mm, color = color.copy(alpha = 0.5f), fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, letterSpacing = (-3 * scale).sp, style = tight)
         }
         ClockStyle.WORDS -> Text(
             "it's " + timeInWords(now.hour, now.minute),
