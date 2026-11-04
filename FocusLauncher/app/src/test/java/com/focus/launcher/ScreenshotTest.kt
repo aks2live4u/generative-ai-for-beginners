@@ -169,8 +169,7 @@ class ScreenshotTest {
                 FocusTheme { PauseScreen(app, s, onProceed = { _, _ -> }, onCancel = {}) }
             }
         }
-        compose.onNodeWithText("Bored").performScrollTo()
-        compose.onNodeWithText("Something specific").also { it.performScrollTo() }
+        compose.onNodeWithText("Reply to someone").performScrollTo()
         compose.mainClock.advanceTimeBy(1_200)
         compose.onRoot().captureRoboImage("build/screens/09_pause.png")
     }
@@ -185,7 +184,8 @@ class ScreenshotTest {
             }
         }
         compose.onNodeWithText("Look something up").performScrollTo().performClick()
-        compose.onNode(hasSetTextAction()).performTextInput("train times to Pune")
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNode(hasSetTextAction()).performScrollTo().performTextInput("train times to Pune")
         compose.mainClock.advanceTimeBy(6_000)
         compose.onRoot().captureRoboImage("build/screens/09b_pause_browser.png")
     }
