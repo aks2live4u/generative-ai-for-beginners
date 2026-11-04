@@ -34,6 +34,7 @@ jobs:
       - name: Tests and screenshots
         id: tests
         continue-on-error: true
+        timeout-minutes: 20
         run: ./gradlew testDebugUnitTest --stacktrace
       - name: Commit screenshots for review
         if: always() && github.event_name == 'push'

@@ -2,6 +2,7 @@ package com.focus.launcher
 
 import android.provider.Settings
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -170,10 +171,11 @@ class Countdown(initial: Int) {
 @Composable
 fun rememberCountdown(seconds: Int): Countdown {
     val countdown = remember { Countdown(seconds) }
-    LaunchedEffect(countdown) {
-        while (true) {
+    // One tick per change: the effect restarts whenever the value moves, and stops at zero.
+    LaunchedEffect(countdown.remaining) {
+        if (countdown.remaining > 0) {
             delay(1000)
-            if (countdown.remaining > 0) countdown.remaining--
+            countdown.remaining--
         }
     }
     return countdown
@@ -195,13 +197,14 @@ fun BreathingCircle(remaining: Int, modifier: Modifier = Modifier) {
         animationSpec = infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "breathPhase",
     )
-    var inhale by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(BREATH_MS.toLong())
-            inhale = !inhale
-        }
-    }
+    // A second, linear clock over the full in-and-out cycle tells us which half we're in.
+    val cycle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(BREATH_MS * 2, easing = LinearEasing), RepeatMode.Restart),
+        label = "breathCycle",
+    )
+    val inhale = cycle < 1f
     val grow = if (reduceMotion) 0.82f else 0.64f + 0.36f * phase
     val done = remaining <= 0
 
