@@ -1,6 +1,8 @@
 package com.focus.launcher
 
+import android.app.Activity
 import android.content.Intent
+import android.widget.Toast
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -9,12 +11,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +35,12 @@ sealed interface Screen {
 }
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        /** Read by the session reminder: no nudge needed if you're already home. */
+        @Volatile
+        var inForeground = false
+    }
 
     private lateinit var settings: LauncherSettings
     private val apps = mutableStateOf<List<AppEntry>>(emptyList())
@@ -57,8 +69,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        inForeground = true
         resumeTick.intValue++
         refreshApps()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        inForeground = false
     }
 
     override fun onStop() {
@@ -95,8 +113,13 @@ fun LauncherRoot(
 ) {
     val context = LocalContext.current
 
-    fun launchNow(app: AppEntry) {
-        if (AppRepository.launch(context, app)) settings.recordOpen(app.pkg)
+    fun launchNow(app: AppEntry, sessionMinutes: Int = 0) {
+        if (AppRepository.launch(context, app)) {
+            settings.recordOpen(app.pkg)
+            if (app.pkg in settings.distracting) SessionReminder.schedule(context, app, sessionMinutes)
+        } else {
+            Toast.makeText(context, "${app.label} couldn't be opened. It may have been removed.", Toast.LENGTH_SHORT).show()
+        }
         navigate(Screen.Home)
     }
 
@@ -108,12 +131,35 @@ fun LauncherRoot(
         navigate(if (settings.gateSeconds > 0) Screen.Gate else Screen.Wall)
     }
 
-    // A launcher should never "exit" on back; deeper screens go back home.
-    BackHandler(enabled = true) { if (screen != Screen.Home) navigate(Screen.Home) }
+    fun skip() {
+        settings.recordResisted()
+        navigate(Screen.Home)
+    }
 
-    var isDefault by remember { mutableStateOf(true) }
+    // A launcher never "exits" on Back. Backing out of a pause counts as a skipped distraction.
+    BackHandler(enabled = true) {
+        when (screen) {
+            Screen.Home -> Unit
+            Screen.Gate, is Screen.Pause -> skip()
+            else -> navigate(Screen.Home)
+        }
+    }
+
+    // Checked synchronously so the "make default" card never flashes on a launcher that is default.
+    var isDefault by remember { mutableStateOf(DefaultLauncher.isDefault(context)) }
     LaunchedEffect(resumeTick) { isDefault = DefaultLauncher.isDefault(context) }
     val makeDefault = rememberMakeDefaultRequest { isDefault = DefaultLauncher.isDefault(context) }
+
+    // System bar icons follow what's behind them: dark icons on light wallpapers.
+    val view = LocalView.current
+    val darkIcons = screen == Screen.Home && !Color(settings.textColor).isLight()
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = darkIcons
+            isAppearanceLightNavigationBars = darkIcons
+        }
+    }
 
     var screenTime by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(resumeTick, settings.showScreenTime) {
@@ -136,7 +182,7 @@ fun LauncherRoot(
         Screen.Gate -> GateScreen(
             seconds = settings.gateSeconds,
             onContinue = { navigate(Screen.Wall) },
-            onBack = { settings.recordResisted(); navigate(Screen.Home) },
+            onBack = ::skip,
         )
         Screen.Wall -> WallScreen(
             settings = settings,
@@ -147,8 +193,8 @@ fun LauncherRoot(
         is Screen.Pause -> PauseScreen(
             app = screen.app,
             settings = settings,
-            onProceed = { launchNow(screen.app) },
-            onCancel = { settings.recordResisted(); navigate(Screen.Home) },
+            onProceed = { minutes -> launchNow(screen.app, minutes) },
+            onCancel = ::skip,
         )
         Screen.Settings -> SettingsScreen(
             settings = settings,

@@ -29,10 +29,33 @@ jobs:
         with:
           name: focus-launcher-apk
           path: FocusLauncher/app/build/outputs/apk/debug/*.apk
+
+      # Logic tests + screenshots of every screen (Robolectric, no emulator needed).
+      - name: Tests and screenshots
+        id: tests
+        continue-on-error: true
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Commit screenshots for review
+        if: always() && github.event_name == 'push'
+        run: |
+          rm -rf screenshots && mkdir -p screenshots
+          cp app/build/screens/*.png screenshots/ 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots
+          if git diff --cached --quiet; then echo "No screenshot changes"; exit 0; fi
+          git commit -m "Focus Launcher screenshots for ${GITHUB_SHA::8} [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
+
+      # Only commits whose message contains [release] update the public download link.
       - name: Name the APK
+        if: contains(github.event.head_commit.message, '[release]')
         run: cp app/build/outputs/apk/debug/app-debug.apk FocusLauncher.apk
-      # One stable, direct download link that always points at the newest build.
       - uses: softprops/action-gh-release@v2
+        if: contains(github.event.head_commit.message, '[release]')
         with:
           tag_name: focus-launcher-latest
           name: Focus Launcher (latest)

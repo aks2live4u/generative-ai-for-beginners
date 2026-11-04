@@ -13,11 +13,6 @@ enum class ClockStyle(val label: String) {
 
 enum class WallpaperMode(val label: String) { SYSTEM("System"), PHOTO("Photo"), COLOR("Color") }
 
-enum class FontChoice(val label: String) {
-    DEFAULT("Sans"), LIGHT("Light"), THIN("Thin"), CONDENSED("Condensed"), SERIF("Serif"),
-    MONO("Mono"), CASUAL("Casual"), CURSIVE("Cursive"), CUSTOM("Imported")
-}
-
 /**
  * Every setting is backed by SharedPreferences *and* a Compose snapshot state,
  * so changing something in Settings instantly updates the home screen.
@@ -64,6 +59,13 @@ class LauncherSettings(context: Context) {
 
     // ---- friction ----
     var gateSeconds by int("gate_seconds", 5)
+    /** Strict mode: friction settings can only be loosened after a 60-second wait. */
+    var strictMode by bool("strict_mode", false)
+    /** Max opens per distracting app per day; 0 = no limit. */
+    var dailyOpenLimit by int("daily_open_limit", 0)
+    /** Last session length picked on the pause screen, in minutes (0 = no reminder). */
+    var lastSessionMinutes by int("last_session_minutes", 10)
+    var onboardingSeen by bool("onboarding_seen", false)
     var pauseSeconds by int("pause_seconds", 15)
     var wallSearchOnly by bool("wall_search_only", true)
 
@@ -73,10 +75,17 @@ class LauncherSettings(context: Context) {
         get() = runCatching { ClockStyle.valueOf(clockStyleName) }.getOrDefault(ClockStyle.DIGITAL)
         set(value) { clockStyleName = value.name }
 
-    private var fontChoiceName by string("font_choice", FontChoice.LIGHT.name)
-    var fontChoice: FontChoice
-        get() = runCatching { FontChoice.valueOf(fontChoiceName) }.getOrDefault(FontChoice.LIGHT)
-        set(value) { fontChoiceName = value.name }
+    // "font_choice" is the key the first version used for the clock font.
+    private var clockFontName by string("font_choice", FontChoice.OUTFIT.name)
+    var clockFont: FontChoice
+        get() = FontChoice.parse(clockFontName, FontChoice.OUTFIT)
+        set(value) { clockFontName = value.name }
+    var clockWeight by int("clock_weight", 200)
+
+    private var textFontName by string("text_font", FontChoice.MANROPE.name)
+    var textFont: FontChoice
+        get() = FontChoice.parse(textFontName, FontChoice.MANROPE)
+        set(value) { textFontName = value.name }
 
     private var wallpaperModeName by string("wallpaper_mode", WallpaperMode.COLOR.name)
     var wallpaperMode: WallpaperMode
@@ -130,6 +139,8 @@ class LauncherSettings(context: Context) {
     }
 
     val resistedToday: Int get() = if (countersDay != today()) 0 else resistedRaw
+
+    fun limitReached(pkg: String): Boolean = dailyOpenLimit in 1..opensToday(pkg)
 
     fun recordResisted() {
         rollDay()

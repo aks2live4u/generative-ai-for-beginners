@@ -7,7 +7,6 @@ import android.graphics.Matrix
 import android.graphics.Typeface
 import android.media.ExifInterface
 import android.net.Uri
-import androidx.compose.ui.text.font.FontFamily
 import java.io.File
 
 /** Custom wallpaper photos and imported font files, stored privately in the app's files dir. */
@@ -50,16 +49,4 @@ object Media {
         val file = fontFile(context)
         if (file.exists() && file.length() > 0) Typeface.createFromFile(file) else null
     }.getOrNull()
-
-    fun fontFamilyFor(context: Context, choice: FontChoice): FontFamily = when (choice) {
-        FontChoice.DEFAULT -> FontFamily.SansSerif
-        FontChoice.SERIF -> FontFamily.Serif
-        FontChoice.MONO -> FontFamily.Monospace
-        FontChoice.CURSIVE -> FontFamily.Cursive
-        FontChoice.LIGHT -> FontFamily(Typeface.create("sans-serif-light", Typeface.NORMAL))
-        FontChoice.THIN -> FontFamily(Typeface.create("sans-serif-thin", Typeface.NORMAL))
-        FontChoice.CONDENSED -> FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
-        FontChoice.CASUAL -> FontFamily(Typeface.create("casual", Typeface.NORMAL))
-        FontChoice.CUSTOM -> loadFont(context)?.let { FontFamily(it) } ?: FontFamily.SansSerif
-    }
 }

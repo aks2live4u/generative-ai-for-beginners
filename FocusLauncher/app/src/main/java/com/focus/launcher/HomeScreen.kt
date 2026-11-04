@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,19 +13,27 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +47,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +62,35 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
 import kotlin.math.sin
+
+/** Lets previews and screenshot tests pin the clock to a fixed moment. */
+val LocalFixedNow = staticCompositionLocalOf<LocalDateTime?> { null }
+
+/** Everything the home screen needs to draw its type, resolved once per settings change. */
+class HomeLook(
+    val clockFamily: FontFamily,
+    val clockWeight: FontWeight,
+    val textFamily: FontFamily,
+    val color: Color,
+)
+
+@Composable
+fun rememberHomeLook(settings: LauncherSettings): HomeLook {
+    val context = LocalContext.current
+    val clockFont = settings.clockFont
+    val clockWeight = settings.clockWeight
+    val textFont = settings.textFont
+    val version = settings.fontVersion
+    val color = settings.textColor
+    return remember(clockFont, clockWeight, textFont, version, color) {
+        HomeLook(
+            clockFamily = Fonts.family(context, clockFont, clockWeight, version),
+            clockWeight = Fonts.weight(clockFont, clockWeight),
+            textFamily = Fonts.family(context, textFont, 400, version),
+            color = Color(color),
+        )
+    }
+}
 
 @Composable
 fun HomeScreen(
@@ -63,22 +103,23 @@ fun HomeScreen(
     onOpenWall: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val family = rememberClockFont(settings)
-    val textColor = Color(settings.textColor)
-    val now = rememberNow()
-    val essentials = settings.essentials.mapNotNull { key -> apps.firstOrNull { it.key == key } }
+    val look = rememberHomeLook(settings)
+    val essentials = remember(settings.essentials, apps) {
+        settings.essentials.mapNotNull { key -> apps.firstOrNull { it.key == key } }
+    }
     val openWall by rememberUpdatedState(onOpenWall)
     val openSettings by rememberUpdatedState(onOpenSettings)
+    val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
 
     Box(
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { openSettings() }) }
-            .pointerInput(Unit) {
+            .pointerInput(swipeThreshold) {
                 var dragged = 0f
                 detectVerticalDragGestures(
                     onDragStart = { dragged = 0f },
-                    onDragEnd = { if (dragged < -150f) openWall() },
+                    onDragEnd = { if (dragged < -swipeThreshold) openWall() },
                     onVerticalDrag = { _, dy -> dragged += dy },
                 )
             }
@@ -89,138 +130,213 @@ fun HomeScreen(
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(horizontal = 28.dp, vertical = 20.dp)
+                .padding(horizontal = 28.dp)
         ) {
-            if (!isDefault) {
-                MakeDefaultBanner(textColor, onMakeDefault)
-            }
-            Spacer(Modifier.height(36.dp))
-            ClockView(settings.clockStyle, settings.use24h, family, textColor, settings.clockScale, now)
-
-            if (settings.showDate) {
-                Text(
-                    now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
-                    color = textColor.copy(alpha = 0.75f),
-                    fontFamily = family,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 8.dp),
+            when {
+                !isDefault -> HomeNotice(
+                    look = look,
+                    title = "Make this your home screen",
+                    body = "So the Home button lands here, not on your old icons.",
+                    action = "Set",
+                    onAction = onMakeDefault,
                 )
-            }
-            if (settings.homeNote.isNotBlank()) {
-                Text(
-                    settings.homeNote,
-                    color = textColor.copy(alpha = 0.9f),
-                    fontFamily = family,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(top = 14.dp),
+                !settings.onboardingSeen -> HomeNotice(
+                    look = look,
+                    title = "Only what matters lives here",
+                    body = "Swipe up for everything else. Long-press anywhere for settings.",
+                    action = "Got it",
+                    onAction = { settings.onboardingSeen = true },
                 )
             }
 
-            val stats = buildList {
-                if (screenTimeMs != null) add("${Usage.format(screenTimeMs)} on screen today")
-                if (settings.resistedToday > 0) add("${settings.resistedToday} distraction${if (settings.resistedToday == 1) "" else "s"} skipped")
-            }
-            if (stats.isNotEmpty()) {
-                Text(
-                    stats.joinToString("  ·  "),
-                    color = textColor.copy(alpha = 0.6f),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-            }
+            Spacer(Modifier.height(48.dp))
+            ClockView(settings.clockStyle, settings.use24h, look, settings.clockScale)
+            HomeSubtitle(settings, look, screenTimeMs)
 
-            // Essentials sit at the bottom (thumb reach) and scroll if you pin a lot of them.
+            // Essentials sit low, in thumb reach, and scroll when there are many.
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
-                val columns = settings.homeColumns.coerceIn(1, 2)
-                val baseSize = when {
-                    columns == 2 -> 19f
-                    essentials.size <= 8 -> 26f
-                    essentials.size <= 14 -> 22f
-                    else -> 19f
+                if (essentials.isEmpty()) {
+                    if (apps.isNotEmpty()) EmptyHome(look, onOpenSettings)
+                } else {
+                    EssentialsList(essentials, settings, look, onOpen)
                 }
-                val size = (baseSize * settings.appTextScale).sp
-                val rowPadding = if (essentials.size > 10 || columns == 2) 7.dp else 10.dp
-                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                    essentials.chunked(columns).forEach { row ->
-                        Row(Modifier.fillMaxWidth()) {
-                            row.forEach { app ->
-                                Text(
-                                    app.label,
-                                    color = textColor,
-                                    fontFamily = family,
-                                    fontSize = size,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onOpen(app) }
-                                        .padding(vertical = rowPadding),
-                                )
-                            }
-                            if (row.size < columns) Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-            if (essentials.isEmpty() && apps.isNotEmpty()) {
-                Text(
-                    "Long-press anywhere to choose your essential apps",
-                    color = textColor.copy(alpha = 0.6f),
-                    fontSize = 15.sp,
-                )
             }
 
-            Spacer(Modifier.height(28.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    "↑  everything else",
-                    color = textColor.copy(alpha = 0.45f),
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { onOpenWall() }.padding(vertical = 8.dp),
-                )
-                Text(
-                    "settings",
-                    color = textColor.copy(alpha = 0.45f),
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { onOpenSettings() }.padding(vertical = 8.dp),
-                )
+            HomeFooter(look, onOpenWall, onOpenSettings)
+        }
+    }
+}
+
+@Composable
+private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeMs: Long?) {
+    if (settings.showDate) {
+        val now = rememberNow(minuteOnly = true)
+        Text(
+            now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
+            color = look.color.copy(alpha = 0.82f),
+            fontFamily = look.textFamily,
+            fontSize = 17.sp,
+            letterSpacing = 0.2.sp,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+    }
+    if (settings.homeNote.isNotBlank()) {
+        Text(
+            settings.homeNote,
+            color = look.color,
+            fontFamily = look.textFamily,
+            fontSize = 16.sp,
+            lineHeight = 23.sp,
+            modifier = Modifier.padding(top = 18.dp),
+        )
+    }
+    val stats = buildList {
+        if (screenTimeMs != null) add("${Usage.format(screenTimeMs)} today")
+        val skipped = settings.resistedToday
+        if (skipped > 0) add("$skipped skipped")
+    }
+    if (stats.isNotEmpty()) {
+        Text(
+            stats.joinToString("   ·   "),
+            color = look.color.copy(alpha = 0.72f),
+            fontFamily = look.textFamily,
+            fontSize = 14.sp,
+            letterSpacing = 0.3.sp,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+    }
+}
+
+@Composable
+private fun EssentialsList(
+    essentials: List<AppEntry>,
+    settings: LauncherSettings,
+    look: HomeLook,
+    onOpen: (AppEntry) -> Unit,
+) {
+    val columns = settings.homeColumns.coerceIn(1, 2)
+    val baseSize = when {
+        columns == 2 -> 19f
+        essentials.size <= 7 -> 27f
+        essentials.size <= 12 -> 23f
+        else -> 20f
+    }
+    val size = (baseSize * settings.appTextScale).sp
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 8.dp)
+    ) {
+        essentials.chunked(columns).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { app ->
+                    Text(
+                        app.label,
+                        color = look.color,
+                        fontFamily = look.textFamily,
+                        fontSize = size,
+                        letterSpacing = (-0.2).sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable(role = Role.Button, onClickLabel = "Open ${app.label}") { onOpen(app) }
+                            .padding(vertical = 9.dp),
+                    )
+                }
+                if (row.size < columns) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
-/** Shown until Focus Launcher is the phone's default home app. */
 @Composable
-fun MakeDefaultBanner(textColor: Color, onClick: () -> Unit) {
+private fun EmptyHome(look: HomeLook, onOpenSettings: () -> Unit) {
+    Column(Modifier.padding(bottom = 16.dp)) {
+        Text(
+            "Nothing pinned yet",
+            color = look.color,
+            fontFamily = look.textFamily,
+            fontSize = 22.sp,
+        )
+        Text(
+            "Choose the few apps you truly need. Everything else waits behind the wall.",
+            color = look.color.copy(alpha = 0.75f),
+            fontFamily = look.textFamily,
+            fontSize = 15.sp,
+            lineHeight = 21.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        TextButton(onClick = onOpenSettings, modifier = Modifier.padding(top = 4.dp)) {
+            Text("Choose apps", color = look.color)
+        }
+    }
+}
+
+@Composable
+private fun HomeFooter(look: HomeLook, onOpenWall: () -> Unit, onOpenSettings: () -> Unit) {
+    val tone = look.color.copy(alpha = 0.78f)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .heightIn(min = 48.dp)
+                .clip(MaterialTheme.shapes.small)
+                .clickable(role = Role.Button, onClickLabel = "Open everything else", onClick = onOpenWall)
+                .padding(end = 12.dp),
+        ) {
+            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null, tint = tone, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Everything else", color = tone, fontFamily = look.textFamily, fontSize = 14.sp, letterSpacing = 0.3.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = onOpenSettings) {
+            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = tone, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** A quiet card for one-off prompts on the home screen (default launcher, first run). */
+@Composable
+private fun HomeNotice(look: HomeLook, title: String, body: String, action: String, onAction: () -> Unit) {
+    val light = look.color.isLight()
+    val ground = if (light) Color.Black.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.55f)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(top = 12.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(ground)
+            .clickable(role = Role.Button, onClick = onAction)
+            .padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Make this your home screen", color = textColor, fontSize = 15.sp)
+            Text(title, color = look.color, style = MaterialTheme.typography.titleSmall)
             Text(
-                "So the Home button brings you here, not to your old icons.",
-                color = textColor.copy(alpha = 0.6f),
-                fontSize = 12.sp,
+                body,
+                color = look.color.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
-        Text("Set", color = Sage, fontSize = 15.sp, modifier = Modifier.padding(start = 12.dp))
+        TextButton(onClick = onAction) { Text(action, color = if (light) Sage else SageDeep) }
     }
 }
 
 @Composable
-fun WallpaperLayer(settings: LauncherSettings) {
+fun WallpaperLayer(settings: LauncherSettings, modifier: Modifier = Modifier.fillMaxSize()) {
     val context = LocalContext.current
     when (settings.wallpaperMode) {
         WallpaperMode.SYSTEM -> Unit // the system wallpaper shows through our transparent window
         WallpaperMode.COLOR -> Box(
-            Modifier.fillMaxSize().background(
+            modifier.background(
                 Brush.verticalGradient(listOf(Color(settings.wallpaperColor), Color(settings.wallpaperColor2)))
             )
         )
@@ -228,76 +344,85 @@ fun WallpaperLayer(settings: LauncherSettings) {
             val bitmap by produceState<ImageBitmap?>(null, settings.wallpaperVersion) {
                 value = withContext(Dispatchers.IO) { Media.loadWallpaper(context)?.asImageBitmap() }
             }
-            Box(Modifier.fillMaxSize().background(Color.Black))
+            Box(modifier.background(Ink))
             bitmap?.let {
-                Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
             }
         }
     }
     if (settings.dim > 0f) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = settings.dim)))
+        Box(modifier.background(Color.Black.copy(alpha = settings.dim)))
     }
 }
 
+/** Current time, ticking each second (or each minute). Reading it only recomposes the caller. */
 @Composable
-fun rememberClockFont(settings: LauncherSettings): FontFamily {
-    val context = LocalContext.current
-    val choice = settings.fontChoice
-    val version = settings.fontVersion
-    return remember(choice, version) { Media.fontFamilyFor(context, choice) }
-}
-
-@Composable
-fun rememberNow(): LocalDateTime {
+fun rememberNow(minuteOnly: Boolean = false): LocalDateTime {
+    LocalFixedNow.current?.let { return it }
     val now by produceState(LocalDateTime.now()) {
         while (true) {
             value = LocalDateTime.now()
-            delay(1000L - System.currentTimeMillis() % 1000L)
+            val ms = System.currentTimeMillis()
+            delay(if (minuteOnly) 60_000L - ms % 60_000L else 1000L - ms % 1000L)
         }
     }
     return now
 }
 
 @Composable
-fun ClockView(
-    style: ClockStyle,
-    use24h: Boolean,
-    family: FontFamily,
-    color: Color,
-    scale: Float,
-    now: LocalDateTime,
-) {
+fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, scale: Float) {
+    val now = rememberNow(minuteOnly = style != ClockStyle.ANALOG)
     val hour12 = (now.hour % 12).let { if (it == 0) 12 else it }
     val hh = if (use24h) "%02d".format(now.hour) else hour12.toString()
     val mm = "%02d".format(now.minute)
-    val ampm = if (use24h) "" else if (now.hour < 12) " am" else " pm"
+    val ampm = if (use24h) "" else if (now.hour < 12) "am" else "pm"
+    val color = look.color
+    val family = look.clockFamily
+    val weight = look.clockWeight
 
     when (style) {
-        ClockStyle.DIGITAL -> Text(
-            "$hh:$mm",
-            color = color,
-            fontFamily = family,
-            fontSize = (88 * scale).sp,
-            lineHeight = (92 * scale).sp,
-        )
+        ClockStyle.DIGITAL -> Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "$hh:$mm",
+                color = color,
+                fontFamily = family,
+                fontWeight = weight,
+                fontSize = (92 * scale).sp,
+                lineHeight = (96 * scale).sp,
+                letterSpacing = (-2 * scale).sp,
+            )
+            if (ampm.isNotEmpty()) {
+                Text(
+                    ampm,
+                    color = color.copy(alpha = 0.7f),
+                    fontFamily = family,
+                    fontWeight = weight,
+                    fontSize = (22 * scale).sp,
+                    modifier = Modifier.padding(start = 8.dp, bottom = (16 * scale).dp),
+                )
+            }
+        }
         ClockStyle.STACKED -> Column {
-            Text(hh.padStart(2, '0'), color = color, fontFamily = family, fontSize = (112 * scale).sp, lineHeight = (104 * scale).sp)
-            Text(mm, color = color.copy(alpha = 0.55f), fontFamily = family, fontSize = (112 * scale).sp, lineHeight = (104 * scale).sp)
+            Text(hh.padStart(2, '0'), color = color, fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, lineHeight = (108 * scale).sp, letterSpacing = (-3 * scale).sp)
+            Text(mm, color = color.copy(alpha = 0.5f), fontFamily = family, fontWeight = weight, fontSize = (120 * scale).sp, lineHeight = (108 * scale).sp, letterSpacing = (-3 * scale).sp)
         }
         ClockStyle.WORDS -> Text(
-            "it's\n" + timeInWords(now.hour, now.minute),
+            "it's " + timeInWords(now.hour, now.minute),
             color = color,
             fontFamily = family,
-            fontSize = (42 * scale).sp,
-            lineHeight = (48 * scale).sp,
+            fontWeight = weight,
+            fontSize = (44 * scale).sp,
+            lineHeight = (50 * scale).sp,
+            letterSpacing = (-0.5 * scale).sp,
         )
-        ClockStyle.ANALOG -> AnalogClock(now, color, (210 * scale).dp)
+        ClockStyle.ANALOG -> AnalogClock(now, color, (216 * scale).dp)
         ClockStyle.MINIMAL -> Text(
-            "$hh:$mm$ampm",
+            "$hh:$mm $ampm".trim(),
             color = color,
             fontFamily = family,
+            fontWeight = weight,
             fontSize = (30 * scale).sp,
-            letterSpacing = 4.sp,
+            letterSpacing = (3 * scale).sp,
         )
     }
 }
@@ -307,15 +432,16 @@ fun AnalogClock(now: LocalDateTime, color: Color, size: Dp) {
     Canvas(Modifier.size(size)) {
         val r = this.size.minDimension / 2f
         val c = center
-        drawCircle(color.copy(alpha = 0.25f), radius = r, center = c, style = Stroke(width = 2.dp.toPx()))
-        for (i in 0 until 12) {
-            val a = Math.toRadians(i * 30.0 - 90.0)
+        drawCircle(color.copy(alpha = 0.22f), radius = r, center = c, style = Stroke(width = 1.5.dp.toPx()))
+        for (i in 0 until 60) {
+            val a = Math.toRadians(i * 6.0 - 90.0)
             val dir = Offset(cos(a).toFloat(), sin(a).toFloat())
+            val hourMark = i % 5 == 0
             drawLine(
-                color = color.copy(alpha = 0.6f),
-                start = c + dir * (r * 0.84f),
-                end = c + dir * (r * 0.94f),
-                strokeWidth = 2.dp.toPx(),
+                color = color.copy(alpha = if (hourMark) 0.75f else 0.25f),
+                start = c + dir * (r * if (hourMark) 0.84f else 0.9f),
+                end = c + dir * (r * 0.95f),
+                strokeWidth = if (hourMark) 2.dp.toPx() else 1.dp.toPx(),
                 cap = StrokeCap.Round,
             )
         }
@@ -329,10 +455,11 @@ fun AnalogClock(now: LocalDateTime, color: Color, size: Dp) {
                 cap = StrokeCap.Round,
             )
         }
-        hand((now.hour % 12 + now.minute / 60.0) * 30.0, r * 0.5f, 6.dp.toPx(), color)
-        hand((now.minute + now.second / 60.0) * 6.0, r * 0.74f, 4.dp.toPx(), color)
-        hand(now.second * 6.0, r * 0.84f, 1.5.dp.toPx(), Sage)
-        drawCircle(color, radius = 5.dp.toPx(), center = c)
+        hand((now.hour % 12 + now.minute / 60.0) * 30.0, r * 0.5f, 5.dp.toPx(), color)
+        hand((now.minute + now.second / 60.0) * 6.0, r * 0.76f, 3.dp.toPx(), color)
+        hand(now.second * 6.0, r * 0.86f, 1.2.dp.toPx(), Sage)
+        drawCircle(color, radius = 4.dp.toPx(), center = c)
+        drawCircle(Sage, radius = 1.8.dp.toPx(), center = c)
     }
 }
 
