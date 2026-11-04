@@ -37,6 +37,8 @@ aimless browsing.
     size slider and a 12/24-hour switch.
   - Fonts: 8 built-in styles, or import any `.ttf`/`.otf` font file.
   - Text colour, and a "home note" line under the clock for an intention or reminder.
+  - World clocks: up to 4 cities under your clock, showing the time difference and whether it's
+    tomorrow or yesterday there.
 
 ## Gestures
 

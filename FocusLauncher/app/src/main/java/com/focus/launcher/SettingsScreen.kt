@@ -112,6 +112,7 @@ fun SettingsScreen(
     var pickEssentials by remember { mutableStateOf(false) }
     var pickDistracting by remember { mutableStateOf(false) }
     var arrange by remember { mutableStateOf(false) }
+    var pickCity by remember { mutableStateOf(false) }
 
     // Strict mode: friction can only be loosened after waiting a minute, once per visit.
     var unlockedThisVisit by remember { mutableStateOf(!settings.strictMode) }
@@ -256,6 +257,36 @@ fun SettingsScreen(
             }
             ToggleRow("24-hour time", checked = settings.use24h) { settings.use24h = it }
             ToggleRow("Show the date", checked = settings.showDate) { settings.showDate = it }
+
+            Label("World clocks")
+            val worldClocks = settings.worldClocks
+            Text(
+                if (worldClocks.isEmpty()) "Add up to $MAX_WORLD_CLOCKS cities to see their time under your clock."
+                else "${worldClocks.size} of $MAX_WORLD_CLOCKS. They follow your clock font and 12/24-hour setting.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Muted,
+            )
+            worldClocks.forEachIndexed { index, id ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(cityName(id), style = MaterialTheme.typography.bodyLarge, color = Cream)
+                        Text(utcLabel(id), style = MaterialTheme.typography.bodySmall, color = Muted)
+                    }
+                    IconButton(onClick = { settings.worldClocks = settings.worldClocks.moved(id, -1) }, enabled = index > 0) {
+                        Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move ${cityName(id)} up")
+                    }
+                    IconButton(onClick = { settings.worldClocks = settings.worldClocks - id }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Remove ${cityName(id)}", tint = Muted)
+                    }
+                }
+            }
+            if (worldClocks.size < MAX_WORLD_CLOCKS) {
+                OutlinedButton(onClick = { pickCity = true }, modifier = Modifier.padding(top = 8.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Add a city")
+                }
+            }
 
             Label("Text font")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 2.dp)) {
@@ -412,6 +443,16 @@ fun SettingsScreen(
                 settings.essentials = settings.essentials.filter { it in chosen } + chosen.filter { it !in settings.essentials }
                 pickEssentials = false
             },
+        )
+    }
+    if (pickCity) {
+        CityPickerDialog(
+            existing = settings.worldClocks,
+            onPick = { id ->
+                settings.worldClocks = settings.worldClocks + id
+                pickCity = false
+            },
+            onDismiss = { pickCity = false },
         )
     }
     if (arrange) {

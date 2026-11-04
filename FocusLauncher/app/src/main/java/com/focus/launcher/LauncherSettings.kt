@@ -103,6 +103,12 @@ class LauncherSettings(context: Context) {
     var homeNote by string("home_note", "")
     var homeColumns by int("home_columns", 1)
     var appTextScale by float("app_text_scale", 1f)
+    private var worldClocksRaw by string("world_clocks", "")
+
+    /** Up to four time-zone ids shown as small clocks under the main one. */
+    var worldClocks: List<String>
+        get() = worldClocksRaw.split("|").filter { it.isNotEmpty() }
+        set(value) { worldClocksRaw = value.distinct().take(MAX_WORLD_CLOCKS).joinToString("|") }
 
     /** Bumped whenever the wallpaper / font file changes so the UI reloads it. */
     var wallpaperVersion by int("wallpaper_version", 0)

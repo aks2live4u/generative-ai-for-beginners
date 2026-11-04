@@ -167,6 +167,7 @@ fun HomeScreen(
             Spacer(Modifier.height(48.dp))
             ClockView(settings.clockStyle, settings.use24h, look, settings.clockScale)
             HomeSubtitle(settings, look, screenTimeMs)
+            WorldClocksRow(settings, look)
 
             // Essentials sit low, in thumb reach, and scroll when there are many.
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {

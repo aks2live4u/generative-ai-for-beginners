@@ -105,6 +105,14 @@ class ScreenshotTest {
         shot("01_home_default") { HomeScreenHost(s, true) }
     }
 
+    @Test fun home_world_clocks() {
+        val s = settings {
+            worldClocks = listOf("Europe/London", "America/New_York", "Asia/Dubai", "Australia/Sydney")
+            clockFont = FontChoice.CURSIVE; textFont = FontChoice.CAVEAT
+        }
+        shot("01b_home_world_clocks") { HomeScreenHost(s, true) }
+    }
+
     @Test fun home_words_serif() {
         val s = settings {
             clockStyle = ClockStyle.WORDS; clockFont = FontChoice.INSTRUMENT_SERIF; textFont = FontChoice.INSTRUMENT_SERIF

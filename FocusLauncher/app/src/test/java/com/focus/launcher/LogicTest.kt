@@ -47,6 +47,23 @@ class LogicTest {
         assertFalse(AppKind.MESSAGING.isDistracting)
     }
 
+    @Test fun worldClockHelpers() {
+        val here = java.time.ZonedDateTime.of(2026, 11, 4, 23, 30, 0, 0, java.time.ZoneId.of("Asia/Kolkata"))
+        val london = here.withZoneSameInstant(java.time.ZoneId.of("Europe/London"))
+        val sydney = here.withZoneSameInstant(java.time.ZoneId.of("Australia/Sydney"))
+        assertEquals("\u22125h 30m", relativeOffset(london, here))
+        assertEquals("+5h 30m", relativeOffset(sydney, here))
+        assertEquals("same time", relativeOffset(here, here))
+        assertEquals("tomorrow", dayShift(sydney.toLocalDate(), here.toLocalDate()))
+        assertEquals(null, dayShift(london.toLocalDate(), here.toLocalDate()))
+        assertEquals("Buenos Aires", cityName("America/Argentina/Buenos_Aires"))
+        assertEquals("UTC+5:30", utcLabel("Asia/Kolkata"))
+
+        val s = LauncherSettings(ApplicationProvider.getApplicationContext())
+        s.worldClocks = listOf("Europe/London", "Asia/Tokyo", "Europe/London", "Asia/Dubai", "Asia/Singapore", "Pacific/Auckland")
+        assertEquals(listOf("Europe/London", "Asia/Tokyo", "Asia/Dubai", "Asia/Singapore"), s.worldClocks)
+    }
+
     @Test fun movingEssentialsByKey() {
         val list = listOf("a", "b", "c")
         assertEquals(listOf("b", "a", "c"), list.moved("b", -1))
