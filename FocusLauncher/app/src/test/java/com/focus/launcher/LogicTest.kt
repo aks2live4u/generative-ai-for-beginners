@@ -24,7 +24,7 @@ class LogicTest {
 
     @Test fun legacyFontNamesMigrate() {
         assertEquals(FontChoice.OUTFIT, FontChoice.parse("LIGHT", FontChoice.MANROPE))
-        assertEquals(FontChoice.JETBRAINS_MONO, FontChoice.parse("MONO", FontChoice.MANROPE))
+        assertEquals(FontChoice.MAJOR_MONO, FontChoice.parse("MONO", FontChoice.MANROPE))
         assertEquals(FontChoice.CURSIVE, FontChoice.parse("CURSIVE", FontChoice.MANROPE))
         assertEquals(FontChoice.CASUAL, FontChoice.parse("CASUAL", FontChoice.MANROPE))
         assertEquals(FontChoice.OUTFIT, FontChoice.parse("SORA", FontChoice.MANROPE))

@@ -53,8 +53,10 @@ jobs:
       - name: Commit screenshots for review
         if: always() && github.event_name == 'push'
         run: |
+          # Keep the last good set if this run produced no screenshots (e.g. a compile error).
+          if ! ls app/build/screens/*.png >/dev/null 2>&1; then echo "No screenshots produced"; exit 0; fi
           rm -rf screenshots && mkdir -p screenshots
-          cp app/build/screens/*.png screenshots/ 2>/dev/null || true
+          cp app/build/screens/*.png screenshots/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add screenshots
