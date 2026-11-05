@@ -3,7 +3,6 @@ package com.focus.launcher
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.border
@@ -41,10 +40,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -182,17 +177,7 @@ fun HomeScreen(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 24.dp)
-                    .drawBehind {
-                        drawLine(
-                            look.color.copy(alpha = 0.16f),
-                            start = Offset(0f, 0f),
-                            end = Offset(size.width, 0f),
-                            strokeWidth = 1.dp.toPx(),
-                        )
-                    }
-                    .padding(top = 12.dp)
-                    .fadeTopEdge(24.dp),
+                    .padding(top = 24.dp),
                 contentAlignment = Alignment.BottomStart,
             ) {
                 if (essentials.isEmpty()) {
@@ -293,6 +278,14 @@ private fun EssentialsList(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 8.dp)
     ) {
+        // A fine rule right above the first app marks where "today" ends and your apps begin.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp)
+                .height(1.dp)
+                .background(look.color.copy(alpha = 0.16f))
+        )
         essentials.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth()) {
                 row.forEach { app ->
@@ -306,6 +299,7 @@ private fun EssentialsList(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .weight(1f)
+                            .padding(end = if (columns == 2) 14.dp else 0.dp)
                             .heightIn(min = 48.dp)
                             .clip(MaterialTheme.shapes.small)
                             .clickable(role = Role.Button, onClickLabel = "Open ${app.label}") { onOpen(app) }
@@ -448,9 +442,10 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, userScale: Flo
     val weight = look.clockWeight
 
     when (style) {
-        ClockStyle.DIGITAL -> Row(verticalAlignment = Alignment.Bottom) {
+        ClockStyle.DIGITAL -> Row {
             Text(
                 "$hh:$mm",
+                modifier = Modifier.alignByBaseline(),
                 maxLines = 1,
                 softWrap = false,
                 color = color,
@@ -467,7 +462,7 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, userScale: Flo
                     fontFamily = family,
                     fontWeight = weight,
                     fontSize = (22 * scale).sp,
-                    modifier = Modifier.padding(start = 8.dp, bottom = (16 * scale).dp),
+                    modifier = Modifier.alignByBaseline().padding(start = 8.dp),
                 )
             }
         }
@@ -570,16 +565,3 @@ fun timeInWords(hour: Int, minute: Int): String {
         else -> "${minuteWord(60 - rounded)} to $next"
     }
 }
-
-/** Softly fades content out at the top edge, so a scrolling list slides under the header. */
-fun Modifier.fadeTopEdge(height: Dp): Modifier = this
-    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-    .drawWithContent {
-        drawContent()
-        val h = height.toPx()
-        drawRect(
-            brush = Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = h),
-            size = androidx.compose.ui.geometry.Size(size.width, h),
-            blendMode = BlendMode.DstIn,
-        )
-    }
