@@ -107,9 +107,13 @@ class ScreenshotTest {
 
     @Test fun home_world_clocks() {
         val s = settings {
-            worldClocks = listOf("Europe/London", "America/New_York", "Asia/Dubai", "Australia/Sydney")
-            clockFont = FontChoice.CURSIVE; textFont = FontChoice.CAVEAT
+            worldClocks = listOf("Europe/London", "America/New_York")
+            clockFont = FontChoice.SATISFY; textFont = FontChoice.SATISFY
+            homeNote = "Trust the Process.....!!!!"; homeColumns = 2
+            essentials = apps.map { it.key }
+            wallpaperColor = 0xFF000000.toInt(); wallpaperColor2 = 0xFF000000.toInt(); dim = 0f
         }
+        s.recordResisted(); s.recordResisted(); s.recordResisted(); s.recordResisted()
         shot("01b_home_world_clocks") { HomeScreenHost(s, true) }
     }
 
