@@ -1,6 +1,17 @@
 package com.focus.launcher
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -95,44 +106,67 @@ fun WorldClocksRow(settings: LauncherSettings, look: HomeLook) {
     val pattern = DateTimeFormatter.ofPattern(if (settings.use24h) "HH:mm" else "h:mm a")
     val perRow = if (zones.size <= 3) zones.size else 2
     val timeSize = (26 * look.clockSize * look.textSize.coerceAtMost(1.4f)).sp
-    val labelSize = (13 * look.textSize.coerceAtMost(1.4f)).sp
+    val labelSize = (12 * look.textSize.coerceAtMost(1.3f)).sp
 
-    Column(Modifier.fillMaxWidth().padding(top = 22.dp)) {
+    // A lifted panel: tonal ground with a faint top highlight, a fine rim and a soft shadow,
+    // so the cities read as their own layer between the clock and the apps.
+    val onLight = !look.color.isLight()
+    val shape = RoundedCornerShape(22.dp)
+    val ink = if (onLight) Color.Black else Color.White
+    val ground = Brush.verticalGradient(listOf(ink.copy(alpha = 0.10f), ink.copy(alpha = 0.045f)))
+    val rule = look.color.copy(alpha = 0.14f)
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 22.dp)
+            .shadow(elevation = 14.dp, shape = shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .clip(shape)
+            .background(ground)
+            .border(1.dp, Brush.verticalGradient(listOf(ink.copy(alpha = 0.16f), ink.copy(alpha = 0.05f))), shape)
+    ) {
         zones.chunked(perRow).forEachIndexed { rowIndex, row ->
-            if (rowIndex > 0) Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth()) {
-                row.forEach { id ->
-                    val zone = runCatching { ZoneId.of(id) }.getOrNull() ?: return@forEach
-                    val there = here.withZoneSameInstant(zone)
-                    val details = listOfNotNull(dayShift(there.toLocalDate(), here.toLocalDate()), relativeOffset(there, here))
-                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            if (rowIndex > 0) Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(rule))
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                row.forEachIndexed { colIndex, id ->
+                    if (colIndex > 0) Box(Modifier.padding(vertical = 14.dp).width(1.dp).fillMaxHeight().background(rule))
+                    val zone = runCatching { ZoneId.of(id) }.getOrNull()
+                    val there = zone?.let { here.withZoneSameInstant(it) }
+                    Column(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 14.dp)) {
                         Text(
                             cityName(id),
-                            color = look.color.copy(alpha = 0.75f),
-                            fontFamily = look.textFamily,
+                            color = look.color.copy(alpha = 0.78f),
+                            style = MaterialTheme.typography.labelMedium,
                             fontSize = labelSize,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            there.format(pattern).lowercase(),
+                            there?.format(pattern)?.lowercase() ?: "--:--",
                             color = look.color,
                             fontFamily = look.clockFamily,
                             fontWeight = look.clockWeight,
                             fontSize = timeSize,
                             maxLines = 1,
                             softWrap = false,
+                            modifier = Modifier.padding(vertical = 2.dp),
                         )
-                        Text(
-                            details.joinToString(" · "),
-                            color = look.color.copy(alpha = 0.6f),
-                            fontFamily = look.textFamily,
-                            fontSize = labelSize,
-                            maxLines = 1,
-                        )
+                        if (there != null) {
+                            Text(
+                                listOfNotNull(dayShift(there.toLocalDate(), here.toLocalDate()), relativeOffset(there, here))
+                                    .joinToString(" · "),
+                                color = look.color.copy(alpha = 0.62f),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = labelSize,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
-                repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
+                repeat(perRow - row.size) {
+                    Box(Modifier.padding(vertical = 14.dp).width(1.dp).fillMaxHeight().background(rule))
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
     }

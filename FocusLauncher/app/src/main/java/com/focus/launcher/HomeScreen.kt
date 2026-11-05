@@ -3,6 +3,10 @@ package com.focus.launcher
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -37,6 +41,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -170,7 +178,23 @@ fun HomeScreen(
             WorldClocksRow(settings, look)
 
             // Essentials sit low, in thumb reach, and scroll when there are many.
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = 24.dp)
+                    .drawBehind {
+                        drawLine(
+                            look.color.copy(alpha = 0.16f),
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, 0f),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                    }
+                    .padding(top = 12.dp)
+                    .fadeTopEdge(24.dp),
+                contentAlignment = Alignment.BottomStart,
+            ) {
                 if (essentials.isEmpty()) {
                     if (apps.isNotEmpty()) EmptyHome(look, onOpenSettings)
                 } else {
@@ -185,25 +209,35 @@ fun HomeScreen(
 
 @Composable
 private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeMs: Long?) {
+    // Zone 1 continues: the date hugs the clock.
     if (settings.showDate) {
         val now = rememberNow(minuteOnly = true)
         Text(
             now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")),
-            color = look.color.copy(alpha = 0.82f),
+            color = look.color.copy(alpha = 0.8f),
             fontFamily = look.textFamily,
             fontSize = (18 * look.textSize).sp,
             letterSpacing = 0.2.sp,
-            modifier = Modifier.padding(top = 10.dp),
+            modifier = Modifier.padding(top = 6.dp),
         )
     }
+
+    // Zone 2: today. The note reads as a quote, set off by space and a short rule.
     if (settings.homeNote.isNotBlank()) {
+        Box(
+            Modifier
+                .padding(top = 28.dp)
+                .width(28.dp)
+                .height(1.5.dp)
+                .background(look.color.copy(alpha = 0.45f))
+        )
         Text(
             settings.homeNote,
             color = look.color,
             fontFamily = look.textFamily,
             fontSize = (21 * look.textSize).sp,
             lineHeight = (28 * look.textSize).sp,
-            modifier = Modifier.padding(top = 18.dp),
+            modifier = Modifier.padding(top = 12.dp),
         )
     }
     val stats = buildList {
@@ -212,15 +246,29 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
         if (skipped > 0) add("$skipped skipped")
     }
     if (stats.isNotEmpty()) {
-        Text(
-            stats.joinToString("   ·   "),
-            color = look.color.copy(alpha = 0.72f),
-            fontFamily = look.textFamily,
-            fontSize = (15 * look.textSize.coerceAtMost(1.3f)).sp,
-            letterSpacing = 0.3.sp,
-            modifier = Modifier.padding(top = 12.dp),
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = if (settings.homeNote.isNotBlank()) 16.dp else 24.dp),
+        ) {
+            stats.forEach { StatPill(it, look) }
+        }
     }
+}
+
+/** Small factual detail in the clean UI face, on a soft tonal pill: clearly not an app name. */
+@Composable
+fun StatPill(text: String, look: HomeLook) {
+    val ink = if (look.color.isLight()) Color.White else Color.Black
+    Text(
+        text,
+        color = look.color.copy(alpha = 0.85f),
+        style = MaterialTheme.typography.labelMedium,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(ink.copy(alpha = 0.09f))
+            .border(1.dp, ink.copy(alpha = 0.10f), CircleShape)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }
 
 @Composable
@@ -310,7 +358,7 @@ private fun HomeFooter(look: HomeLook, onOpenWall: () -> Unit, onOpenSettings: (
         ) {
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null, tint = tone, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Everything else", color = tone, fontFamily = look.textFamily, fontSize = (15 * look.textFontSize).sp, letterSpacing = 0.3.sp)
+            Text("Everything else", color = tone, style = MaterialTheme.typography.labelLarge)
         }
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onOpenSettings) {
@@ -522,3 +570,16 @@ fun timeInWords(hour: Int, minute: Int): String {
         else -> "${minuteWord(60 - rounded)} to $next"
     }
 }
+
+/** Softly fades content out at the top edge, so a scrolling list slides under the header. */
+fun Modifier.fadeTopEdge(height: Dp): Modifier = this
+    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+        val h = height.toPx()
+        drawRect(
+            brush = Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = h),
+            size = androidx.compose.ui.geometry.Size(size.width, h),
+            blendMode = BlendMode.DstIn,
+        )
+    }
