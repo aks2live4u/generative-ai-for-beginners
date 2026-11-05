@@ -49,6 +49,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -442,7 +445,7 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, userScale: Flo
     val weight = look.clockWeight
 
     when (style) {
-        ClockStyle.DIGITAL -> Row {
+        ClockStyle.DIGITAL -> Row(Modifier.trimBelowBaseline((14 * scale).dp)) {
             Text(
                 "$hh:$mm",
                 modifier = Modifier.alignByBaseline(),
@@ -567,4 +570,16 @@ fun timeInWords(hour: Int, minute: Int): String {
         in 5..25 -> "${minuteWord(rounded)} past $current"
         else -> "${minuteWord(60 - rounded)} to $next"
     }
+}
+
+/**
+ * Ends the layout a little below the text's first baseline. Display and script fonts reserve
+ * deep descent space under digits, which otherwise opens a big gap under the clock.
+ */
+fun Modifier.trimBelowBaseline(descent: Dp): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val baseline = placeable[FirstBaseline]
+    val height = if (baseline == AlignmentLine.Unspecified) placeable.height
+    else (baseline + descent.roundToPx()).coerceAtMost(placeable.height)
+    layout(placeable.width, height) { placeable.place(0, 0) }
 }
