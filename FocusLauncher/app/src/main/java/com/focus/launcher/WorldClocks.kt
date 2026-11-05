@@ -119,7 +119,7 @@ fun WorldClocksRow(settings: LauncherSettings, look: HomeLook) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(top = 22.dp)
+            .padding(top = 16.dp)
             .shadow(elevation = 14.dp, shape = shape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(shape)
             .background(ground)
@@ -129,10 +129,10 @@ fun WorldClocksRow(settings: LauncherSettings, look: HomeLook) {
             if (rowIndex > 0) Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(rule))
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                 row.forEachIndexed { colIndex, id ->
-                    if (colIndex > 0) Box(Modifier.padding(vertical = 14.dp).width(1.dp).fillMaxHeight().background(rule))
+                    if (colIndex > 0) Box(Modifier.padding(vertical = 12.dp).width(1.dp).fillMaxHeight().background(rule))
                     val zone = runCatching { ZoneId.of(id) }.getOrNull()
                     val there = zone?.let { here.withZoneSameInstant(it) }
-                    Column(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Column(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 11.dp)) {
                         Text(
                             cityName(id),
                             color = look.color.copy(alpha = 0.78f),
@@ -149,7 +149,7 @@ fun WorldClocksRow(settings: LauncherSettings, look: HomeLook) {
                             fontSize = timeSize,
                             maxLines = 1,
                             softWrap = false,
-                            modifier = Modifier.padding(vertical = 2.dp),
+                            modifier = Modifier.padding(vertical = 1.dp),
                         )
                         if (there != null) {
                             Text(
@@ -164,7 +164,7 @@ fun WorldClocksRow(settings: LauncherSettings, look: HomeLook) {
                     }
                 }
                 repeat(perRow - row.size) {
-                    Box(Modifier.padding(vertical = 14.dp).width(1.dp).fillMaxHeight().background(rule))
+                    Box(Modifier.padding(vertical = 12.dp).width(1.dp).fillMaxHeight().background(rule))
                     Spacer(Modifier.weight(1f))
                 }
             }

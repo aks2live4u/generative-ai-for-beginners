@@ -167,7 +167,7 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(12.dp))
             ClockView(settings.clockStyle, settings.use24h, look, settings.clockScale)
             HomeSubtitle(settings, look, screenTimeMs)
             WorldClocksRow(settings, look)
@@ -177,7 +177,7 @@ fun HomeScreen(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 24.dp),
+                    .padding(top = 16.dp),
                 contentAlignment = Alignment.BottomStart,
             ) {
                 if (essentials.isEmpty()) {
@@ -203,7 +203,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             fontFamily = look.textFamily,
             fontSize = (18 * look.textSize).sp,
             letterSpacing = 0.2.sp,
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 
@@ -211,7 +211,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
     if (settings.homeNote.isNotBlank()) {
         Box(
             Modifier
-                .padding(top = 28.dp)
+                .padding(top = 20.dp)
                 .width(28.dp)
                 .height(1.5.dp)
                 .background(look.color.copy(alpha = 0.45f))
@@ -222,7 +222,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             fontFamily = look.textFamily,
             fontSize = (21 * look.textSize).sp,
             lineHeight = (28 * look.textSize).sp,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
     }
     val stats = buildList {
@@ -233,7 +233,7 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
     if (stats.isNotEmpty()) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = if (settings.homeNote.isNotBlank()) 16.dp else 24.dp),
+            modifier = Modifier.padding(top = if (settings.homeNote.isNotBlank()) 12.dp else 18.dp),
         ) {
             stats.forEach { StatPill(it, look) }
         }
@@ -452,8 +452,11 @@ fun ClockView(style: ClockStyle, use24h: Boolean, look: HomeLook, userScale: Flo
                 fontFamily = family,
                 fontWeight = weight,
                 fontSize = (92 * scale).sp,
-                lineHeight = (96 * scale).sp,
                 letterSpacing = (-2 * scale).sp,
+                style = TextStyle(
+                    lineHeight = (92 * scale).sp,
+                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+                ),
             )
             if (ampm.isNotEmpty()) {
                 Text(
