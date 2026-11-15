@@ -5,6 +5,8 @@ composeBom = "2024.12.01"
 coreKtx = "1.15.0"
 activityCompose = "1.9.3"
 room = "2.6.1"
+ksp = "2.0.21-1.0.28"
+paging = "3.3.5"
 sqlcipher = "4.6.1"
 workmanager = "2.10.0"
 media3 = "1.5.1"
@@ -32,6 +34,9 @@ compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+paging-common = { module = "androidx.paging:paging-common", version.ref = "paging" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 sqlcipher = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
 work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
@@ -50,9 +55,11 @@ litert-gpu = { module = "com.google.ai.edge.litert:litert-gpu", version.ref = "l
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+androidx-test-core = { module = "androidx.test:core-ktx", version = "1.6.1" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
