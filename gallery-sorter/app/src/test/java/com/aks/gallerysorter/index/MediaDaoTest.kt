@@ -84,4 +84,48 @@ class MediaDaoTest {
         assertThat(ids(true, Category.CAMERA)).isEmpty()
         assertThat(ids(false, Category.CAMERA)).isEmpty()
     } }
+
+    private fun seed(id: Long, vararg labels: LabelRow) {
+        runBlocking {
+            db.mediaDao().upsert(media(id))
+            db.labelDao().upsertAll(labels.toList())
+        }
+    }
+
+    @Test
+    fun excludingOverrideOnSensitiveLabel_unlocksItem() {
+        seed(1, LabelRow(1, Category.OTHER_ADULT, 0.9f), LabelRow(1, Category.CAMERA, 0.95f))
+        assertThat(ids(false, Category.CAMERA)).isEmpty()
+        runBlocking { db.labelDao().upsertOverride(OverrideRow(1, Category.OTHER_ADULT, isExcluded = true)) }
+        assertThat(ids(false, Category.CAMERA)).containsExactly(1L)
+    }
+
+    @Test
+    fun forcedIncludeIntoHiddenCategory_locksItem() {
+        seed(1, LabelRow(1, Category.CAMERA, 0.95f))
+        assertThat(ids(false, Category.CAMERA)).containsExactly(1L)
+        runBlocking { db.labelDao().upsertOverride(OverrideRow(1, Category.IDS, isExcluded = false)) }
+        assertThat(ids(false, Category.CAMERA)).isEmpty()
+        assertThat(ids(true, Category.CAMERA)).containsExactly(1L)
+        assertThat(ids(true, Category.IDS)).containsExactly(1L)
+    }
+
+    @Test
+    fun forcedIncludeIntoVisibleCategory_makesItemAppear() {
+        seed(1, LabelRow(1, Category.CAMERA, 0.95f))
+        runBlocking { db.labelDao().upsertOverride(OverrideRow(1, Category.PETS, isExcluded = false)) }
+        assertThat(ids(false, Category.PETS)).containsExactly(1L)
+        assertThat(ids(true, Category.PETS)).containsExactly(1L)
+    }
+
+    @Test
+    fun reviewBandBoundaries_whenLocked() {
+        seed(1, LabelRow(1, Category.CAMERA, 0.85f))   // just above band: visible
+        seed(2, LabelRow(2, Category.PETS, 0.50f))     // band lower edge: hidden
+        seed(3, LabelRow(3, Category.PETS, 0.8499f))   // inside band: hidden
+        seed(4, LabelRow(4, Category.PETS, 0.4999f))   // below band: visible
+        assertThat(ids(false, Category.CAMERA)).containsExactly(1L)
+        assertThat(ids(false, Category.PETS)).containsExactly(4L)
+        assertThat(ids(true, Category.PETS)).containsExactly(2L, 3L, 4L)
+    }
 }
