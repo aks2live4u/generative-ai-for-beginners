@@ -53,7 +53,7 @@ Privacy is the top priority, then speed, then features.
 
 An item can belong to several categories (e.g. a person + a place + "Camera").
 
-- **Sensitive:** *My nudes* · *Other adult content*
+- **Sensitive:** *My nudes* (sub-folders *Taken on my camera* and *Of me*) · *Other adult content*
 - **Documents:** *IDs* (passport, licence, national ID / Aadhaar / PAN) · *Banking & finance*
   (statements, cards, payment/UPI screenshots, receipts) · *Other documents* (bills, tickets, forms, notes)
 - **Source:** *Camera* · *Screenshots* · *Screen recordings* · *WhatsApp* · *Telegram* · *Other messaging* ·
@@ -90,9 +90,11 @@ An item can belong to several categories (e.g. a person + a place + "Camera").
 ### 6.3 Classifiers (all on-device; run via TFLite/LiteRT with NNAPI/GPU delegate, CPU fallback)
 - **Nudity/explicit:** an open-source NSFW image model (MobileNet-class, permissive licence), output
   explicit / suggestive / safe. Thresholds: explicit ≥ 0.85 → Sensitive; 0.5–0.85 → Review.
-- **Mine vs other:** explicit item → *My nudes* if (a) it's a camera original (in `DCIM/Camera`, EXIF
-  Make = vivo or a camera model that appears in the user's own camera roll), or (b) a face matches the "Me" person.
-  Otherwise → *Other adult content*. If the result is ambiguous → Review.
+- **Mine vs other (owner chose both rules):** *My nudes* has two sub-folders that may overlap:
+  *Taken on my camera*, an explicit camera original (in `DCIM/Camera` with EXIF Make/Model matching this phone, or a
+  camera model the user confirms as their own past phone in settings); and *Of me*, any explicit item where
+  a face matches the "Me" person. An item in either goes to *My nudes*. Otherwise → *Other adult content*. If
+  the result is ambiguous → Review.
 - **Faces:** ML Kit face detection (bundled), then a MobileFaceNet-class embedding model. Embeddings are
   clustered incrementally (cosine similarity threshold), and the user names clusters, merges them, and marks "Me".
 - **Text/documents:** ML Kit Text Recognition v2 (bundled, Latin script), run only on items that the
@@ -131,9 +133,16 @@ An item can belong to several categories (e.g. a person + a place + "Camera").
 - Labels and counts: the index DB (SQLCipher) is keyed by a Keystore key that needs **no** user unlock, so
   labels are encrypted at rest against file browsing, and the background scanner can still write them. Home can show
   sensitive counts (behind a lock icon) while locked.
-- Storage location: `/storage/emulated/0/.vault-gs/` with `.nomedia`. Other galleries, Google Photos and
-  vivo Cloud ignore it. Because the wrapped key lives alongside the files, the vault **survives an uninstall or
-  reinstall** if the user knows the PIN.
+- **Two vault tiers (owner chose both):**
+  - **Standard vault:** stored in `/storage/emulated/0/.vault-gs/` with `.nomedia`. Other galleries, Google
+    Photos and vivo Cloud ignore it. The wrapped key lives alongside the files, so it **survives an uninstall or
+    reinstall** with the PIN. Unlocked with fingerprint or a 6+ digit PIN. Protects against casual users of the phone.
+  - **High-security vault:** stored in the app's private internal storage, unreachable by other apps,
+    file managers or USB. It needs its own passcode (at least 10 characters, letters allowed), plus an optional fingerprint.
+    **Deleted permanently if the app is uninstalled**, which is stated at setup and before any uninstall-risky action.
+  - The user chooses the tier when hiding, and sets a default tier per category. Proposed defaults: *My nudes* and
+    *IDs* → high-security; *Other adult content*, *Banking*, *Other documents* → standard. Items can be
+    moved between tiers (re-encrypted, one file at a time, no lasting copy).
 - Hide = stream-encrypt into the vault, verify, then delete the original (directly, via all-files access), and
   remove its MediaStore entry. Peak extra space = one file at a time. The vault index records the original path.
 - Unhide = decrypt back to the original path (or `Pictures/Restored` if that path is gone), then rescan
