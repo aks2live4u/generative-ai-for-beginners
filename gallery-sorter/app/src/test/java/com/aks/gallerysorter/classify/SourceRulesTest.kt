@@ -69,6 +69,12 @@ class SourceRulesTest {
             .containsExactly(Category.WHATSAPP)
     }
 
+    @Test fun whatsappBusiness() {
+        assertThat(cats("Android/media/com.whatsapp.w4b/WhatsApp Business/Media/WhatsApp Business Images/a.jpg"))
+            .containsExactly(Category.WHATSAPP)
+        assertThat(cats("WhatsApp Business/Media/WhatsApp Business Video/a.jpg")).containsExactly(Category.WHATSAPP)
+    }
+
     @Test fun telegram() {
         assertThat(cats("Pictures/Telegram/a.jpg")).containsExactly(Category.TELEGRAM)
         assertThat(cats("Telegram/Telegram Images/a.jpg")).containsExactly(Category.TELEGRAM)

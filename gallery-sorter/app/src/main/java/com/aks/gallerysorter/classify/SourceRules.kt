@@ -14,7 +14,7 @@ private val RULES = listOf(
     rule("dcim/screenshots|pictures/screenshots|screenshots", Category.SCREENSHOTS),
     rule("movies/screenrecord|dcim/screenrecorder|dcim/screenrecord|screenrecorder|screenrecord",
         Category.SCREEN_RECORDINGS, videoOnly = true),
-    rule("com\\.whatsapp|whatsapp", Category.WHATSAPP),
+    rule("com\\.whatsapp(?:\\.w4b)?|whatsapp|whatsapp business", Category.WHATSAPP),
     rule("telegram", Category.TELEGRAM),
     rule("instagram|messenger|signal|snapchat|facebook", Category.OTHER_MESSAGING),
     rule("download|downloads", Category.DOWNLOADS),
