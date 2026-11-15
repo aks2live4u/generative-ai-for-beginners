@@ -18,7 +18,7 @@ import com.aks.gallerysorter.index.entities.OverrideRow
 import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.summary
-import com.aks.gallerysorter.ui.trashRequest as systemTrashRequest
+import com.aks.gallerysorter.ui.trashRequests as systemTrashRequests
 import com.aks.gallerysorter.vault.defaultTierFor
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -161,8 +161,8 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
         }
     }
 
-    /** The system trash confirmation for [ids] (MediaStore.createTrashRequest); never deletes by itself. */
-    suspend fun trashRequest(ids: List<Long>): IntentSender? = systemTrashRequest(graph, ids)
+    /** The system trash confirmations for [ids] (MediaStore.createTrashRequest, ≤ 500 each); never deletes by itself. */
+    suspend fun trashRequests(ids: List<Long>): List<IntentSender> = systemTrashRequests(graph, ids)
 
     private companion object {
         const val TAG = "GridViewModel"

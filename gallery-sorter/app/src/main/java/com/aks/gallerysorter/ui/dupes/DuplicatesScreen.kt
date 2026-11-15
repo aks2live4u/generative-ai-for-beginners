@@ -1,9 +1,5 @@
 package com.aks.gallerysorter.ui.dupes
 
-import android.app.Activity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,7 +23,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,12 +36,17 @@ import com.aks.gallerysorter.graph
 import com.aks.gallerysorter.ui.SecureWhile
 import com.aks.gallerysorter.ui.ThumbCell
 import com.aks.gallerysorter.ui.graphViewModel
-import com.aks.gallerysorter.ui.trashRequest
+import com.aks.gallerysorter.ui.grid.ConfirmDialog
+import com.aks.gallerysorter.ui.rememberTrashLauncher
+import com.aks.gallerysorter.ui.trashNotice
+import com.aks.gallerysorter.ui.trashRequests
 import kotlinx.coroutines.launch
 
 /**
  * Duplicate groups side by side; the kept items are outlined ("Keep"), tap toggles. "Delete N
- * suggested" opens the system trash dialog for everything not kept; nothing is deleted without it.
+ * suggested" opens the system trash dialog (one per 500 items) for everything not kept; nothing is
+ * deleted without it. Groups of more than [LARGE_GROUP] items are left out until the user
+ * confirms them separately.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,10 +57,9 @@ fun DuplicatesScreen(onBack: () -> Unit) {
     val unlocked by graph.lockState.includeLocked.collectAsState()
     val scope = rememberCoroutineScope()
     SecureWhile(unlocked)
-    val trash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-        if (r.resultCode == Activity.RESULT_OK) graph.notify("Moved to trash")
-    }
-    val toDelete = state.groups.sumOf { g -> g.items.count { it.media.id !in g.keep } }
+    val trash = rememberTrashLauncher { done, total -> trashNotice(done, total)?.let(graph::notify) }
+    var confirmLarge by remember { mutableStateOf<DupeGroupUi?>(null) }
+    val toDelete = state.groups.filterNot { it.needsConfirm }.sumOf { g -> g.items.count { it.media.id !in g.keep } }
 
     Scaffold(
         topBar = {
@@ -66,7 +69,7 @@ fun DuplicatesScreen(onBack: () -> Unit) {
                 actions = {
                     if (toDelete > 0 && state.missingKeep.isEmpty()) {
                         TextButton(onClick = {
-                            scope.launch { trashRequest(graph, vm.toDelete())?.let { trash.launch(IntentSenderRequest.Builder(it).build()) } }
+                            scope.launch { trash(trashRequests(graph, vm.toDelete())) }
                         }) { Text("Delete $toDelete suggested") }
                     }
                 },
@@ -86,6 +89,10 @@ fun DuplicatesScreen(onBack: () -> Unit) {
                 items(state.groups, key = { it.id }) { g ->
                     Column(Modifier.padding(8.dp)) {
                         Text("${g.items.size} copies · tap to choose what to keep", style = MaterialTheme.typography.labelLarge)
+                        if (g.needsConfirm) {
+                            Text("Large group: not included in Delete until you check it", style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { confirmLarge = g }) { Text("Include this group") }
+                        }
                         Row(Modifier.horizontalScroll(rememberScrollState())) {
                             g.items.forEach { item ->
                                 val keep = item.media.id in g.keep
@@ -95,7 +102,7 @@ fun DuplicatesScreen(onBack: () -> Unit) {
                                         onClick = { vm.toggleKeep(g.id, item.media.id) }, onLongClick = { vm.toggleKeep(g.id, item.media.id) },
                                         load = { graph.thumbnails.media(item.media) },
                                     )
-                                    Text(if (keep) "Keep" else "Delete", style = MaterialTheme.typography.labelMedium)
+                                    Text(if (keep) "Keep" else if (g.needsConfirm) "Not included" else "Delete", style = MaterialTheme.typography.labelMedium)
                                     Text("${item.media.width}×${item.media.height}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
@@ -104,5 +111,19 @@ fun DuplicatesScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+
+    confirmLarge?.let { g ->
+        ConfirmDialog(
+            title = "Include ${g.items.size} copies?",
+            text = "Large groups are more likely to contain photos that only look alike. Check that every item not " +
+                "marked Keep really is a copy before deleting.",
+            confirm = "Include",
+            onConfirm = {
+                vm.includeLargeGroup(g.id)
+                confirmLarge = null
+            },
+            onDismiss = { confirmLarge = null },
+        )
     }
 }

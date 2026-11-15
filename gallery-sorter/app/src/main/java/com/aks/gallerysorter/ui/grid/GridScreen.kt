@@ -1,10 +1,6 @@
 package com.aks.gallerysorter.ui.grid
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +40,8 @@ import com.aks.gallerysorter.ui.SecureWhile
 import com.aks.gallerysorter.ui.ThumbCell
 import com.aks.gallerysorter.ui.graphViewModel
 import com.aks.gallerysorter.ui.label
+import com.aks.gallerysorter.ui.rememberTrashLauncher
+import com.aks.gallerysorter.ui.trashNotice
 import kotlinx.coroutines.launch
 
 private sealed interface GridDialog {
@@ -72,9 +70,7 @@ fun GridScreen(source: GridSource, title: String, onOpen: (index: Int) -> Unit, 
     SecureWhile(source.requiresUnlock || unlocked)
     BackHandler(enabled = selection.isNotEmpty()) { vm.clearSelection() }
 
-    val trash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-        if (r.resultCode == Activity.RESULT_OK) graph.notify("Moved to trash")
-    }
+    val trash = rememberTrashLauncher { done, total -> trashNotice(done, total)?.let(graph::notify) }
     fun askHide(ids: List<Long>) = scope.launch {
         if (ids.isNotEmpty()) vm.hideChoice().let { (tier, created) -> dialog = GridDialog.Hide(ids, tier, created) }
     }
@@ -104,7 +100,7 @@ fun GridScreen(source: GridSource, title: String, onOpen: (index: Int) -> Unit, 
                     TextButton(onClick = { askHide(ids) }) { Text("Hide") }
                     TextButton(onClick = { dialog = GridDialog.Album(ids) }) { Text("Album") }
                     TextButton(onClick = {
-                        scope.launch { vm.trashRequest(ids)?.let { trash.launch(IntentSenderRequest.Builder(it).build()) } }
+                        scope.launch { trash(vm.trashRequests(ids)) }
                         vm.clearSelection()
                     }) { Text("Delete") }
                     if (category != null) TextButton(onClick = { dialog = GridDialog.NotThis(ids) }) { Text("Not ${category.label}") }
