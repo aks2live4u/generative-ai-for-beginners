@@ -40,7 +40,7 @@ private val MRZ_FIRST = Regex("^P<[A-Z]{3}[A-Z0-9<]{25,}$")
 private val MRZ_LIKE = Regex("^(?=.*[<0-9])[A-Z0-9<]{30,}$")
 private val WORD = Regex("\\p{L}{2,}")
 
-private class Signals(val specific: Int, val generic: Int, val patterns: Int, val strong: Boolean) {
+private class DocSignals(val specific: Int, val generic: Int, val patterns: Int, val strong: Boolean) {
     fun confidence(): Float? {
         val total = specific + generic + patterns
         return when {
@@ -105,7 +105,7 @@ private fun hasValidCard(text: String): Boolean {
     return false
 }
 
-private fun idSignals(lines: List<String>, upper: String, lower: String): Signals {
+private fun idSignals(lines: List<String>, upper: String, lower: String): DocSignals {
     val specific = matched(lower, DocumentKeywords.ID_SPECIFIC)
     val generic = countGeneric(lower, DocumentKeywords.ID_GENERIC, specific)
     val mrz = hasMrz(lines)
@@ -115,17 +115,17 @@ private fun idSignals(lines: List<String>, upper: String, lower: String): Signal
         if (AADHAAR.containsMatchIn(upper)) patterns++
         if (matched(lower, DocumentKeywords.DRIVING).isNotEmpty() && DL_NUMBER.containsMatchIn(upper)) patterns++
     }
-    return Signals(specific.size, generic, patterns, strong = mrz)
+    return DocSignals(specific.size, generic, patterns, strong = mrz)
 }
 
-private fun bankingSignals(upper: String, lower: String): Signals {
+private fun bankingSignals(upper: String, lower: String): DocSignals {
     val specific = matched(lower, DocumentKeywords.BANKING_SPECIFIC)
     val generic = countGeneric(lower, DocumentKeywords.BANKING_GENERIC, specific)
     val card = hasValidCard(upper)
     val ifsc = IFSC.containsMatchIn(upper)
     val upi = UPI.containsMatchIn(lower)
     val patterns = listOf(card, ifsc, upi).count { it }
-    return Signals(specific.size, generic, patterns, strong = card || ifsc)
+    return DocSignals(specific.size, generic, patterns, strong = card || ifsc)
 }
 
 /** IDS beats BANKING beats OTHER_DOCS; null when the OCR text shows no document signal. */
