@@ -57,6 +57,16 @@ class VaultCryptoTest {
     private fun decrypt(e: Encrypted, p: PrivateHandle = priv): ByteArray =
         VaultCrypto.decryptingStream(p, e.wrappedKey, e.file).use { readAll(it) }
 
+    @Test fun expectedCiphertextSizeMatchesActualAtSegmentEdges() {
+        // First segment holds 1 MB - 16 (tag) - 40 (header) bytes; later ones 1 MB - 16.
+        val first = 1048576 - 16 - 40
+        for (n in listOf(0, 1, first - 1, first, first + 1, first + 1048560, 3 * 1024 * 1024)) {
+            val e = encrypt(random(n))
+            assertThat(e.file.length()).isEqualTo(VaultCrypto.expectedCiphertextSize(n.toLong()))
+            assertThat(e.file.readBytes()[0].toInt()).isEqualTo(VaultCrypto.headerLength)
+        }
+    }
+
     @Test fun roundTripEmpty() {
         assertThat(decrypt(encrypt(ByteArray(0)))).isEmpty()
     }

@@ -7,6 +7,9 @@ import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.entities.VaultRow
 import kotlinx.coroutines.flow.Flow
 
+/** The files one vault row owns, relative to its tier's root. */
+data class VaultFileRef(val tier: VaultTier, val vaultFile: String, val thumbFile: String?)
+
 @Dao
 interface VaultDao {
     @Insert suspend fun insert(row: VaultRow): Long
@@ -19,6 +22,10 @@ interface VaultDao {
 
     @Query("SELECT * FROM vault ORDER BY id DESC")
     fun all(): Flow<List<VaultRow>>
+
+    /** Blocking; call off the main thread (startup cleanup). */
+    @Query("SELECT tier, vaultFile, thumbFile FROM vault")
+    fun fileRefs(): List<VaultFileRef>
 
     @Query("DELETE FROM vault WHERE id = :id")
     suspend fun delete(id: Long)

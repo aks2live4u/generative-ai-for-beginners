@@ -92,6 +92,17 @@ object VaultCrypto {
         return wrapped
     }
 
+    /** Same parameters as every per-file key; used only for its size arithmetic. */
+    private val sizer: AesGcmHkdfStreaming by lazy {
+        fileStreamingAead(KeysetHandle.generateNew(KeyTemplates.get(FILE_KEY_TEMPLATE))) as AesGcmHkdfStreaming
+    }
+
+    /** Exact length of the ciphertext [encrypt] writes for [plaintextSize] bytes (Tink's own formula). */
+    internal fun expectedCiphertextSize(plaintextSize: Long): Long = sizer.expectedCiphertextSize(plaintextSize)
+
+    /** Length of the stream header; also the value of its first byte. */
+    internal val headerLength: Int get() = sizer.headerLength
+
     /**
      * Opens [file] for random-access decryption. Each read authenticates its segment, and
      * reaching the end authenticates the final segment (so truncation is detected); tampering
