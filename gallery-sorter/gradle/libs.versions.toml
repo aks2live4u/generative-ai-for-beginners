@@ -1,0 +1,58 @@
+[versions]
+kotlin = "2.0.21"
+agp = "8.7.3"
+composeBom = "2024.12.01"
+coreKtx = "1.15.0"
+activityCompose = "1.9.3"
+room = "2.6.1"
+sqlcipher = "4.6.1"
+workmanager = "2.10.0"
+media3 = "1.5.1"
+biometric = "1.1.0"
+exifinterface = "1.3.7"
+tink = "1.15.0"
+bouncycastle = "1.79"
+mlkitFace = "16.1.7"
+mlkitText = "16.0.1"
+mlkitLabeling = "17.0.9"
+mlkitBarcode = "17.3.0"
+litert = "1.0.1"
+junit = "4.13.2"
+truth = "1.4.4"
+robolectric = "4.14.1"
+coroutines = "1.9.0"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+sqlcipher = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
+media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+tink = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref = "mlkitFace" }
+mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkitText" }
+mlkit-image-labeling = { module = "com.google.mlkit:image-labeling", version.ref = "mlkitLabeling" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkitBarcode" }
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
+litert-gpu = { module = "com.google.ai.edge.litert:litert-gpu", version.ref = "litert" }
+junit = { module = "junit:junit", version.ref = "junit" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
