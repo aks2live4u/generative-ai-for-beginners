@@ -32,5 +32,9 @@ fi
 
 cd "$ROOT"
 ./gradlew "$@" :app:assembleRelease :app:verifyNoNetwork
-APK="$ROOT/app/build/outputs/apk/release/app-release.apk"
+VERSION="$(sed -n 's/^ *versionName *= *"\(.*\)".*/\1/p' "$ROOT/app/build.gradle.kts" | head -n 1)"
+[ -n "$VERSION" ] || { echo "Cannot read versionName from app/build.gradle.kts" >&2; exit 1; }
+OUT="$ROOT/app/build/outputs/apk/release"
+APK="$OUT/GallerySorter-$VERSION.apk"
+cp "$OUT/app-release.apk" "$APK"
 echo "Release APK: $APK"
