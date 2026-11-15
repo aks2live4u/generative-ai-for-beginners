@@ -24,6 +24,10 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.Random
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -70,7 +74,7 @@ class HideManagerTest {
 
     private fun manager(encrypt: Encryptor = VaultCrypto::encrypt) = HideManager(
         store = store, guard = guard, vaultDao = db.vaultDao(), mediaDao = db.mediaDao(),
-        labelDao = db.labelDao(), media = FakeMediaSource(), fileOps = fileOps,
+        labelDao = db.labelDao(), settings = db.settingsDao(), media = FakeMediaSource(), fileOps = fileOps,
         externalRoot = external, encrypt = encrypt,
     )
 
@@ -135,7 +139,8 @@ class HideManagerTest {
         assertThat(res).isEqualTo(HideResult(hidden = 1, missing = emptyList(), failed = emptyList()))
         assertThat(progress).containsExactly(1 to 1)
         assertThat(original.exists()).isFalse()
-        assertThat(fileOps.removedFromMediaStore).containsExactly(1L)
+        // Scoped to the path that was deleted: never a file that moved under the same id.
+        assertThat(fileOps.removedFromMediaStore).containsExactly(1L to original.path)
         assertThat(db.mediaDao().get(1)).isNull()
         val row = rows().single()
         assertThat(row.originalPath).isEqualTo(original.path)
@@ -159,6 +164,7 @@ class HideManagerTest {
         assertThat(encFiles(VaultTier.STANDARD)).isEmpty()
         assertThat(filesIn(store.thumbsDir(VaultTier.STANDARD))).containsExactly(".nomedia")
         assertThat(filesIn(gallery)).containsExactly(original.name)
+        assertThat(db.settingsDao().get(VaultRestore.INFLIGHT_KEY)).isNull()
     }
 
     @Test fun hide_unlockedVerify_decryptsBeforeDeleting() = runBlocking<Unit> {
@@ -168,6 +174,7 @@ class HideManagerTest {
         assertThat(res.hidden).isEqualTo(1)
         assertThat(original.exists()).isFalse()
         val row = rows().single()
+        assertThat(row.verified).isTrue()
         assertThat(decrypt(unlock(VaultTier.HIGH_SECURITY), row.wrappedFileKey, store.resolve(row.tier, row.vaultFile)))
             .isEqualTo(content)
     }
@@ -290,7 +297,7 @@ class HideManagerTest {
     @Test fun hide_noPinRecorded_refuses() = runBlocking<Unit> {
         val content = bytes(5000)
         val original = indexed(1, content)
-        db.settingsDao().put(SettingRow(VaultKeyGuard.pinKey(VaultTier.STANDARD), ""))
+        db.settingsDao().delete(VaultKeyGuard.pinKey(VaultTier.STANDARD))
         assertThrows(VaultKeyMismatchException::class.java) {
             runBlocking { manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> }) }
         }
@@ -365,6 +372,8 @@ class HideManagerTest {
         assertThat(moved.tier).isEqualTo(VaultTier.HIGH_SECURITY)
         assertThat(moved.plainSha256).isEqualTo(old.plainSha256)
         assertThat(moved.originalPath).isEqualTo(original.path)
+        assertThat(moved.verified).isFalse()
+        assertThat(encFiles(VaultTier.HIGH_SECURITY).map { it.substringAfter('.') }).containsExactly("enc", "meta")
         val hsPriv = unlock(VaultTier.HIGH_SECURITY)
         assertThat(decrypt(hsPriv, moved.wrappedFileKey, store.resolve(moved.tier, moved.vaultFile))).isEqualTo(content)
         assertThat(decrypt(hsPriv, moved.thumbWrappedKey!!, store.resolve(moved.tier, moved.thumbFile!!))).isNotEmpty()
@@ -438,7 +447,7 @@ class HideManagerTest {
         val s2 = VaultStore(File(tmp.root, "s3"), File(tmp.root, "h3"))
         val g = VaultKeyGuard(s2, db.settingsDao()) { dir -> VaultKeys(dir, FakeKeyWrapper(), fast) }
         g.keys(VaultTier.STANDARD).create("654321".toCharArray()) // keys written, pin never recorded
-        db.settingsDao().put(SettingRow(VaultKeyGuard.pinKey(VaultTier.STANDARD), ""))
+        db.settingsDao().delete(VaultKeyGuard.pinKey(VaultTier.STANDARD))
         assertThrows(VaultKeyMismatchException::class.java) { runBlocking { g.publicHandle(VaultTier.STANDARD) } }
 
         assertThrows(WrongSecretException::class.java) {
@@ -450,6 +459,199 @@ class HideManagerTest {
         assertThat(g.publicHandle(VaultTier.STANDARD)).isNotNull()
     }
 
+
+    // ---- fix round 1 ------------------------------------------------------------------------
+
+    private fun pinFile(tier: VaultTier) = File(VaultKeys.keysDir(store.root(tier)), VaultKeys.PIN_FILE)
+
+    @Test fun hide_concurrentSameId_oneRowOriginalDeletedOnce() = runBlocking<Unit> {
+        val original = indexed(1, bytes(400_000))
+        val m = manager()
+        val results = coroutineScope {
+            (1..2).map { async(Dispatchers.IO) { m.hide(listOf(1), VaultTier.STANDARD, { _, _ -> }) } }.awaitAll()
+        }
+        assertThat(rows()).hasSize(1)
+        assertThat(fileOps.deleted).containsExactly(original.path)
+        assertThat(results.sumOf { it.hidden }).isEqualTo(1)
+        assertThat(results.flatMap { it.skipped }).containsExactly(1L)
+    }
+
+    @Test fun unhide_concurrentSameVaultId_restoresOneFile() = runBlocking<Unit> {
+        val content = bytes(400_000)
+        val original = indexed(1, content)
+        val m = manager()
+        m.hide(listOf(1), VaultTier.STANDARD, { _, _ -> })
+        val vid = rows().single().id
+        val priv = unlock(VaultTier.STANDARD)
+        val results = coroutineScope {
+            (1..2).map { async(Dispatchers.IO) { m.unhide(listOf(vid), priv) } }.awaitAll()
+        }
+        assertThat(results.sumOf { it.restored }).isEqualTo(1)
+        assertThat(results.flatMap { it.failed }).containsExactly(vid to "not found")
+        assertThat(filesIn(gallery)).containsExactly(original.name)
+        assertThat(original.readBytes()).isEqualTo(content)
+    }
+
+    @Test fun hide_alreadyVaulted_skipsWithoutSecondCopy() = runBlocking<Unit> {
+        val content = bytes(5000)
+        val original = indexed(1, content)
+        fileOps.undeletable += original.path
+        manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> })
+        val res = manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> })
+        assertThat(res).isEqualTo(HideResult(0, emptyList(), emptyList(), skipped = listOf(1L)))
+        assertThat(rows()).hasSize(1)
+        assertThat(encFiles(VaultTier.STANDARD)).hasSize(2) // one .enc + its .meta
+        assertThat(original.readBytes()).isEqualTo(content)
+    }
+
+    @Test fun hide_privateKeyFileMissing_refusesAndKeepsOriginal() = runBlocking<Unit> {
+        val content = bytes(5000)
+        val original = indexed(1, content)
+        assertThat(pinFile(VaultTier.STANDARD).delete()).isTrue()
+        assertThrows(VaultPrivateKeyMissingException::class.java) {
+            runBlocking { manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> }) }
+        }
+        assertUntouched(1, original, content)
+    }
+
+    @Test fun hide_privateKeyAlteredMidBatch_abortsAndKeepsRemainingOriginals() = runBlocking<Unit> {
+        val c2 = bytes(5000, seed = 2)
+        val c3 = bytes(5000, seed = 3)
+        indexed(1, bytes(5000, seed = 1))
+        val o2 = indexed(2, c2)
+        val o3 = indexed(3, c3)
+        val pin = pinFile(VaultTier.STANDARD)
+        val res = manager().hide(listOf(1, 2, 3), VaultTier.STANDARD, { done, _ ->
+            if (done == 1) pin.writeBytes(pin.readBytes().also { it[it.size - 1] = (it[it.size - 1] + 1).toByte() })
+        })
+        assertThat(res.hidden).isEqualTo(1)
+        assertThat(res.aborted).isEqualTo(HideManager.PRIVATE_KEY_MISSING)
+        assertThat(res.failed).containsExactly(2L to HideManager.PRIVATE_KEY_MISSING)
+        assertThat(o2.readBytes()).isEqualTo(c2)
+        assertThat(o3.readBytes()).isEqualTo(c3)
+        assertThat(db.mediaDao().get(2)).isNotNull()
+        assertThat(db.mediaDao().get(3)).isNotNull()
+        assertThat(rows()).hasSize(1)
+        assertThat(encFiles(VaultTier.STANDARD)).hasSize(2) // item 1 only; item 2's new files discarded
+        assertThat(fileOps.deleted).hasSize(1)
+    }
+
+    @Test fun hide_publicKeySwappedMidBatch_returnsPartialResult() = runBlocking<Unit> {
+        indexed(1, bytes(5000, seed = 1))
+        val c2 = bytes(5000, seed = 2)
+        val o2 = indexed(2, c2)
+        VaultKeys(File(tmp.root, "rogue"), FakeKeyWrapper(), fast).create("999999".toCharArray())
+        val res = manager().hide(listOf(1, 2), VaultTier.STANDARD, { done, _ ->
+            if (done == 1) {
+                File(tmp.root, "rogue/${VaultKeys.PUBLIC_FILE}")
+                    .copyTo(File(VaultKeys.keysDir(store.root(VaultTier.STANDARD)), VaultKeys.PUBLIC_FILE), overwrite = true)
+            }
+        })
+        assertThat(res.hidden).isEqualTo(1)
+        assertThat(res.aborted).isEqualTo(HideManager.KEY_MISMATCH)
+        assertThat(res.failed).containsExactly(2L to HideManager.KEY_MISMATCH)
+        assertThat(o2.readBytes()).isEqualTo(c2)
+        assertThat(rows()).hasSize(1)
+    }
+
+    @Test fun changeSecret_throughGuardRepins_bypassingGuardBlocksDeletes() = runBlocking<Unit> {
+        indexed(1, bytes(3000, seed = 1))
+        val c2 = bytes(3000, seed = 2)
+        val o2 = indexed(2, c2)
+        guard.changeSecret(VaultTier.STANDARD, unlock(VaultTier.STANDARD), "777777".toCharArray())
+        assertThat(manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> }).hidden).isEqualTo(1)
+
+        val priv = guard.keys(VaultTier.STANDARD).unlockWithSecret("777777".toCharArray())
+        guard.keys(VaultTier.STANDARD).changeSecret(priv, "888888".toCharArray()) // not via the guard
+        assertThrows(VaultPrivateKeyMissingException::class.java) {
+            runBlocking { manager().hide(listOf(2), VaultTier.STANDARD, { _, _ -> }) }
+        }
+        assertThat(o2.readBytes()).isEqualTo(c2)
+    }
+
+    @Test fun verifyPending_confirmsLockedHidesAndReportsCorruptOnes() = runBlocking<Unit> {
+        indexed(1, bytes(70_000, seed = 1))
+        indexed(2, bytes(70_000, seed = 2))
+        manager().hide(listOf(1, 2), VaultTier.STANDARD, { _, _ -> })
+        assertThat(rows().map { it.verified }).containsExactly(false, false)
+        val bad = rows().first { it.originalPath.endsWith("IMG_2.jpg") }
+        val enc = store.resolve(bad.tier, bad.vaultFile)
+        enc.writeBytes(enc.readBytes().also { it[it.size / 2] = (it[it.size / 2].toInt() xor 1).toByte() })
+
+        val res = manager().verifyPending(VaultTier.STANDARD, unlock(VaultTier.STANDARD))
+
+        assertThat(res).isEqualTo(VerifyResult(verified = 1, failed = listOf(bad.id to "verify failed")))
+        assertThat(rows().associate { it.id to it.verified }).containsExactly(bad.id, false, rows().first { it.id != bad.id }.id, true)
+    }
+
+    @Test fun rebuildIndex_recreatesLostRowsAndUnhideWorks() = runBlocking<Unit> {
+        val c1 = bytes(1_100_000, seed = 1)
+        val c2 = bytes(3000, seed = 2)
+        val o1 = indexed(1, c1)
+        val o2 = indexed(2, c2)
+        manager().hide(listOf(1, 2), VaultTier.STANDARD, { _, _ -> })
+        val before = rows().associateBy { it.vaultFile }
+        before.values.forEach { db.vaultDao().delete(it.id) } // index lost (e.g. reinstall)
+        val priv = unlock(VaultTier.STANDARD)
+
+        assertThat(manager().rebuildIndex(VaultTier.STANDARD, priv)).isEqualTo(2)
+        assertThat(manager().rebuildIndex(VaultTier.STANDARD, priv)).isEqualTo(0)
+
+        val after = rows()
+        assertThat(after.map { it.vaultFile }).containsExactlyElementsIn(before.keys)
+        for (r in after) {
+            val b = before.getValue(r.vaultFile)
+            assertThat(r.originalPath).isEqualTo(b.originalPath)
+            assertThat(r.plainSha256).isEqualTo(b.plainSha256)
+            assertThat(r.categories).isEqualTo("BANKING")
+            assertThat(r.thumbFile).isEqualTo(b.thumbFile)
+            assertThat(r.wrappedFileKey).isEqualTo(b.wrappedFileKey)
+        }
+        assertThat(manager().unhide(after.map { it.id }, priv).restored).isEqualTo(2)
+        assertThat(o1.readBytes()).isEqualTo(c1)
+        assertThat(o2.readBytes()).isEqualTo(c2)
+        assertThat(encFiles(VaultTier.STANDARD)).isEmpty()
+    }
+
+    @Test fun rebuildIndex_wrongTierKey_addsNothing() = runBlocking<Unit> {
+        indexed(1, bytes(3000))
+        manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> })
+        db.vaultDao().delete(rows().single().id)
+        assertThat(manager().rebuildIndex(VaultTier.STANDARD, unlock(VaultTier.HIGH_SECURITY))).isEqualTo(0)
+        assertThat(rows()).isEmpty()
+    }
+
+    @Test fun startup_removesInterruptedUnhidePartial() = runBlocking<Unit> {
+        // State left by a process death mid-unhide: the record, then the plaintext partial.
+        val partial = File(gallery, ".gs-1234.part").apply { writeBytes(bytes(100)) }
+        db.settingsDao().put(SettingRow(VaultRestore.INFLIGHT_KEY, partial.absolutePath))
+
+        manager().cleanupPartials()
+
+        assertThat(partial.exists()).isFalse()
+        assertThat(db.settingsDao().get(VaultRestore.INFLIGHT_KEY)).isNull()
+
+        // A record that does not name one of our partials never deletes anything.
+        val user = File(gallery, "photo.jpg").apply { writeBytes(bytes(10)) }
+        db.settingsDao().put(SettingRow(VaultRestore.INFLIGHT_KEY, user.absolutePath))
+        manager().cleanupPartials()
+        assertThat(user.exists()).isTrue()
+        assertThat(db.settingsDao().get(VaultRestore.INFLIGHT_KEY)).isNull()
+    }
+
+    @Test fun unhide_vaultFileMissing_reportsDistinctReasonAndKeepsRow() = runBlocking<Unit> {
+        indexed(1, bytes(3000))
+        manager().hide(listOf(1), VaultTier.STANDARD, { _, _ -> })
+        val row = rows().single()
+        assertThat(store.resolve(row.tier, row.vaultFile).delete()).isTrue()
+
+        val res = manager().unhide(listOf(row.id), unlock(VaultTier.STANDARD))
+
+        assertThat(res).isEqualTo(UnhideResult(0, listOf(row.id to "vault file missing")))
+        assertThat(rows()).hasSize(1)
+        assertThat(filesIn(gallery)).isEmpty()
+    }
+
     // ---- fakes ------------------------------------------------------------------------------
 
     private class FakeFileOps : FileOps {
@@ -457,18 +659,18 @@ class HideManagerTest {
         val undeletable = mutableSetOf<String>()
         val deleted = mutableListOf<String>()
         val scanned = mutableListOf<String>()
-        val removedFromMediaStore = mutableListOf<Long>()
+        val removedFromMediaStore = mutableListOf<Pair<Long, String>>()
         val freeQueries = mutableListOf<File>()
 
         override fun exists(path: String) = File(path).exists()
         override fun freeBytes(dir: File): Long { freeQueries += dir; return free }
-        override fun deleteOriginal(path: String): Boolean {
+        @Synchronized override fun deleteOriginal(path: String): Boolean {
             if (path in undeletable) return false
             deleted += path
             return File(path).delete()
         }
         override fun scanIntoMediaStore(path: String) { scanned += path }
-        override fun removeFromMediaStore(id: Long) { removedFromMediaStore += id }
+        override fun removeFromMediaStore(id: Long, deletedPath: String) { removedFromMediaStore += id to deletedPath }
     }
 
     private class FakeMediaSource : MediaSource {

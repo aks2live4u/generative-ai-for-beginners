@@ -23,9 +23,17 @@ interface VaultDao {
     @Query("SELECT * FROM vault ORDER BY id DESC")
     fun all(): Flow<List<VaultRow>>
 
-    /** Blocking; call off the main thread (startup cleanup). */
     @Query("SELECT tier, vaultFile, thumbFile FROM vault")
-    fun fileRefs(): List<VaultFileRef>
+    suspend fun fileRefs(): List<VaultFileRef>
+
+    @Query("SELECT * FROM vault WHERE originalPath = :path")
+    suspend fun byOriginalPath(path: String): List<VaultRow>
+
+    @Query("SELECT * FROM vault WHERE tier = :tier AND verified = 0 ORDER BY id")
+    suspend fun unverified(tier: VaultTier): List<VaultRow>
+
+    @Query("UPDATE vault SET verified = 1 WHERE id = :id")
+    suspend fun setVerified(id: Long)
 
     @Query("DELETE FROM vault WHERE id = :id")
     suspend fun delete(id: Long)

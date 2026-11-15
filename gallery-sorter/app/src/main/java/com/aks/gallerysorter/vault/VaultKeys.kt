@@ -156,6 +156,12 @@ class VaultKeys internal constructor(
         )
     }
 
+    /**
+     * The raw `private.pin.enc` bytes, after checking they parse as a key file (no secret needed).
+     * Throws IOException if the file is missing or malformed.
+     */
+    internal fun pinFileBytes(): ByteArray = pinFile.readBytes().also { PinFile.parse(it) }
+
     fun publicHandle(): PublicHandle =
         PublicHandle(TinkProtoKeysetFormat.parseKeysetWithoutSecret(publicFile.readBytes()))
 

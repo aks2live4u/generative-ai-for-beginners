@@ -10,6 +10,8 @@ import com.aks.gallerysorter.core.VaultTier
  * [vaultFile] and [thumbFile] are relative to the tier's vault root (`files/<uuid>.enc`,
  * `thumbs/<uuid>.thumb.enc`). The thumbnail has its own per-file key, [thumbWrappedKey].
  * [plainSha256] is the lowercase hex SHA-256 of the original bytes, checked on unhide and move.
+ * [verified]: the vault file was fully decrypted and matched [plainSha256] (false for locked hides
+ * until HideManager.verifyPending runs after unlock).
  */
 @Entity(tableName = "vault")
 class VaultRow(
@@ -24,4 +26,5 @@ class VaultRow(
     val thumbFile: String?,
     val thumbWrappedKey: ByteArray?,
     val plainSha256: String,
+    val verified: Boolean,
 )

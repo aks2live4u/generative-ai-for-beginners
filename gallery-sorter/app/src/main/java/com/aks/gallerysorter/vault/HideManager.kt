@@ -7,42 +7,63 @@ import com.aks.gallerysorter.core.MediaSource
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.dao.LabelDao
 import com.aks.gallerysorter.index.dao.MediaDao
+import com.aks.gallerysorter.index.dao.SettingsDao
 import com.aks.gallerysorter.index.dao.VaultDao
 import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.VaultRow
-import java.io.ByteArrayInputStream
+import com.aks.gallerysorter.vault.VaultRestore.Companion.INSUFFICIENT_SPACE
+import com.aks.gallerysorter.vault.VaultRestore.Companion.SPACE_MARGIN
+import com.aks.gallerysorter.vault.VaultRestore.Companion.VERIFY_FAILED
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.nio.channels.Channels
 import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-data class HideResult(val hidden: Int, val missing: List<Long>, val failed: List<Pair<Long, String>>)
+/**
+ * [skipped]: ids no longer indexed, or already in the vault with identical bytes.
+ * [aborted]: set when a batch-level failure (vault key check) stopped the batch after the
+ * items already counted; the remaining ids were not attempted.
+ */
+data class HideResult(
+    val hidden: Int,
+    val missing: List<Long>,
+    val failed: List<Pair<Long, String>>,
+    val skipped: List<Long> = emptyList(),
+    val aborted: String? = null,
+)
 data class UnhideResult(val restored: Int, val failed: List<Pair<Long, String>>)
-data class MoveResult(val moved: Int, val failed: List<Pair<Long, String>>)
+data class MoveResult(val moved: Int, val failed: List<Pair<Long, String>>, val aborted: String? = null)
+data class VerifyResult(val verified: Int, val failed: List<Pair<Long, String>>)
 
 /** Streams plaintext to ciphertext and returns the wrapped file key ([VaultCrypto.encrypt]). */
 typealias Encryptor = (PublicHandle, InputStream, OutputStream) -> ByteArray
 
 /**
  * Moves gallery files into the vault and back, one file at a time (peak extra space = one file).
+ * Must be a single app-wide instance: one [Mutex] serialises every operation (hide, unhide,
+ * moveTier, verifyPending, rebuildIndex, cleanupPartials), so bulk hide, auto-hide and unhide
+ * never race on the same item.
  *
- * Hide, per item: exists → free space → encrypt to `.part` (hashing the plaintext) → fsync →
- * verify → rename to `.enc` → thumbnail → insert the row (committed) → delete the original →
- * remove it from MediaStore. Verify = the original re-hashed now equals the streamed hash, the
- * `.part` re-read from disk has Tink's exact length, header byte and written bytes, and, when a
- * [PrivateHandle] is supplied, a full decrypt whose SHA-256 equals the original's. Any failure
- * before the row is committed deletes the new vault files and leaves the original untouched.
- * After the commit, a failure to delete the original keeps both copies and is reported as
- * "original not deleted" (or "original changed after copy; not deleted").
+ * Hide, per item: still indexed and not already vaulted → exists → free space → encrypt to
+ * `.part` (hashing the plaintext) → fsync → verify → rename to `.enc` → thumbnail → `.meta` →
+ * private key confirmed → insert the row (committed) → delete the original → remove its
+ * MediaStore entry. Verify = the original re-hashed now equals the streamed hash, the `.part`
+ * re-read from disk has Tink's exact length, header byte and written bytes, and, when a
+ * [PrivateHandle] is supplied, a full decrypt whose SHA-256 equals the original's (row
+ * `verified`; locked hides are checked later by [verifyPending]). Any failure before the commit
+ * deletes the new vault files and leaves the original untouched. After the commit, a failure to
+ * delete the original keeps both copies and is reported as "original not deleted".
  *
  * Logs carry only exception classes and ids, never paths or names.
  */
@@ -52,83 +73,107 @@ class HideManager(
     private val vaultDao: VaultDao,
     private val mediaDao: MediaDao,
     private val labelDao: LabelDao,
+    private val settings: SettingsDao,
     private val media: MediaSource,
     private val fileOps: FileOps,
-    private val externalRoot: File = File(VaultStore.EXTERNAL_ROOT),
+    externalRoot: File = File(VaultStore.EXTERNAL_ROOT),
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val encrypt: Encryptor = VaultCrypto::encrypt,
 ) {
+    private val lock = Mutex()
+    private val files = VaultFiles(store, encrypt)
+    private val restore = VaultRestore(store, files, guard, vaultDao, settings, fileOps, externalRoot, encrypt)
+    private val rebuilder = VaultIndexRebuild(store, files, vaultDao)
+
     /**
-     * Hides [ids] (MediaStore ids) into [tier]. Throws [VaultKeyMismatchException] before
-     * touching anything if the tier's public key fails its pin. [progress] gets (done, total)
-     * after each item, on the IO dispatcher. Pass [priv] when unlocked for decrypt-verification.
+     * Hides [ids] (MediaStore ids) into [tier]. Throws [VaultKeyMismatchException] or
+     * [VaultPrivateKeyMissingException] before touching anything if the tier's keys fail their
+     * pins; the same failure mid-batch stops it and is returned as [HideResult.aborted].
+     * [progress] gets (done, total) after each item, on the IO dispatcher. Pass [priv] when
+     * unlocked for decrypt-verification.
      */
     suspend fun hide(
         ids: List<Long>,
         tier: VaultTier,
         progress: (Int, Int) -> Unit,
         priv: PrivateHandle? = null,
-    ): HideResult = withContext(io) {
+    ): HideResult = serialized {
         guard.publicHandle(tier)
+        guard.requirePrivateKey(tier)
         store.ensure(tier)
         var hidden = 0
+        var aborted: String? = null
         val missing = mutableListOf<Long>()
+        val skipped = mutableListOf<Long>()
         val failed = mutableListOf<Pair<Long, String>>()
-        ids.forEachIndexed { i, id ->
-            ensureActive()
-            when (val reason = hideOne(id, tier, priv)) {
+        for ((i, id) in ids.withIndex()) {
+            currentCoroutineContext().ensureActive()
+            val reason = perItem("hide", id, { aborted = it }) { hideOne(id, tier, priv) }
+            when (reason) {
                 null -> hidden++
                 MISSING -> missing += id
+                SKIPPED -> skipped += id
                 else -> failed += id to reason
             }
             progress(i + 1, ids.size)
+            if (aborted != null) break
         }
-        HideResult(hidden, missing, failed)
+        HideResult(hidden, missing, failed, skipped, aborted)
     }
 
-    /** Null on success, else [MISSING] or a failure reason. */
+    /** Null on success, else [MISSING], [SKIPPED] or a failure reason. */
     private suspend fun hideOne(id: Long, tier: VaultTier, priv: PrivateHandle?): String? {
-        val row = mediaDao.get(id) ?: return "not indexed"
+        val row = mediaDao.get(id) ?: return SKIPPED
         if (!fileOps.exists(row.path)) {
             mediaDao.delete(id)
             return MISSING
         }
         val original = File(row.path)
+        if (alreadyVaulted(original)) return SKIPPED
         if (fileOps.freeBytes(store.filesDir(tier)) < original.length() + SPACE_MARGIN) return INSUFFICIENT_SPACE
-        val pub = guard.publicHandle(tier) // re-verified before every encrypt; a mismatch aborts the batch
+        val pub = guard.publicHandle(tier) // re-verified before every encrypt
         val uuid = UUID.randomUUID().toString()
         val part = File(store.filesDir(tier), uuid + VaultStore.PART)
-        val rel = "${VaultStore.FILES}/$uuid${VaultStore.ENC}"
-        var thumb: Thumb? = null
         var committed = false
         try {
             val stamp = original.lastModified()
             val w = FileInputStream(original).use { VaultIo.writeEncrypted(part, pub, it, encrypt) }
             verify(id, part, w, original, priv)?.let { return it }
-            VaultIo.moveAtomic(part, store.resolve(tier, rel))
-            thumb = encryptThumb(row, tier, uuid, pub)
+            VaultIo.moveAtomic(part, store.resolve(tier, files.encRel(uuid)))
+            val thumb = encryptThumb(row, tier, uuid, pub)
+            val categories = categoriesOf(id)
+            val verified = priv != null
+            files.writeMeta(
+                tier, uuid, pub,
+                VaultMeta(
+                    w.wrappedKey, thumb?.wrappedKey, w.plainSha256, row.path, row.kind, w.plainLength,
+                    categories, System.currentTimeMillis(), verified,
+                ),
+            )
+            guard.requirePrivateKey(tier) // never delete an original into a vault nobody can open
             val vaultRow = VaultRow(
-                originalPath = row.path, tier = tier, vaultFile = rel, kind = row.kind,
-                sizeBytes = w.plainLength, categories = categoriesOf(id), wrappedFileKey = w.wrappedKey,
+                originalPath = row.path, tier = tier, vaultFile = files.encRel(uuid), kind = row.kind,
+                sizeBytes = w.plainLength, categories = categories, wrappedFileKey = w.wrappedKey,
                 thumbFile = thumb?.rel, thumbWrappedKey = thumb?.wrappedKey, plainSha256 = w.plainSha256,
+                verified = verified,
             )
             return withContext(NonCancellable) {
                 vaultDao.insert(vaultRow) // committed before the original is touched
                 committed = true
                 finishHide(id, original, stamp)
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "hide failed for media $id: ${e.javaClass.name}")
-            return HIDE_FAILED
         } finally {
             part.delete()
-            if (!committed) {
-                store.resolve(tier, rel).delete()
-                thumb?.let { store.resolve(tier, it.rel).delete() }
-            }
+            if (!committed) files.discard(tier, uuid)
         }
+    }
+
+    /** The same bytes from the same path are already in the vault (e.g. its delete failed earlier). */
+    private suspend fun alreadyVaulted(original: File): Boolean {
+        val rows = vaultDao.byOriginalPath(original.path)
+        if (rows.isEmpty()) return false
+        val now = VaultIo.digest(original)
+        return rows.any { Digest(it.plainSha256, it.sizeBytes) == now }
     }
 
     /** Null when [part] is a faithful encryption of [original] as it is now; else the reason. */
@@ -158,7 +203,7 @@ class HideManager(
         }
         if (!deleted) return ORIGINAL_NOT_DELETED
         try {
-            fileOps.removeFromMediaStore(id)
+            fileOps.removeFromMediaStore(id, original.path)
             mediaDao.delete(id)
         } catch (e: Exception) {
             Log.w(TAG, "index cleanup failed for media $id: ${e.javaClass.name}") // next scan drops it
@@ -174,8 +219,6 @@ class HideManager(
         return cats.distinct().joinToString(",") { it.name }
     }
 
-    private class Thumb(val rel: String, val wrappedKey: ByteArray)
-
     /** 320 px JPEG (q80) under its own per-file key; null (no thumbnail) on any failure. */
     private suspend fun encryptThumb(row: MediaRow, tier: VaultTier, uuid: String, pub: PublicHandle): Thumb? {
         val jpeg = try {
@@ -188,187 +231,82 @@ class HideManager(
             return null
         }
         return try {
-            writeThumb(tier, uuid, pub, jpeg)
+            files.writeThumb(tier, uuid, pub, jpeg)
         } finally {
             jpeg.fill(0)
-        }
-    }
-
-    private fun writeThumb(tier: VaultTier, uuid: String, pub: PublicHandle, jpeg: ByteArray): Thumb? {
-        val part = File(store.thumbsDir(tier), "$uuid.thumb${VaultStore.PART}")
-        val rel = "${VaultStore.THUMBS}/$uuid.thumb${VaultStore.ENC}"
-        return try {
-            val w = VaultIo.writeEncrypted(part, pub, ByteArrayInputStream(jpeg), encrypt)
-            if (!VaultIo.ciphertextIntact(part, w)) return null
-            VaultIo.moveAtomic(part, store.resolve(tier, rel))
-            Thumb(rel, w.wrappedKey)
-        } catch (e: Exception) {
-            Log.w(TAG, "thumbnail encrypt failed: ${e.javaClass.name}")
-            null
-        } finally {
-            part.delete()
         }
     }
 
     /**
      * Restores each item to its original path (`name (1).ext`… if taken; `Pictures/Restored/` if
-     * the folder is gone), verifying the SHA-256 before the file gets its final name. The vault
-     * copy and row are deleted only after that. [priv] must be the items' tier key.
+     * the folder is gone or unwritable), verifying the SHA-256 before the file gets its final
+     * name. The vault copy and row are deleted only after that. [priv] must be the items' tier key.
+     * A missing `.enc` is reported as "vault file missing" (the row is kept for the UI to remove).
      */
-    suspend fun unhide(vaultIds: List<Long>, priv: PrivateHandle): UnhideResult = withContext(io) {
+    suspend fun unhide(vaultIds: List<Long>, priv: PrivateHandle): UnhideResult = serialized {
         var restored = 0
         val failed = mutableListOf<Pair<Long, String>>()
         for (vid in vaultIds) {
-            ensureActive()
-            val reason = unhideOne(vid, priv)
+            currentCoroutineContext().ensureActive()
+            val reason = perItem("unhide", vid, {}) { restore.unhideOne(vid, priv) }
             if (reason == null) restored++ else failed += vid to reason
         }
         UnhideResult(restored, failed)
     }
 
-    private suspend fun unhideOne(vid: Long, priv: PrivateHandle): String? {
-        val row = vaultDao.get(vid) ?: return "not found"
-        val original = File(row.originalPath)
-        val dir = original.parentFile?.takeIf { it.isDirectory } ?: File(externalRoot, RESTORED_DIR)
-        if (!dir.isDirectory && !dir.mkdirs()) return "cannot create folder"
-        if (fileOps.freeBytes(dir) < row.sizeBytes + SPACE_MARGIN) return INSUFFICIENT_SPACE
-        val target = freeName(dir, original.name) ?: return "no free name"
-        val part = File(dir, target.name + VaultStore.PART)
-        // decryptTo creates the part (never reusing an existing file) and removes it on failure.
-        val got = try {
-            VaultIo.decryptTo(priv, row.wrappedFileKey, store.resolve(row.tier, row.vaultFile), part)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "unhide decrypt failed for vault item $vid: ${e.javaClass.name}")
-            return "decrypt failed"
-        }
-        try {
-            if (got != Digest(row.plainSha256, row.sizeBytes)) return VERIFY_FAILED
-            VaultIo.moveNoReplace(part, target)
-        } catch (e: Exception) {
-            Log.w(TAG, "unhide rename failed for vault item $vid: ${e.javaClass.name}")
-            return "restore failed"
-        } finally {
-            part.delete() // ours from here on; gone already if the rename succeeded
-        }
-        withContext(NonCancellable) {
-            try {
-                fileOps.scanIntoMediaStore(target.path)
-            } catch (e: Exception) {
-                Log.w(TAG, "media scan failed for vault item $vid: ${e.javaClass.name}")
-            }
-            deleteVaultFiles(row)
-            vaultDao.delete(row.id)
-        }
-        return null
-    }
-
-    /** First of `name.ext`, `name (1).ext`, `name (2).ext`… where neither it nor its `.part` exists. */
-    private fun freeName(dir: File, name: String): File? {
-        val dot = name.lastIndexOf('.').takeIf { it > 0 } ?: name.length
-        val base = name.substring(0, dot)
-        val ext = name.substring(dot)
-        for (n in 0..MAX_SUFFIX) {
-            val f = File(dir, if (n == 0) name else "$base ($n)$ext")
-            if (!fileOps.exists(f.path) && !fileOps.exists(f.path + VaultStore.PART)) return f
-        }
-        return null
-    }
-
     /**
      * Re-encrypts each item to [to] (pinned key) with [priv], the items' current tier key. The new
      * row is committed before the old files and row are deleted, so one copy always exists.
+     * Moved rows are unverified until [verifyPending] runs for [to].
      */
-    suspend fun moveTier(vaultIds: List<Long>, to: VaultTier, priv: PrivateHandle): MoveResult = withContext(io) {
+    suspend fun moveTier(vaultIds: List<Long>, to: VaultTier, priv: PrivateHandle): MoveResult = serialized {
         guard.publicHandle(to)
+        guard.requirePrivateKey(to)
         store.ensure(to)
         var moved = 0
+        var aborted: String? = null
         val failed = mutableListOf<Pair<Long, String>>()
         for (vid in vaultIds) {
-            ensureActive()
-            val reason = moveOne(vid, to, priv)
+            currentCoroutineContext().ensureActive()
+            val reason = perItem("move", vid, { aborted = it }) { restore.moveOne(vid, to, priv) }
             if (reason == null) moved++ else failed += vid to reason
+            if (aborted != null) break
         }
-        MoveResult(moved, failed)
+        MoveResult(moved, failed, aborted)
     }
 
-    private suspend fun moveOne(vid: Long, to: VaultTier, priv: PrivateHandle): String? {
-        val row = vaultDao.get(vid) ?: return "not found"
-        if (row.tier == to) return null
-        if (fileOps.freeBytes(store.filesDir(to)) < row.sizeBytes + SPACE_MARGIN) return INSUFFICIENT_SPACE
-        val pub = guard.publicHandle(to)
-        val uuid = UUID.randomUUID().toString()
-        val part = File(store.filesDir(to), uuid + VaultStore.PART)
-        val rel = "${VaultStore.FILES}/$uuid${VaultStore.ENC}"
-        var thumb: Thumb? = null
-        var committed = false
-        try {
-            val source = VaultCrypto.decryptingStream(priv, row.wrappedFileKey, store.resolve(row.tier, row.vaultFile))
-            val w = Channels.newInputStream(source).use { VaultIo.writeEncrypted(part, pub, it, encrypt) }
-            // Without the target key: the plaintext that went in is the original, and the
-            // ciphertext on disk is complete and as written.
-            if (Digest(w.plainSha256, w.plainLength) != Digest(row.plainSha256, row.sizeBytes) ||
-                !VaultIo.ciphertextIntact(part, w)
-            ) {
-                return VERIFY_FAILED
-            }
-            VaultIo.moveAtomic(part, store.resolve(to, rel))
-            thumb = row.thumbFile?.let { reencryptThumb(row, it, to, uuid, pub, priv) }
-            val moved = VaultRow(
-                originalPath = row.originalPath, tier = to, vaultFile = rel, kind = row.kind,
-                sizeBytes = row.sizeBytes, categories = row.categories, wrappedFileKey = w.wrappedKey,
-                thumbFile = thumb?.rel, thumbWrappedKey = thumb?.wrappedKey, plainSha256 = row.plainSha256,
-            )
-            withContext(NonCancellable) {
-                vaultDao.insert(moved)
-                committed = true
-                vaultDao.delete(row.id)
-                deleteVaultFiles(row)
-            }
-            return null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "move failed for vault item $vid: ${e.javaClass.name}")
-            return "move failed"
-        } finally {
-            part.delete()
-            if (!committed) {
-                store.resolve(to, rel).delete()
-                thumb?.let { store.resolve(to, it.rel).delete() }
-            }
+    /** After unlock: fully decrypts each unverified row of [tier] and checks its SHA-256. */
+    suspend fun verifyPending(tier: VaultTier, priv: PrivateHandle): VerifyResult = serialized {
+        var verified = 0
+        val failed = mutableListOf<Pair<Long, String>>()
+        for (row in vaultDao.unverified(tier)) {
+            currentCoroutineContext().ensureActive()
+            val reason = perItem("verify", row.id, {}) { restore.verifyOne(row, priv) }
+            if (reason == null) verified++ else failed += row.id to reason
         }
+        VerifyResult(verified, failed)
     }
 
-    private fun reencryptThumb(row: VaultRow, rel: String, to: VaultTier, uuid: String, pub: PublicHandle, priv: PrivateHandle): Thumb? {
-        val key = row.thumbWrappedKey ?: return null
-        val jpeg = try {
-            VaultIo.decryptSmall(priv, key, store.resolve(row.tier, rel))
-        } catch (e: Exception) {
-            Log.w(TAG, "thumbnail decrypt failed for vault item ${row.id}: ${e.javaClass.name}")
-            return null
-        }
-        return try {
-            writeThumb(to, uuid, pub, jpeg)
-        } finally {
-            jpeg.fill(0)
-        }
-    }
-
-    private fun deleteVaultFiles(row: VaultRow) {
-        store.resolve(row.tier, row.vaultFile).delete()
-        row.thumbFile?.let { store.resolve(row.tier, it).delete() }
+    /** Recreates rows lost from the index from the tier's `.meta` files; returns how many. */
+    suspend fun rebuildIndex(tier: VaultTier, priv: PrivateHandle): Int = serialized {
+        rebuilder.rebuild(tier, priv)
     }
 
     /**
-     * Startup: deletes leftover `*.part` / `*.tmp` under both tiers' `files/` and `thumbs/`.
-     * `.enc` files without an index row are never deleted (they may be the only copy if the
-     * index was lost); only their count is logged. Blocking; call off the main thread.
+     * Startup: deletes leftover `*.part` / `*.tmp` under both tiers' `files/` and `thumbs/`, and
+     * the plaintext partial of an interrupted unhide. `.enc` files without an index row are never
+     * deleted (they may be the only copy if the index was lost); only their count is logged.
      */
-    fun cleanupPartials() {
+    suspend fun cleanupPartials() = serialized {
+        settings.get(VaultRestore.INFLIGHT_KEY)?.let { path ->
+            val f = File(path)
+            if (f.name.startsWith(".gs-") && f.name.endsWith(VaultStore.PART) && f.exists() && !f.delete()) {
+                Log.w(TAG, "cannot delete an unhide partial")
+            }
+            settings.delete(VaultRestore.INFLIGHT_KEY)
+        }
         val known = try {
-            vaultDao.fileRefs().flatMap { r -> listOfNotNull(r.tier to r.vaultFile, r.thumbFile?.let { r.tier to it }) }.toSet()
+            vaultDao.fileRefs().map { it.tier to it.vaultFile }.toSet()
         } catch (e: Exception) {
             Log.w(TAG, "cannot read vault index: ${e.javaClass.name}")
             null
@@ -380,7 +318,9 @@ class HideManager(
                     val name = f.name
                     if (name.endsWith(VaultStore.PART) || name.endsWith(VaultStore.TMP)) {
                         if (!f.delete()) Log.w(TAG, "cannot delete a partial vault file")
-                    } else if (name.endsWith(VaultStore.ENC) && known != null && (tier to "${dir.name}/$name") !in known) {
+                    } else if (dir.name == VaultStore.FILES && name.endsWith(VaultStore.ENC) && known != null &&
+                        (tier to "${VaultStore.FILES}/$name") !in known
+                    ) {
                         orphans++
                     }
                 }
@@ -389,23 +329,42 @@ class HideManager(
         if (orphans > 0) Log.w(TAG, "$orphans vault files have no index row; left in place")
     }
 
+    private suspend fun <T> serialized(block: suspend () -> T): T = lock.withLock { withContext(io) { block() } }
+
+    /**
+     * Runs one item; a vault key failure is reported to [abort] (stop the batch), any other
+     * exception becomes that item's failure. Cancellation propagates.
+     */
+    private suspend fun perItem(op: String, id: Long, abort: (String) -> Unit, block: suspend () -> String?): String? =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: VaultKeyMismatchException) {
+            abort(KEY_MISMATCH)
+            KEY_MISMATCH
+        } catch (e: VaultPrivateKeyMissingException) {
+            abort(PRIVATE_KEY_MISSING)
+            PRIVATE_KEY_MISSING
+        } catch (e: Exception) {
+            Log.w(TAG, "$op failed for item $id: ${e.javaClass.name}")
+            "$op failed"
+        }
+
     private fun MediaRow.toItem() = MediaItem(
         id = id, path = path, kind = kind, sizeBytes = sizeBytes, mime = mime, width = width,
         height = height, dateTakenMs = dateTakenMs, durationMs = durationMs, generation = generation,
     )
 
-    private companion object {
-        const val TAG = "HideManager"
-        const val SPACE_MARGIN = 52_428_800L // 50 MB
-        const val THUMB_PX = 320
-        const val MAX_SUFFIX = 9999
-        const val RESTORED_DIR = "Pictures/Restored"
-        const val MISSING = "missing"
-        const val INSUFFICIENT_SPACE = "insufficient space"
-        const val ORIGINAL_CHANGED = "original changed during hide"
-        const val ORIGINAL_NOT_DELETED = "original not deleted"
-        const val CHANGED_AFTER_COPY = "original changed after copy; not deleted"
-        const val VERIFY_FAILED = "verify failed"
-        const val HIDE_FAILED = "hide failed"
+    companion object {
+        const val KEY_MISMATCH = "vault public key mismatch"
+        const val PRIVATE_KEY_MISSING = "vault private key missing"
+        private const val TAG = "HideManager"
+        private const val THUMB_PX = 320
+        private const val MISSING = "missing"
+        private const val SKIPPED = "skipped"
+        private const val ORIGINAL_CHANGED = "original changed during hide"
+        private const val ORIGINAL_NOT_DELETED = "original not deleted"
+        private const val CHANGED_AFTER_COPY = "original changed after copy; not deleted"
     }
 }

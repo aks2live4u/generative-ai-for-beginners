@@ -1,13 +1,17 @@
 package com.aks.gallerysorter.vault
 
 import android.content.Context
+import android.util.Log
 import com.aks.gallerysorter.core.VaultTier
+import com.aks.gallerysorter.index.entities.VaultRow
 import java.io.BufferedOutputStream
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.nio.ByteBuffer
 import java.nio.channels.Channels
 import java.nio.channels.FileChannel
 import java.nio.file.Files
@@ -56,6 +60,7 @@ class VaultStore(private val standardRoot: File, private val highSecurityRoot: F
         const val PART = ".part"
         const val TMP = ".tmp"
         const val ENC = ".enc"
+        const val META = ".meta"
         const val STANDARD_ROOT = "/storage/emulated/0/.vault-gs"
         const val EXTERNAL_ROOT = "/storage/emulated/0"
 
@@ -160,6 +165,21 @@ internal object VaultIo {
         }
     }
 
+    /** Writes [bytes] to a new file [part] and fsyncs it; deletes it on failure. */
+    fun writeDurably(part: File, bytes: ByteArray) {
+        val channel = FileChannel.open(part.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+        try {
+            channel.use { ch ->
+                val buf = ByteBuffer.wrap(bytes)
+                while (buf.hasRemaining()) ch.write(buf)
+                ch.force(true)
+            }
+        } catch (t: Throwable) {
+            part.delete()
+            throw t
+        }
+    }
+
     /** Atomic rename inside one vault directory (unique uuid names), then a directory fsync. */
     fun moveAtomic(from: File, to: File) {
         Files.move(from.toPath(), to.toPath(), StandardCopyOption.ATOMIC_MOVE)
@@ -199,5 +219,62 @@ internal object VaultIo {
 
         override fun skip(n: Long): Long = throw IOException("skip not supported")
         override fun markSupported() = false
+    }
+}
+
+internal class Thumb(val rel: String, val wrappedKey: ByteArray)
+
+/**
+ * The files one vault item owns in a tier, all named by its uuid: `files/<uuid>.enc`,
+ * `files/<uuid>.meta` (sealed [VaultMeta], for rebuilding a lost index) and
+ * `thumbs/<uuid>.thumb.enc`.
+ */
+internal class VaultFiles(private val store: VaultStore, private val encrypt: Encryptor) {
+    fun encRel(uuid: String) = "${VaultStore.FILES}/$uuid${VaultStore.ENC}"
+    fun metaRel(uuid: String) = "${VaultStore.FILES}/$uuid${VaultStore.META}"
+    fun thumbRel(uuid: String) = "${VaultStore.THUMBS}/$uuid.thumb${VaultStore.ENC}"
+    fun uuidOf(vaultFile: String) = vaultFile.removePrefix("${VaultStore.FILES}/").removeSuffix(VaultStore.ENC)
+
+    /** Encrypts a thumbnail JPEG under its own key via `.part`; null (no thumbnail) on failure. */
+    fun writeThumb(tier: VaultTier, uuid: String, pub: PublicHandle, jpeg: ByteArray): Thumb? {
+        val part = File(store.thumbsDir(tier), "$uuid.thumb${VaultStore.PART}")
+        return try {
+            val w = VaultIo.writeEncrypted(part, pub, ByteArrayInputStream(jpeg), encrypt)
+            if (!VaultIo.ciphertextIntact(part, w)) return null
+            VaultIo.moveAtomic(part, store.resolve(tier, thumbRel(uuid)))
+            Thumb(thumbRel(uuid), w.wrappedKey)
+        } catch (e: Exception) {
+            Log.w(TAG, "thumbnail encrypt failed: ${e.javaClass.name}")
+            null
+        } finally {
+            part.delete()
+        }
+    }
+
+    /** Seals [meta] to the tier key and writes it durably (`.part`, fsync, rename). Throws on failure. */
+    fun writeMeta(tier: VaultTier, uuid: String, pub: PublicHandle, meta: VaultMeta) {
+        val part = File(store.filesDir(tier), "$uuid${VaultStore.META}${VaultStore.PART}")
+        try {
+            VaultIo.writeDurably(part, meta.seal(pub))
+            VaultIo.moveAtomic(part, store.resolve(tier, metaRel(uuid)))
+        } finally {
+            part.delete()
+        }
+    }
+
+    /** Removes an uncommitted item's files. */
+    fun discard(tier: VaultTier, uuid: String) = deleteAll(tier, uuid, thumbRel(uuid))
+
+    /** Deletes a committed row's files; `.meta` first, so a rebuild never resurrects a half-deleted item. */
+    fun delete(row: VaultRow) = deleteAll(row.tier, uuidOf(row.vaultFile), row.thumbFile)
+
+    private fun deleteAll(tier: VaultTier, uuid: String, thumb: String?) {
+        store.resolve(tier, metaRel(uuid)).delete()
+        store.resolve(tier, encRel(uuid)).delete()
+        thumb?.let { store.resolve(tier, it).delete() }
+    }
+
+    private companion object {
+        const val TAG = "VaultFiles"
     }
 }

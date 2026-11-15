@@ -14,7 +14,12 @@ interface FileOps {
     /** Deletes a gallery original; true only if it is gone afterwards. */
     fun deleteOriginal(path: String): Boolean
     fun scanIntoMediaStore(path: String)
-    fun removeFromMediaStore(id: Long)
+
+    /**
+     * Drops MediaStore entry [id], but only while it still describes [deletedPath]: a MediaStore
+     * delete also deletes the file, which may have moved since it was indexed.
+     */
+    fun removeFromMediaStore(id: Long, deletedPath: String)
 }
 
 /** Direct file access (needs all-files access), MediaScanner for adds, ContentResolver for removals. */
@@ -34,8 +39,8 @@ class AndroidFileOps(context: Context) : FileOps {
         MediaScannerConnection.scanFile(app, arrayOf(path), null, null)
     }
 
-    override fun removeFromMediaStore(id: Long) {
+    override fun removeFromMediaStore(id: Long, deletedPath: String) {
         val uri = ContentUris.withAppendedId(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), id)
-        app.contentResolver.delete(uri, null, null)
+        app.contentResolver.delete(uri, "${MediaStore.MediaColumns.DATA} = ?", arrayOf(deletedPath))
     }
 }
