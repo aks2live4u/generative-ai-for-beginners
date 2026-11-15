@@ -44,7 +44,7 @@ class ScanService : Service() {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "scan failed", e)
+                    Log.e(TAG, "scan failed: ${e.javaClass.name}")
                 } finally {
                     ServiceCompat.stopForeground(this@ScanService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     stopSelf()

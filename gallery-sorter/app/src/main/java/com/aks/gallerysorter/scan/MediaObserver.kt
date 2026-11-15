@@ -44,7 +44,7 @@ class MediaObserver(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "cannot enqueue scan", e)
+                Log.w(TAG, "cannot enqueue scan: ${e.javaClass.name}")
             }
         }
     }

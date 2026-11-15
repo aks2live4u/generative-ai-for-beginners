@@ -32,7 +32,7 @@ class RetrieverFrameSource(private val context: Context) : FrameSource {
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "cannot open video ${item.id} for frames", e)
+                Log.w(TAG, "cannot open video ${item.id} for frames: ${e.javaClass.name}")
                 timesMs.map { null }
             } finally {
                 retriever.release()

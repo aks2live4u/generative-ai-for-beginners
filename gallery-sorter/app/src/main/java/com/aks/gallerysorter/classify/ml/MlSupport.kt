@@ -70,7 +70,7 @@ internal class LiteRtModel private constructor(
                     }
                 }
             } catch (e: Exception) {
-                Log.w(ML_TAG, "model asset $assetPath unavailable", e)
+                Log.w(ML_TAG, "model asset $assetPath unavailable: ${e.javaClass.name}")
                 return null
             }
             val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "litert-$assetPath").apply { isDaemon = true } }
@@ -86,7 +86,7 @@ internal class LiteRtModel private constructor(
                 )
                 LiteRtModel(executor, runner)
             } catch (t: Throwable) {
-                Log.w(ML_TAG, "cannot load model $assetPath", t)
+                Log.w(ML_TAG, "cannot load model $assetPath: ${t.javaClass.name}")
                 executor.shutdown()
                 null
             }
@@ -100,7 +100,7 @@ internal class LiteRtModel private constructor(
                 return try {
                     LiteRtInstance(Interpreter(buffer, Interpreter.Options().addDelegate(gpu)), gpu)
                 } catch (t: Throwable) {
-                    Log.i(ML_TAG, "GPU delegate failed for $assetPath", t)
+                    Log.i(ML_TAG, "GPU delegate failed for $assetPath: ${t.javaClass.name}")
                     gpu.close()
                     throw t
                 }
