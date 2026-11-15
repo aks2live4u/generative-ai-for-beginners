@@ -1,0 +1,61 @@
+package com.aks.gallerysorter.ui.dupes
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.aks.gallerysorter.index.AppDatabase
+import com.aks.gallerysorter.index.dao.DupeItem
+import com.aks.gallerysorter.lock.LockState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
+
+/** One duplicate group; [keep] is what the user keeps (initially the suggested keep). */
+data class DupeGroupUi(val id: Long, val items: List<DupeItem>, val keep: Set<Long>)
+
+data class DupesState(val loaded: Boolean = false, val groups: List<DupeGroupUi> = emptyList())
+
+/**
+ * Duplicate groups side by side. While locked, a group with any lockable member is hidden
+ * (DupeDao.visibleGroups). The user can change what is kept; [toDelete] is everything else
+ * in the visible groups, and is only ever deleted through the system trash dialog.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class DuplicatesViewModel(db: () -> AppDatabase, lockState: LockState) : ViewModel() {
+    /** User changes to the suggested keep, per group. */
+    private val keepChoice = MutableStateFlow<Map<Long, Set<Long>>>(emptyMap())
+
+    val state: StateFlow<DupesState> = combine(
+        lockState.includeLocked.flatMapLatest { inc ->
+            flow<List<DupeItem>?> {
+                if (!inc) emit(null) // a lock drops the unlocked groups before the re-query returns
+                emitAll(db().dupeDao().visibleGroups(inc))
+            }
+        }.flowOn(Dispatchers.IO),
+        keepChoice,
+    ) { rows, choice ->
+        if (rows == null) return@combine DupesState()
+        DupesState(
+            loaded = true,
+            groups = rows.groupBy { it.groupId }.map { (id, items) ->
+                DupeGroupUi(id, items, choice[id] ?: items.filter { it.suggestedKeep }.map { it.media.id }.toSet())
+            },
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, DupesState())
+
+    fun toggleKeep(groupId: Long, mediaId: Long) {
+        val group = state.value.groups.firstOrNull { it.id == groupId } ?: return
+        val keep = if (mediaId in group.keep) group.keep - mediaId else group.keep + mediaId
+        keepChoice.value = keepChoice.value + (groupId to keep)
+    }
+
+    /** The visible members not kept ("Delete N suggested"). */
+    fun toDelete(): List<Long> = state.value.groups.flatMap { g -> g.items.map { it.media.id }.filter { it !in g.keep } }
+}

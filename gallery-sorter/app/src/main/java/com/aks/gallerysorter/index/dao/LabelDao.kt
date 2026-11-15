@@ -21,6 +21,9 @@ abstract class LabelDao {
     @Query("DELETE FROM labels WHERE mediaId = :mediaId")
     abstract suspend fun clearLabels(mediaId: Long)
 
+    @Query("DELETE FROM labels WHERE mediaId = :mediaId AND category = :category")
+    abstract suspend fun deleteLabel(mediaId: Long, category: Category)
+
     @Query("SELECT * FROM labels WHERE mediaId = :mediaId")
     abstract suspend fun labelsFor(mediaId: Long): List<LabelRow>
 

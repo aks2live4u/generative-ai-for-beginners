@@ -1,5 +1,10 @@
 package com.aks.gallerysorter.index.dao
 
+/** The `:hidden` binding for [LOCK_FILTER]. */
+internal val HIDDEN_NAMES: List<String> get() = LabelDao.LOCKED_HIDDEN.map { it.name }
+
+internal fun Boolean.bit(): Int = if (this) 1 else 0
+
 /**
  * Shared SQL fragments over `media m`. [IN_CATEGORY] binds `:category` and honours overrides
  * (excluded = removed, not excluded = forced in). [LOCK_FILTER] binds `:includeLocked` (0/1) and

@@ -6,6 +6,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -19,45 +20,64 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.graph
+import com.aks.gallerysorter.ui.dupes.DuplicatesScreen
 import com.aks.gallerysorter.ui.grid.GridScreen
 import com.aks.gallerysorter.ui.grid.GridSource
 import com.aks.gallerysorter.ui.home.HomeActions
 import com.aks.gallerysorter.ui.home.HomeScreen
 import com.aks.gallerysorter.ui.label
+import com.aks.gallerysorter.ui.onboarding.OnboardingScreen
+import com.aks.gallerysorter.ui.onboarding.OnboardingViewModel
+import com.aks.gallerysorter.ui.people.PeopleScreen
+import com.aks.gallerysorter.ui.places.PlacesScreen
+import com.aks.gallerysorter.ui.review.ReviewScreen
+import com.aks.gallerysorter.ui.settings.AboutScreen
+import com.aks.gallerysorter.ui.settings.PastPhonesScreen
+import com.aks.gallerysorter.ui.settings.SettingsScreen
 import com.aks.gallerysorter.ui.vault.VaultScreen
 import com.aks.gallerysorter.ui.vault.VaultViewerScreen
 import com.aks.gallerysorter.ui.viewer.ViewerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Route names. Screens marked 14b are placeholders until Task 14b replaces them. */
+/** Route names. */
 object Routes {
     const val HOME = "home"
     const val GRID = "grid/{source}"
     const val VIEWER = "viewer/{source}/{index}"
     const val VAULT = "vault"
     const val VAULT_VIEWER = "vaultviewer/{tier}/{index}"
-    const val ONBOARDING = "onboarding" // 14b
-    const val PEOPLE = "people" // 14b
+    const val ONBOARDING = "onboarding"
+    const val PEOPLE = "people"
     const val PLACES = "places"
-    const val REVIEW = "review" // 14b
-    const val DUPLICATES = "duplicates" // 14b
-    const val SETTINGS = "settings" // 14b
-    const val ABOUT = "about" // 14b
+    const val REVIEW = "review"
+    const val DUPLICATES = "duplicates"
+    const val SETTINGS = "settings"
+    const val PAST_PHONES = "pastphones"
+    const val ABOUT = "about"
 
     fun grid(source: GridSource) = "grid/${source.encode()}"
     fun viewer(source: GridSource, index: Int) = "viewer/${source.encode()}/$index"
     fun vaultViewer(tier: VaultTier, index: Int) = "vaultviewer/${tier.name}/$index"
 }
 
+/** The app's screens. Until onboarding has been completed, it starts there instead of Home. */
 @Composable
 fun AppNav(nav: NavHostController = rememberNavController()) {
     val graph = LocalContext.current.graph
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { graph.notices.collect { snackbar.showSnackbar(it) } }
+    // Read on IO (the index must not open on the main thread); nothing is shown until it is known.
+    val start by produceState<String?>(null) {
+        value = withContext(Dispatchers.IO) { if (OnboardingViewModel.isDone(graph.db.settingsDao())) Routes.HOME else Routes.ONBOARDING }
+    }
+    val startRoute = start ?: return
 
     Box(Modifier.fillMaxSize()) {
-        NavHost(nav, startDestination = Routes.HOME) {
+        NavHost(nav, startDestination = startRoute) {
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(onDone = { nav.navigate(Routes.HOME) { popUpTo(Routes.ONBOARDING) { inclusive = true } } })
+            }
             composable(Routes.HOME) {
                 HomeScreen(
                     HomeActions(
@@ -76,8 +96,16 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                 val source = GridSource.decode(entry.arguments?.getString("source").orEmpty())
                 val title = when (source) {
                     is GridSource.OfCategory -> source.category.label
-                    is GridSource.OfAlbum -> produceState("Album", source.albumId) {
-                        value = withContext(Dispatchers.IO) { graph.db.albumDao().get(source.albumId)?.name } ?: "Album"
+                    is GridSource.OfCity -> source.city
+                    else -> produceState("", source) {
+                        value = withContext(Dispatchers.IO) {
+                            when (source) {
+                                is GridSource.OfAlbum -> graph.db.albumDao().get(source.albumId)?.name ?: "Album"
+                                is GridSource.OfPerson -> graph.db.peopleDao().person(source.personId)?.let { it.name ?: if (it.isMe) "Me" else null } ?: "Person"
+                                is GridSource.OfTrip -> graph.scanSettings.trips().firstOrNull { it.startMs == source.startMs }?.name ?: "Trip"
+                                else -> ""
+                            }
+                        }
                     }.value
                 }
                 GridScreen(
@@ -110,18 +138,22 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                     onBack = { nav.popBackStack() },
                 )
             }
-            placeholder(nav, Routes.ONBOARDING, "Welcome")
-            placeholder(nav, Routes.PEOPLE, "People")
-            placeholder(nav, Routes.PLACES, "Places")
-            placeholder(nav, Routes.REVIEW, "Review")
-            placeholder(nav, Routes.DUPLICATES, "Duplicates")
-            placeholder(nav, Routes.SETTINGS, "Settings")
-            placeholder(nav, Routes.ABOUT, "About")
+            composable(Routes.PEOPLE) {
+                PeopleScreen(onOpen = { nav.navigate(Routes.grid(GridSource.OfPerson(it))) }, onBack = { nav.popBackStack() })
+            }
+            composable(Routes.PLACES) { PlacesScreen(onOpen = { nav.navigate(Routes.grid(it)) }, onBack = { nav.popBackStack() }) }
+            composable(Routes.REVIEW) { ReviewScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.DUPLICATES) { DuplicatesScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    onPastPhones = { nav.navigate(Routes.PAST_PHONES) },
+                    onAbout = { nav.navigate(Routes.ABOUT) },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(Routes.PAST_PHONES) { PastPhonesScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.ABOUT) { AboutScreen(onBack = { nav.popBackStack() }) }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
-}
-
-private fun androidx.navigation.NavGraphBuilder.placeholder(nav: NavHostController, route: String, title: String) {
-    composable(route) { ComingSoon(title) { nav.popBackStack() } }
 }

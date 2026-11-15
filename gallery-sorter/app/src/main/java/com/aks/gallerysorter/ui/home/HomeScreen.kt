@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.aks.gallerysorter.core.Category
+import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.graph
 import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.SecureWhile
@@ -70,7 +71,8 @@ fun HomeScreen(actions: HomeActions) {
     val graph = LocalContext.current.graph
     val context = LocalContext.current
     val vm = graphViewModel { g -> HomeViewModel({ g.db }, { g.scanSettings }, g.lockState) }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsState(HomeState())
+    val unlockedTiers by graph.lockState.unlocked.collectAsState()
     val albums by remember { graph.dbFlow { it.albumDao().albums() } }.collectAsState(emptyList())
     val scope = rememberCoroutineScope()
     var chargerPrompt by rememberSaveable { mutableStateOf(false) }
@@ -84,8 +86,8 @@ fun HomeScreen(actions: HomeActions) {
         }
     }
     /** Locked destinations unlock first, then open. */
-    fun guarded(locked: Boolean, go: () -> Unit) {
-        if (!locked) go() else scope.launch { if (unlock(context)) go() }
+    fun guarded(locked: Boolean, tier: VaultTier? = null, go: () -> Unit) {
+        if (!locked) go() else scope.launch { if (unlock(context, tier)) go() }
     }
 
     // Previews can show Sensitive items while unlocked (and the recents snapshot is taken before the lock).
@@ -107,7 +109,11 @@ fun HomeScreen(actions: HomeActions) {
             item { EntryTile("People", "${state.people}", onClick = actions.people) }
             item { EntryTile("Places", "${state.cities} places · ${state.trips} trips", onClick = actions.places) }
             item { EntryTile("Duplicates", "${state.duplicateGroups} groups", onClick = actions.duplicates) }
-            item { EntryTile("Review", "${state.review}", locked = !state.unlocked) { guarded(!state.unlocked, actions.review) } }
+            // Review needs the standard tier itself (ReviewViewModel), not just any unlocked vault.
+            item {
+                val reviewLocked = VaultTier.STANDARD !in unlockedTiers
+                EntryTile("Review", "${state.review}", locked = reviewLocked) { guarded(reviewLocked, VaultTier.STANDARD, actions.review) }
+            }
             item { EntryTile("Vault", "", locked = !state.unlocked, onClick = actions.vault) }
             if (albums.isNotEmpty()) {
                 header("Albums")

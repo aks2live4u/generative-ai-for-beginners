@@ -30,6 +30,15 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         tools:node="remove" />
 
+    <!-- Package visibility for exactly the apps checked (backup notice, vivo battery pages); no QUERY_ALL_PACKAGES. -->
+    <queries>
+        <package android:name="com.google.android.apps.photos" />
+        <package android:name="com.vivo.cloud" />
+        <package android:name="com.bbk.cloud" />
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+    </queries>
+
     <application
         android:name=".GallerySorterApp"
         android:allowBackup="false"

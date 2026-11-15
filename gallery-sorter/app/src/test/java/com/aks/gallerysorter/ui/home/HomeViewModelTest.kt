@@ -96,4 +96,28 @@ class HomeViewModelTest {
         assertThat(tile(state, Category.MY_NUDES).previewIds).containsExactly(2L)
         assertThat(tile(state, Category.CAMERA).previewIds).containsExactly(3L)
     }
+
+    /**
+     * stateIn(WhileSubscribed) replays its last value to a new collector. After a lock while Home
+     * was off-screen, that replay must not carry the unlocked previews, not even for one frame.
+     */
+    @Test fun replayAfterLock_neverShowsPreviews() = runBlocking<Unit> {
+        val keys = VaultKeys(tmp.newFolder("keys"), FakeKeyWrapper(), Argon2Params(1, 1024, 1))
+        keys.create("123456".toCharArray())
+        val vm = viewModel()
+        lockState.unlock(VaultTier.STANDARD, keys.unlockWithSecret("123456".toCharArray()))
+        withTimeout(10_000) { vm.state.first { it.loaded && tile(it, Category.MY_NUDES).previewIds.isNotEmpty() } }
+
+        lockState.lockAll()
+        // The very first value a new collector sees, before any re-query.
+        val replayed = vm.state.first()
+
+        assertThat(replayed.unlocked).isFalse()
+        val nudes = tile(replayed, Category.MY_NUDES)
+        assertThat(nudes.locked).isTrue()
+        assertThat(nudes.previewIds).isEmpty()
+        // Previews of open tiles were computed with locked items included, so they go too.
+        assertThat(replayed.groups.flatMap { it.tiles }.flatMap { it.previewIds }).isEmpty()
+        assertThat(nudes.count).isEqualTo(2)
+    }
 }

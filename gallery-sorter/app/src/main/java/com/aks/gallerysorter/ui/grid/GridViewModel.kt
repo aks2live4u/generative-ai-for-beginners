@@ -1,8 +1,6 @@
 package com.aks.gallerysorter.ui.grid
 
-import android.content.ContentUris
 import android.content.IntentSender
-import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,7 +9,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.aks.gallerysorter.AppGraph
-import com.aks.gallerysorter.core.MediaKind
 import com.aks.gallerysorter.core.ScanStatus
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.entities.AlbumItemRow
@@ -20,6 +17,7 @@ import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.OverrideRow
 import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.label
+import com.aks.gallerysorter.ui.trashRequest as systemTrashRequest
 import com.aks.gallerysorter.vault.defaultTierFor
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +28,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -52,7 +52,12 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
     val unlocked: StateFlow<Boolean> get() = lockState.includeLocked
 
     val items: Flow<PagingData<MediaRow>> = lockState.includeLocked
-        .flatMapLatest { inc -> Pager(PagingConfig(pageSize = 60)) { source.paging(graph, inc) }.flow }
+        .flatMapLatest { inc ->
+            flow {
+                val factory = source.pager(graph, inc)
+                emitAll(Pager(PagingConfig(pageSize = 60), pagingSourceFactory = factory).flow)
+            }
+        }
         .flowOn(Dispatchers.IO) // the paging source factory touches the lazy index
         .cachedIn(viewModelScope)
 
@@ -160,13 +165,7 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
     }
 
     /** The system trash confirmation for [ids] (MediaStore.createTrashRequest); never deletes by itself. */
-    suspend fun trashRequest(ids: List<Long>): IntentSender? = withContext(Dispatchers.IO) {
-        val uris = ids.mapNotNull { graph.db.mediaDao().get(it) }.map { row ->
-            val base = if (row.kind == MediaKind.VIDEO) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            ContentUris.withAppendedId(base, row.id)
-        }
-        if (uris.isEmpty()) null else MediaStore.createTrashRequest(graph.appContext.contentResolver, uris, true).intentSender
-    }
+    suspend fun trashRequest(ids: List<Long>): IntentSender? = systemTrashRequest(graph, ids)
 
     private companion object {
         const val TAG = "GridViewModel"

@@ -9,6 +9,7 @@ import com.aks.gallerysorter.lock.LockState
 import com.aks.gallerysorter.scan.ScanSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -37,6 +38,21 @@ data class HomeState(
     val unlocked: Boolean = false,
 )
 
+/**
+ * [this] as it may be shown when [includeLocked] is the current lock. A state built while unlocked,
+ * seen after a lock, loses every preview (open tiles' previews were chosen with locked items
+ * included) and its Sensitive/Documents tiles lock again; counts stay, as spec 6.5 allows.
+ */
+fun HomeState.visibleFor(includeLocked: Boolean): HomeState {
+    if (!unlocked || includeLocked) return this
+    return copy(
+        unlocked = false,
+        groups = groups.map { g ->
+            g.copy(tiles = g.tiles.map { t -> t.copy(locked = t.category in Category.lockedExcluded, previewIds = emptyList()) })
+        },
+    )
+}
+
 /** Home: category tiles by group with counts, plus the People/Places/Duplicates/Review/Vault entries. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
@@ -49,7 +65,7 @@ class HomeViewModel(
 
     private data class Inputs(val counts: Map<Category, Int>, val unlocked: Boolean, val people: Int, val cities: Int, val dupes: Int)
 
-    val state: StateFlow<HomeState> = flow {
+    private val cached: StateFlow<HomeState> = flow {
         val d = db()
         emitAll(
             combine(
@@ -61,6 +77,13 @@ class HomeViewModel(
         .mapLatest { build(it) }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    /**
+     * What Home shows. stateIn replays its last value to a new collector, which can be a state built
+     * while unlocked even though the app has locked since; it is checked against the current lock
+     * on every emission, so a replayed or initial state never carries previews it may not show.
+     */
+    val state: Flow<HomeState> = combine(cached, lockState.includeLocked) { s, includeLocked -> s.visibleFor(includeLocked) }
 
     private suspend fun build(i: Inputs): HomeState {
         val groups = TILE_GROUPS.map { group ->

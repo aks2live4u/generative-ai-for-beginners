@@ -93,6 +93,16 @@ class VaultKeyGuard(
         recordPrivatePin(tier)
     }
 
+    /** [VaultKeys.disableBiometric]; the PIN/passcode keeps working and its pin is unchanged. */
+    fun disableBiometric(tier: VaultTier) = keys(tier).disableBiometric()
+
+    /** True once [createVault] has finished for [tier] (its keys exist and are pinned in the index). */
+    suspend fun isSetUp(tier: VaultTier): Boolean = keys(tier).isCreated() && storedPin(pinKey(tier)) != null
+
+    /** Key files exist from an earlier install (or a crashed setup) but are not pinned: [createVault] needs the existing secret. */
+    suspend fun hasUnpinnedKeys(tier: VaultTier): Boolean =
+        storedPin(pinKey(tier)) == null && (keys(tier).isCreated() || File(VaultKeys.keysDir(store.root(tier)), VaultKeys.PIN_FILE).exists())
+
     /** The pinned public key; throws [VaultKeyMismatchException] when it cannot be verified. */
     suspend fun publicHandle(tier: VaultTier): PublicHandle {
         val pin = storedPin(pinKey(tier)) ?: throw VaultKeyMismatchException(tier)
