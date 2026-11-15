@@ -70,6 +70,10 @@ dependencies {
     implementation(libs.litert.gpu)
     implementation(libs.litert.gpu.api)
 
+    // Vault crypto: Tink (hybrid + streaming AEAD) and BouncyCastle (Argon2id only).
+    implementation(libs.tink)
+    implementation(libs.bouncycastle)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.androidx.test.core)
