@@ -26,8 +26,13 @@ class ScanWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         } catch (e: IllegalStateException) { // ForegroundServiceStartNotAllowedException on API 31+
             Log.i(TAG, "foreground scan not allowed from the background; scanning in the worker")
         }
-        ScanService.runScan(applicationContext) { _, _ -> }
-        return Result.success()
+        return try {
+            ScanService.runScan(applicationContext) { _, _ -> }
+            Result.success()
+        } catch (e: ScanAbortedException) {
+            Log.w(TAG, "scan aborted after repeated failures; retrying later")
+            Result.retry()
+        }
     }
 
     companion object {

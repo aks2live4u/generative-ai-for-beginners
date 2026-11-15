@@ -277,6 +277,43 @@ class ScanPipelineTest {
     }
 
     @Test
+    fun pipeline_errorDuringAnalysis_keepsInflightMarkerForNextRun() = runBlocking<Unit> {
+        source.add(item(1))
+        source.add(item(2))
+        nsfw.erroring += source.thumbs.getValue(1)
+
+        val error = runCatching { pipeline().runIncremental { _, _ -> } }.exceptionOrNull()
+
+        assertThat(error).isInstanceOf(OutOfMemoryError::class.java)
+        assertThat(settings.inflightItem()).isEqualTo(1L)
+        assertThat(status(1)).isEqualTo(ScanStatus.PENDING)
+
+        pipeline().runIncremental { _, _ -> } // the "restarted process"
+        assertThat(status(1)).isEqualTo(ScanStatus.UNREADABLE)
+        assertThat(status(2)).isEqualTo(ScanStatus.DONE)
+        assertThat(settings.inflightItem()).isNull()
+    }
+
+    @Test
+    fun pipeline_alwaysFailingItems_becomeUnreadableAfterThreeRuns() = runBlocking<Unit> {
+        (1L..4L).forEach { source.add(item(it)) }
+        (1L..3L).forEach { nsfw.failing += source.thumbs.getValue(it) }
+
+        repeat(3) { runCatching { pipeline().runIncremental { _, _ -> } } }
+
+        (1L..3L).forEach { assertThat(status(it)).isEqualTo(ScanStatus.UNREADABLE) }
+        assertThat(status(4)).isEqualTo(ScanStatus.DONE)
+        assertThat(db.mediaDao().get(4)!!.analysisFailures).isEqualTo(0)
+
+        // A new generation resets the count and is retried.
+        nsfw.failing.clear()
+        source.add(item(1, generation = 2))
+        pipeline().runIncremental { _, _ -> }
+        assertThat(status(1)).isEqualTo(ScanStatus.DONE)
+        assertThat(db.mediaDao().get(1)!!.analysisFailures).isEqualTo(0)
+    }
+
+    @Test
     fun pipeline_cancellation_leavesItemPending() = runBlocking<Unit> {
         source.add(item(1))
         nsfw.cancelling += source.thumbs.getValue(1)
@@ -351,7 +388,9 @@ class ScanPipelineTest {
         val scores = HashMap<Bitmap, NsfwScore>()
         val failing = mutableSetOf<Bitmap>()
         val cancelling = mutableSetOf<Bitmap>()
+        val erroring = mutableSetOf<Bitmap>()
         override fun score(bmp: Bitmap): NsfwScore {
+            if (bmp in erroring) throw OutOfMemoryError("simulated")
             if (bmp in failing) throw IllegalStateException("inference failed")
             if (bmp in cancelling) throw CancellationException("stopped")
             return scores[bmp] ?: NsfwScore(0.01f, 0.01f)

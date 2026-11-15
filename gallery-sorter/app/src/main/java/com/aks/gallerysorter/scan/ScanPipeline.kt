@@ -129,41 +129,75 @@ class ScanPipeline(
         autoHide = settings.autoHideSensitive(),
     )
 
+    /**
+     * The in-flight marker is cleared on every handled outcome and on cancellation, but deliberately not
+     * while an Error (e.g. OutOfMemoryError) unwinds: then the process is likely dying and the marker makes
+     * the next run mark this item UNREADABLE instead of crashing on it again.
+     */
     private suspend fun processWith(item: MediaItem, ctx: RunContext): Outcome {
         settings.setInflightItem(item.id)
-        try {
-            val media = try {
-                readMedia(item)
-            } catch (e: MediaReadException) {
-                Log.w(TAG, "item ${item.id} unreadable: ${e.cause?.javaClass?.name}")
-                // The previous row (and its labels) is kept: a read failure must never un-hide a Sensitive item.
-                val previous = db.mediaDao().get(item.id)
-                db.mediaDao().upsert(
-                    previous?.copy(status = ScanStatus.UNREADABLE, generation = item.generation)
-                        ?: item.toRow(ScanStatus.UNREADABLE),
-                )
-                return Outcome.UNREADABLE
-            }
-            val (row, assignments) = try {
-                analyseAndWrite(item, media, ctx)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "analysis failed for item ${item.id}: ${e.javaClass.name}")
-                return Outcome.FAILED
-            }
-            val sensitive = assignments.any { it.category.group == CategoryGroup.SENSITIVE && it.confidence >= AUTO_HIDE_MIN }
-            if (ctx.autoHide && sensitive) {
-                try {
-                    autoHide(row, assignments)
-                } catch (e: Exception) {
-                    Log.w(TAG, "auto-hide failed for item ${item.id}: ${e.javaClass.name}")
-                }
-            }
-            return Outcome.DONE
-        } finally {
+        val outcome = try {
+            analyseItem(item, ctx)
+        } catch (e: CancellationException) {
             withContext(NonCancellable) { settings.clearInflightItem() }
+            throw e
         }
+        settings.clearInflightItem()
+        return outcome
+    }
+
+    private suspend fun analyseItem(item: MediaItem, ctx: RunContext): Outcome {
+        val media = try {
+            readMedia(item)
+        } catch (e: MediaReadException) {
+            Log.w(TAG, "item ${item.id} unreadable: ${e.cause?.javaClass?.name}")
+            // The previous row (and its labels) is kept: a read failure must never un-hide a Sensitive item.
+            markUnreadable(item)
+            return Outcome.UNREADABLE
+        }
+        val (row, assignments) = try {
+            analyseAndWrite(item, media, ctx)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "analysis failed for item ${item.id}: ${e.javaClass.name}")
+            return recordAnalysisFailure(item)
+        }
+        val sensitive = assignments.any { it.category.group == CategoryGroup.SENSITIVE && it.confidence >= AUTO_HIDE_MIN }
+        if (ctx.autoHide && sensitive) {
+            try {
+                autoHide(row, assignments)
+            } catch (e: Exception) {
+                Log.w(TAG, "auto-hide failed for item ${item.id}: ${e.javaClass.name}")
+            }
+        }
+        return Outcome.DONE
+    }
+
+    private suspend fun markUnreadable(item: MediaItem, failures: Int? = null) {
+        val previous = db.mediaDao().get(item.id)
+        val row = previous?.copy(status = ScanStatus.UNREADABLE, generation = item.generation)
+            ?: item.toRow(ScanStatus.UNREADABLE)
+        db.mediaDao().upsert(if (failures != null) row.copy(analysisFailures = failures) else row)
+    }
+
+    /** Counts a classifier/DB failure; the item stays PENDING until its third, then becomes UNREADABLE. */
+    private suspend fun recordAnalysisFailure(item: MediaItem): Outcome = try {
+        val previous = db.mediaDao().get(item.id)?.takeIf { it.generation == item.generation }
+        val failures = (previous?.analysisFailures ?: 0) + 1
+        if (failures >= MAX_ANALYSIS_FAILURES) {
+            Log.w(TAG, "item ${item.id} failed analysis $failures times; marking it unreadable")
+            markUnreadable(item, failures)
+            Outcome.UNREADABLE
+        } else {
+            db.mediaDao().upsert((previous ?: item.toRow(ScanStatus.PENDING)).copy(analysisFailures = failures))
+            Outcome.FAILED
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "cannot record the failure of item ${item.id}: ${e.javaClass.name}")
+        Outcome.FAILED
     }
 
     /** Step 1: thumbnail, video frames and EXIF. Any failure here (OOM while decoding included) is a read failure. */
@@ -296,6 +330,8 @@ class ScanPipeline(
         private const val LARGE_FACE = 0.20f
         /** Consecutive classifier/DB failures after which a run gives up (something systemic is wrong). */
         private const val MAX_FAILURES_IN_A_ROW = 3
+        /** Analysis failures of one item (same generation, across runs) after which it is UNREADABLE. */
+        private const val MAX_ANALYSIS_FAILURES = 3
         private val DOC_LABELS = setOf("document", "text", "paper", "receipt")
 
         @Volatile private var database: AppDatabase? = null

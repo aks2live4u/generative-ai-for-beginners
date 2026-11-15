@@ -10,6 +10,7 @@ import com.aks.gallerysorter.core.ScanStatus
  * One indexed media file. [id] is the MediaStore id. Faces live in [FaceRow].
  * [framePhashes]: videos only, the pHashes of the frames at 25/50/75% as comma-joined decimal longs.
  * [ownCameraOriginal]: a DCIM/Camera file whose EXIF model is one of the user's own phones (keep rule).
+ * [analysisFailures]: classifier/DB failures for this generation; reset when it is analysed or changes.
  */
 @Entity(tableName = "media", indices = [Index("sha256"), Index("phash"), Index("status")])
 data class MediaRow(
@@ -31,4 +32,5 @@ data class MediaRow(
     val city: String? = null,
     val framePhashes: String? = null,
     val ownCameraOriginal: Boolean = false,
+    val analysisFailures: Int = 0,
 )
