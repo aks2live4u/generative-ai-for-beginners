@@ -32,7 +32,7 @@ class CityIndex(bin: InputStream) {
     private val countries: Array<String>
 
     init {
-        DataInputStream(bin).use { d ->
+        DataInputStream(bin.buffered()).use { d ->
             val n = d.readInt()
             lats = FloatArray(n)
             lons = FloatArray(n)

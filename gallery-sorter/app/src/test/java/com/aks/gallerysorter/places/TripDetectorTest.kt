@@ -60,14 +60,37 @@ class TripDetectorTest {
     }
 
     @Test fun dayUsesGivenZone() {
-        // 23:30 UTC and 00:30 UTC next day are the same local day in IST.
         val ist = ZoneId.of("Asia/Kolkata")
         val home = (1..5).flatMap { day("2026-01-%02d".format(it), mumbai, 3) }
-        val base = LocalDate.parse("2026-02-01").atTime(18, 0).atZone(utc).toInstant().toEpochMilli()
-        val away = listOf(
-            TripPoint(900, base, panaji),
-            TripPoint(901, base + 7 * 3600_000L, panaji),
+        // 2026-02-28 20:00 UTC is 2026-03-01 01:30 in IST.
+        val ms = LocalDate.parse("2026-02-28").atTime(20, 0).atZone(utc).toInstant().toEpochMilli()
+        val away = listOf(TripPoint(900, ms, panaji))
+        assertThat(detectTrips(home + away, utc)[0].name).isEqualTo("Panaji · Feb 2026")
+        assertThat(detectTrips(home + away, ist)[0].name).isEqualTo("Panaji · Mar 2026")
+    }
+
+    @Test fun zoneChangesGapSplitting() {
+        val ist = ZoneId.of("Asia/Kolkata")
+        val home = (1..5).flatMap { day("2026-01-%02d".format(it), mumbai, 3) }
+        fun at(date: String, hour: Int, id: Long) = TripPoint(
+            id, LocalDate.parse(date).atTime(hour, 0).atZone(utc).toInstant().toEpochMilli(), panaji,
         )
-        assertThat(detectTrips(home + away, ist)).hasSize(1)
+        val far = listOf(at("2026-02-01", 20, 900), at("2026-02-04", 3, 901))
+        // UTC: Feb 1 vs Feb 4 = 3 apart -> 2 trips. IST: Feb 2 vs Feb 4 = 2 apart -> 1 trip.
+        assertThat(detectTrips(home + far, utc)).hasSize(2)
+        assertThat(detectTrips(home + far, ist)).hasSize(1)
+    }
+
+    @Test fun homeIsMetroClusterNotSingleSuburb() {
+        val thaneC = City("Thane", "IN", 19.20, 72.97)
+        val navi = City("Navi Mumbai", "IN", 19.03, 73.03)
+        val home = (1..15).flatMap { day("2026-01-%02d".format(it), mumbai) } +
+            (1..15).flatMap { day("2026-01-%02d".format(it), thaneC) } +
+            (1..15).flatMap { day("2026-01-%02d".format(it), navi) }
+        val goa = (1..40).flatMap { day("2026-03-01", panaji) }
+        val trips = detectTrips(home + goa, utc)
+        assertThat(trips).hasSize(1)
+        assertThat(trips[0].name).isEqualTo("Panaji · Mar 2026")
+        assertThat(trips[0].itemIds).hasSize(40)
     }
 }
