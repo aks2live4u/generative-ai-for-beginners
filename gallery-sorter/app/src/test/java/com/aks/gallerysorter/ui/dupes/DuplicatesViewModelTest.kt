@@ -82,4 +82,17 @@ class DuplicatesViewModelTest {
         assertThat(s.groups.single().id).isEqualTo(10L)
         assertThat(vm.toDelete()).containsExactly(2L, 3L)
     }
+
+    @Test fun aGroupWithNothingKept_blocksTheDelete() = runBlocking<Unit> {
+        val vm = vm()
+        withTimeout(10_000) { vm.state.first { it.loaded && it.groups.isNotEmpty() } }
+        vm.toggleKeep(10, 1) // un-keep the only kept copy
+
+        assertThat(vm.state.value.missingKeep).containsExactly(10L)
+        assertThat(vm.toDelete()).isEmpty()
+
+        vm.toggleKeep(10, 2)
+        assertThat(vm.state.value.missingKeep).isEmpty()
+        assertThat(vm.toDelete()).containsExactly(1L, 3L)
+    }
 }

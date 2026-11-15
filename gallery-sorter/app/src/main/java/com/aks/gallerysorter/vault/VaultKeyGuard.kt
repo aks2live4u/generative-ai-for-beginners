@@ -9,9 +9,13 @@ import com.google.crypto.tink.RegistryConfiguration
 import com.google.crypto.tink.TinkProtoKeysetFormat
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.crypto.Cipher
 
 /**
@@ -103,6 +107,25 @@ class VaultKeyGuard(
     suspend fun hasUnpinnedKeys(tier: VaultTier): Boolean =
         storedPin(pinKey(tier)) == null && (keys(tier).isCreated() || File(VaultKeys.keysDir(store.root(tier)), VaultKeys.PIN_FILE).exists())
 
+    /**
+     * "Start a new vault" when the standard vault left by an earlier install can't be opened (PIN
+     * forgotten): moves its whole root, `.nomedia`, keys and files included, aside to
+     * `<root>.old-<yyyyMMdd-HHmmss>` with one atomic rename on the same volume. Nothing is deleted;
+     * the old items stay openable with the old PIN. Clears the tier's pins so [createVault] then
+     * creates fresh keys. Refuses a vault that is set up in this index (its rows point into it).
+     */
+    suspend fun archiveStandardVault(now: LocalDateTime): File {
+        val tier = VaultTier.STANDARD
+        check(!isSetUp(tier)) { "The standard vault is in use" }
+        val root = store.root(tier)
+        val target = File(root.parentFile, "${root.name}.old-${now.format(ARCHIVE_STAMP)}")
+        if (target.exists()) throw IOException("Archive folder already exists")
+        Files.move(root.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        settings.delete(pinKey(tier))
+        settings.delete(privPinKey(tier))
+        return target
+    }
+
     /** The pinned public key; throws [VaultKeyMismatchException] when it cannot be verified. */
     suspend fun publicHandle(tier: VaultTier): PublicHandle {
         val pin = storedPin(pinKey(tier)) ?: throw VaultKeyMismatchException(tier)
@@ -160,6 +183,7 @@ class VaultKeyGuard(
     }
 
     companion object {
+        private val ARCHIVE_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
         private val PROBE = "gs-vault-pin-probe".toByteArray(Charsets.US_ASCII)
 
         fun pinKey(tier: VaultTier) = "vault.${tier.name.lowercase()}.pubhash"

@@ -35,7 +35,9 @@ import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.canUseFingerprint
 import com.aks.gallerysorter.ui.fragmentActivity
 import com.aks.gallerysorter.ui.graphViewModel
-import com.aks.gallerysorter.ui.grid.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.NEW_VAULT_WARNING
+import com.aks.gallerysorter.ui.grid.ConfirmDialog
 import com.aks.gallerysorter.ui.VaultSetup
 import com.aks.gallerysorter.ui.secretNoun
 import com.aks.gallerysorter.ui.settings.SettingsViewModel
@@ -52,7 +54,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     fun finish(start: Boolean, anyway: Boolean = false) = scope.launch {
-        vm.finish()
+        if (!vm.finish()) return@launch
         if (start) {
             if (!anyway && graph.scanNeedsCharger()) {
                 // The charger-constrained worker starts the first scan once plugged in.
@@ -105,8 +107,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 if (state.step != Step.PRIVACY) TextButton(onClick = vm::back) { Text("Back") }
                 Spacer(Modifier.weight(1f))
                 when (state.step) {
-                    // The standard vault is required: it is what unlocks Sensitive and Documents.
-                    Step.STANDARD_VAULT -> Button(enabled = state.vaults[VaultTier.STANDARD] == VaultSetup.READY, onClick = vm::next) { Text("Next") }
+                    // The standard vault is required, unless an earlier install's vault can't be opened (see VaultStep).
+                    Step.STANDARD_VAULT -> Button(
+                        enabled = state.vaults[VaultTier.STANDARD] == VaultSetup.READY || state.standardLater,
+                        onClick = vm::next,
+                    ) { Text("Next") }
                     Step.HIGH_VAULT -> if (state.vaults[VaultTier.HIGH_SECURITY] == VaultSetup.READY) {
                         Button(onClick = vm::next) { Text("Next") }
                     } else {
@@ -131,6 +136,7 @@ private fun VaultStep(vm: OnboardingViewModel, state: OnboardingState, tier: Vau
     val setup = state.vaults[tier]
     val noun = tier.secretNoun()
     var fingerprint by rememberSaveable { mutableStateOf(true) }
+    var confirmNew by rememberSaveable { mutableStateOf(false) }
     val fingerprintAvailable = remember { context.fragmentActivity()?.let(::canUseFingerprint) ?: false }
     if (tier == VaultTier.STANDARD) {
         StepText(
@@ -166,8 +172,30 @@ private fun VaultStep(vm: OnboardingViewModel, state: OnboardingState, tier: Vau
                     vm.setUp(activity, tier, min, fingerprint && fingerprintAvailable)
                 }
             }) { Text(if (setup == VaultSetup.EXISTING) "Enter existing $noun" else "Set $noun") }
+            if (setup == VaultSetup.EXISTING && tier == VaultTier.STANDARD) {
+                Text("Forgot it?")
+                OutlinedButton(enabled = !state.busy, onClick = { confirmNew = true }) { Text("Start a new vault") }
+                TextButton(enabled = !state.busy, onClick = vm::continueWithoutStandard) { Text("Continue without the standard vault for now") }
+                Text(
+                    "Without it, Sensitive and Documents can't be hidden in the standard vault until you set it up in Settings.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
+    }
+    if (confirmNew) {
+        ConfirmDialog(
+            title = "Start a new vault?",
+            text = NEW_VAULT_WARNING,
+            confirm = "Start new vault",
+            onConfirm = {
+                confirmNew = false
+                val activity = context.fragmentActivity() ?: return@ConfirmDialog
+                scope.launch { vm.startNewStandard(activity, SettingsViewModel.SHORT_PIN, fingerprint && fingerprintAvailable) }
+            },
+            onDismiss = { confirmNew = false },
+        )
     }
 }
 

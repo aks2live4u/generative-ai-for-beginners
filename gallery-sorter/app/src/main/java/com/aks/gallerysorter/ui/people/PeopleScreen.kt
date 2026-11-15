@@ -39,6 +39,7 @@ import com.aks.gallerysorter.index.dao.PersonSummary
 import com.aks.gallerysorter.ui.SecureWhile
 import com.aks.gallerysorter.ui.ThumbCell
 import com.aks.gallerysorter.ui.graphViewModel
+import com.aks.gallerysorter.ui.recategorize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,9 +53,9 @@ private sealed interface PeopleDialog {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeopleScreen(onOpen: (personId: Long) -> Unit, onBack: () -> Unit) {
-    val vm = graphViewModel { PeopleViewModel(it) }
+    val vm = graphViewModel { g -> PeopleViewModel({ g.db }, g.lockState, { ids -> recategorize(g, ids) }, g::notify) }
     val graph = LocalContext.current.graph
-    val people by vm.people.collectAsState()
+    val people by vm.people.collectAsState(null)
     val selection by vm.selection.collectAsState()
     val unlocked by graph.lockState.includeLocked.collectAsState()
     var dialog by remember { mutableStateOf<PeopleDialog?>(null) }

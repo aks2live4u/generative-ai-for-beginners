@@ -22,21 +22,23 @@ private suspend fun handleFor(context: Context, tier: VaultTier): PrivateHandle?
     return gate.prompt(activity, tier)
 }
 
-/** Change PIN/passcode, only through VaultKeyGuard.changeSecret (validates and re-pins). Main thread. */
-suspend fun changeSecret(context: Context, tier: VaultTier, minLength: Int) {
+/** Change PIN/passcode, only through VaultKeyGuard.changeSecret (validates and re-pins). True if changed. Main thread. */
+suspend fun changeSecret(context: Context, tier: VaultTier, minLength: Int): Boolean {
     val graph = context.graph
-    val activity = context.fragmentActivity() ?: return
-    val handle = handleFor(context, tier) ?: return
+    val activity = context.fragmentActivity() ?: return false
+    val handle = handleFor(context, tier) ?: return false
     val noun = tier.secretNoun()
-    val secret = askNewSecret(activity, tier, minLength, "New $noun") ?: return
-    try {
+    val secret = askNewSecret(activity, tier, minLength, "New $noun") ?: return false
+    return try {
         withContext(Dispatchers.Default) { graph.guard.changeSecret(tier, handle, secret) } // zeroes secret
         graph.notify("${noun.replaceFirstChar { it.uppercase() }} changed")
+        true
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         Log.w(TAG, "change secret failed: ${e.javaClass.name}")
         graph.notify("Couldn't change the $noun")
+        false
     } finally {
         secret.fill('\u0000')
     }

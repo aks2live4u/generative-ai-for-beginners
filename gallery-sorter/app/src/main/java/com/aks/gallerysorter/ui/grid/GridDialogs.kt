@@ -22,9 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.entities.AlbumRow
+import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
 import com.aks.gallerysorter.ui.label
 
-const val HIGH_SECURITY_UNINSTALL_WARNING = "High-security items are deleted for good if the app is uninstalled."
 
 /** Confirm a hide of [count] items, choosing the tier ([initial] = the category's default). */
 @Composable

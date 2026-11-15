@@ -17,8 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** Whether a tier's vault is set up and has fingerprint unlock. */
-data class VaultStatus(val created: Boolean, val fingerprint: Boolean)
+/** A tier's vault: set up, fingerprint unlock, or [existing] keys from an earlier install that still need their secret. */
+data class VaultStatus(val created: Boolean, val fingerprint: Boolean, val existing: Boolean = false)
 
 data class SettingsState(
     val loaded: Boolean = false,

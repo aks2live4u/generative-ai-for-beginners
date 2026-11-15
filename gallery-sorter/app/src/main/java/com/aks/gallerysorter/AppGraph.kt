@@ -96,9 +96,12 @@ class AppGraph(private val app: Application) {
     /** A flow over the index whose lazy database is resolved on IO (never on the main thread). */
     fun <T> dbFlow(query: (AppDatabase) -> Flow<T>): Flow<T> = flow { emitAll(query(db)) }.flowOn(Dispatchers.IO)
 
-    /** Which vault tiers have been set up (key files exist); checked on IO. */
+    /**
+     * Which vault tiers are set up in this install (keys exist and are pinned); checked on IO.
+     * Keys left by an earlier install don't count until they are re-pinned with their secret.
+     */
     suspend fun createdTiers(): Set<VaultTier> = withContext(Dispatchers.IO) {
-        VaultTier.entries.filter { guard.keys(it).isCreated() }.toSet()
+        VaultTier.entries.filter { guard.isSetUp(it) }.toSet()
     }
 
     private val startup = CompletableDeferred<Unit>()
@@ -140,7 +143,7 @@ class AppGraph(private val app: Application) {
     /** Auto-hide: the item's default tier; locked mode when that tier is locked; skipped if its vault isn't set up. */
     private suspend fun autoHide(row: MediaRow, assignments: List<CategoryAssignment>) {
         val tier = defaultTierFor(assignments.map { it.category }, tierSettings.overrides())
-        if (!guard.keys(tier).isCreated()) {
+        if (!guard.isSetUp(tier)) {
             Log.i(TAG, "auto-hide skipped for item ${row.id}: vault not set up")
             return
         }

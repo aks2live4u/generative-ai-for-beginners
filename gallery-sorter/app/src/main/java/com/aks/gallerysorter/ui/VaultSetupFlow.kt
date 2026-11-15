@@ -9,6 +9,7 @@ import com.aks.gallerysorter.vault.VaultKeyMismatchException
 import com.aks.gallerysorter.vault.WrongSecretException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
+import java.time.LocalDateTime
 import kotlinx.coroutines.withContext
 
 /** NEW: no keys. EXISTING: keys from an earlier install need their original secret. READY: set up. */
@@ -66,5 +67,28 @@ suspend fun setUpVault(activity: FragmentActivity, graph: AppGraph, tier: VaultT
     } finally {
         copy.fill('\u0000')
         secret.fill('\u0000')
+    }
+}
+
+/**
+ * "Start a new vault": the standard vault from an earlier install (PIN forgotten) is archived
+ * intact by [com.aks.gallerysorter.vault.VaultKeyGuard.archiveStandardVault], then a new vault is
+ * set up from scratch. createVault is never run over existing keys. The caller confirms first
+ * ([NEW_VAULT_WARNING]). Main thread.
+ */
+suspend fun startNewStandardVault(activity: FragmentActivity, graph: AppGraph, minLength: Int, fingerprint: Boolean): SetupResult {
+    if (vaultSetup(graph, VaultTier.STANDARD) != VaultSetup.EXISTING) return SetupResult.Failed("There is no earlier vault to replace.")
+    try {
+        withContext(Dispatchers.IO) { graph.guard.archiveStandardVault(LocalDateTime.now()) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w("VaultSetup", "archiving the old vault failed: ${e.javaClass.name}")
+        return SetupResult.Failed("Couldn't move the old vault aside, so no new vault was created.")
+    }
+    graph.notify("The old vault was kept in a backup folder")
+    return when (val r = setUpVault(activity, graph, VaultTier.STANDARD, minLength, fingerprint)) {
+        is SetupResult.Done -> SetupResult.Done(fromEarlierInstall = false)
+        else -> r
     }
 }

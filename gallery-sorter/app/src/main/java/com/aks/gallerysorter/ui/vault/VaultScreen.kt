@@ -40,7 +40,7 @@ import com.aks.gallerysorter.ui.SecureScreen
 import com.aks.gallerysorter.ui.ThumbCell
 import com.aks.gallerysorter.ui.graphViewModel
 import com.aks.gallerysorter.ui.grid.ConfirmDialog
-import com.aks.gallerysorter.ui.grid.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
 import com.aks.gallerysorter.ui.label
 
 /** The vault: Standard and High-security tabs, each unlocked separately. Always FLAG_SECURE. */

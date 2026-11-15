@@ -1,6 +1,7 @@
 package com.aks.gallerysorter.ui.onboarding
 
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,7 +12,9 @@ import com.aks.gallerysorter.index.entities.SettingRow
 import com.aks.gallerysorter.ui.SetupResult
 import com.aks.gallerysorter.ui.VaultSetup
 import com.aks.gallerysorter.ui.setUpVault
+import com.aks.gallerysorter.ui.startNewStandardVault
 import com.aks.gallerysorter.ui.vaultSetup
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +36,8 @@ data class OnboardingState(
     val backupApps: List<String> = emptyList(),
     val autoHide: Boolean = false,
     val onlyWhileCharging: Boolean = true,
+    /** The user chose to go on without the standard vault (an earlier install's, PIN forgotten); set it up later in Settings. */
+    val standardLater: Boolean = false,
 )
 
 /**
@@ -79,6 +84,27 @@ class OnboardingViewModel(private val graph: AppGraph) : ViewModel() {
         }
     }
 
+    /** Earlier install's vault, PIN forgotten: go on without it; hiding to it stays unavailable until set up in Settings. */
+    fun continueWithoutStandard() {
+        _state.update { it.copy(standardLater = true) }
+        next()
+    }
+
+    /** Earlier install's vault, PIN forgotten: archive it intact and create a new one (the caller confirmed). Main thread. */
+    suspend fun startNewStandard(activity: FragmentActivity, minLength: Int, fingerprint: Boolean) {
+        _state.update { it.copy(busy = true, error = null) }
+        try {
+            when (val r = startNewStandardVault(activity, graph, minLength, fingerprint)) {
+                is SetupResult.Done -> _state.update { it.copy(vaults = it.vaults + (VaultTier.STANDARD to VaultSetup.READY)) }
+                is SetupResult.Failed -> _state.update { it.copy(error = r.message) }
+                SetupResult.Cancelled -> Unit
+            }
+            _state.update { it.copy(vaults = it.vaults + (VaultTier.STANDARD to vaultSetup(graph, VaultTier.STANDARD))) }
+        } finally {
+            _state.update { it.copy(busy = false) }
+        }
+    }
+
     fun setAutoHide(on: Boolean) {
         _state.update { it.copy(autoHide = on) }
         viewModelScope.launch(Dispatchers.IO) { graph.scanSettings.setAutoHideSensitive(on) }
@@ -89,9 +115,16 @@ class OnboardingViewModel(private val graph: AppGraph) : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) { graph.scanSettings.setOnlyWhileCharging(on) }
     }
 
-    /** Records that the wizard is done (MainActivity then opens Home); call before leaving it. */
-    suspend fun finish() = withContext(Dispatchers.IO) {
-        markDone(graph.db.settingsDao())
+    /** Records that the wizard is done (MainActivity then opens Home); false (with a notice) if that failed. */
+    suspend fun finish(): Boolean = try {
+        withContext(Dispatchers.IO) { markDone(graph.db.settingsDao()) }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w("Onboarding", "cannot record completion: ${e.javaClass.name}")
+        graph.notify("Couldn't save the setup; try again")
+        false
     }
 
     private fun installedBackupApps(): List<String> {

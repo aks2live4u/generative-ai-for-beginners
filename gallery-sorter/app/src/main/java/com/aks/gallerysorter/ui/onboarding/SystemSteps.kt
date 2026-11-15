@@ -14,28 +14,36 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.aks.gallerysorter.ui.fragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 
-/** Media permissions: images/videos (API 33+), photo locations, and scan notifications (API 33+). */
-fun mediaPermissions(): Array<String> = buildList {
+/** Images/videos (API 33+; below that All files access covers reads) and photo locations. */
+fun mediaPermissions(): List<String> = buildList {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         add(Manifest.permission.READ_MEDIA_IMAGES)
         add(Manifest.permission.READ_MEDIA_VIDEO)
-        add(Manifest.permission.POST_NOTIFICATIONS)
     }
     add(Manifest.permission.ACCESS_MEDIA_LOCATION)
-}.toTypedArray()
+}
+
+/** Scan progress notifications; a runtime permission from API 33. */
+fun notificationPermissions(): List<String> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList()
 
 fun Context.granted(permission: String) = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -54,16 +62,41 @@ fun resumeTick(): Int {
 
 @Composable
 fun MediaPermissionStep() {
-    val context = LocalContext.current
-    val tick = resumeTick()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
-    val missing = remember(tick) { mediaPermissions().filterNot(context::granted) }
     StepText(
         "Photos and videos",
         "Gallery Sorter reads your photos and videos to sort them, and their location tags to group them by place. " +
             "Everything stays on this phone.",
     )
-    if (missing.isEmpty()) Text("Allowed ✓") else Button(onClick = { launcher.launch(missing.toTypedArray()) }) { Text("Allow access") }
+    PermissionRow("Photos, videos and their locations", mediaPermissions())
+    if (notificationPermissions().isNotEmpty()) PermissionRow("Scan progress notifications (optional)", notificationPermissions())
+}
+
+/**
+ * One permission group: "Allowed ✓", an "Allow" button, or, once Android stops showing the
+ * prompt (denied permanently), "Open app settings".
+ */
+@Composable
+private fun PermissionRow(title: String, permissions: List<String>) {
+    val context = LocalContext.current
+    val tick = resumeTick()
+    var asked by rememberSaveable { mutableStateOf(false) }
+    var result by remember { mutableIntStateOf(0) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        asked = true
+        result++
+    }
+    val missing = remember(tick, result) { permissions.filterNot(context::granted) }
+    val activity = context.fragmentActivity()
+    val blocked = asked && missing.isNotEmpty() && activity != null &&
+        missing.none { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }
+    Text(title, style = MaterialTheme.typography.titleSmall)
+    when {
+        missing.isEmpty() -> Text("Allowed ✓")
+        blocked -> Button(onClick = {
+            context.tryStart(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+        }) { Text("Open app settings") }
+        else -> Button(onClick = { launcher.launch(missing.toTypedArray()) }) { Text("Allow") }
+    }
 }
 
 @Composable

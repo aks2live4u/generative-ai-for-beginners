@@ -68,10 +68,11 @@ class PastPhonesViewModel(private val graph: AppGraph) : ViewModel() {
                 } catch (e: Exception) {
                     null
                 }
-                if (!model.isNullOrEmpty() && !model.equals(Build.MODEL, ignoreCase = true)) byModel.getOrPut(model) { mutableListOf() } += row.id
+                // This phone's own model is not a "past phone" choice: it always counts (ScanSettings adds it).
+                if (!model.isNullOrEmpty() && !model.equals(Build.MODEL.trim(), ignoreCase = true)) byModel.getOrPut(model) { mutableListOf() } += row.id
             }
             idsByModel = byModel
-            saved = graph.scanSettings.ownCameraModels().filterNot { it.equals(Build.MODEL, ignoreCase = true) }.toSet()
+            saved = graph.scanSettings.ownCameraModels().filterNot { it.trim().equals(Build.MODEL.trim(), ignoreCase = true) }.toSet()
             val models = byModel.entries.sortedByDescending { it.value.size }.map { it.key }
             _state.value = PastPhonesState(loaded = true, models = (models + saved).distinct(), mine = saved)
         }
@@ -127,7 +128,13 @@ fun PastPhonesScreen(onBack: () -> Unit) {
                 }
                 state.models.isEmpty() -> Text("No other camera models found in DCIM/Camera", Modifier.align(Alignment.Center).padding(16.dp))
                 else -> LazyColumn {
-                    item { Text("This phone (${Build.MODEL}) always counts as yours.", Modifier.padding(16.dp)) }
+                    item {
+                        ListItem(
+                            headlineContent = { Text(Build.MODEL) },
+                            supportingContent = { Text("This phone · always counts as yours") },
+                            trailingContent = { Checkbox(checked = true, onCheckedChange = null, enabled = false) },
+                        )
+                    }
                     items(state.models, key = { it }) { m ->
                         ListItem(
                             headlineContent = { Text(m) },

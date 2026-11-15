@@ -24,6 +24,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +37,10 @@ import com.aks.gallerysorter.graph
 import com.aks.gallerysorter.ui.SetupResult
 import com.aks.gallerysorter.ui.fragmentActivity
 import com.aks.gallerysorter.ui.graphViewModel
-import com.aks.gallerysorter.ui.grid.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.NEW_VAULT_WARNING
+import com.aks.gallerysorter.ui.grid.ConfirmDialog
+import com.aks.gallerysorter.ui.startNewStandardVault
 import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.onboarding.ToggleRow
 import com.aks.gallerysorter.ui.secretNoun
@@ -50,11 +56,19 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
     val graph = context.graph
     val vm = graphViewModel { g ->
         SettingsViewModel({ g.db }) {
-            VaultTier.entries.associateWith { VaultStatus(g.guard.isSetUp(it), g.guard.keys(it).isBiometricEnabled()) }
+            VaultTier.entries.associateWith {
+                VaultStatus(g.guard.isSetUp(it), g.guard.keys(it).isBiometricEnabled(), existing = g.guard.hasUnpinnedKeys(it))
+            }
         }
     }
     val state by vm.state.collectAsState()
     val scope = rememberCoroutineScope()
+    var confirmNew by remember { mutableStateOf(false) }
+    fun report(r: SetupResult) = when (r) {
+        is SetupResult.Failed -> graph.notify(r.message)
+        is SetupResult.Done -> graph.notify(if (r.fromEarlierInstall) "Vault restored; unlock it to recover its items" else "Vault set up")
+        SetupResult.Cancelled -> Unit
+    }
     fun act(block: suspend () -> Unit) = scope.launch { block(); vm.refresh() }
     fun minFor(tier: VaultTier) = when {
         tier == VaultTier.HIGH_SECURITY -> 10
@@ -81,21 +95,25 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
                     TextButton(onClick = { act { changeSecret(context, tier, minFor(tier)) } }) { Text("Change $noun") }
                     ToggleRow("Unlock with fingerprint", v.fingerprint) { on -> act { setFingerprint(context, tier, on) } }
                 } else if (v != null) {
+                    // Keys from an earlier install: the same flow as onboarding (existing PIN, or archive and start anew).
                     TextButton(onClick = {
                         act {
                             val activity = context.fragmentActivity() ?: return@act
-                            when (val r = setUpVault(activity, graph, tier, minFor(tier), fingerprint = false)) {
-                                is SetupResult.Failed -> graph.notify(r.message)
-                                is SetupResult.Done -> graph.notify(if (r.fromEarlierInstall) "Vault restored; unlock it to recover its items" else "Vault set up")
-                                SetupResult.Cancelled -> Unit
-                            }
+                            report(setUpVault(activity, graph, tier, minFor(tier), fingerprint = false))
                         }
-                    }) { Text("Set up") }
+                    }) { Text(if (v.existing) "Enter existing $noun" else "Set up") }
+                    if (v.existing && tier == VaultTier.STANDARD) TextButton(onClick = { confirmNew = true }) { Text("Forgot it? Start a new vault") }
                 }
             }
             ToggleRow("Use a longer standard passcode ($LONG_PIN+ digits)", state.longStandardPin) { on ->
-                vm.setLongStandardPin(on)
-                if (on && state.vaults[VaultTier.STANDARD]?.created == true) act { changeSecret(context, VaultTier.STANDARD, LONG_PIN) }
+                when {
+                    !on -> vm.setLongStandardPin(false)
+                    // Recorded only once the longer passcode is actually in place.
+                    state.vaults[VaultTier.STANDARD]?.created == true -> act {
+                        if (changeSecret(context, VaultTier.STANDARD, LONG_PIN)) vm.setLongStandardPin(true).join()
+                    }
+                    else -> vm.setLongStandardPin(true) // applies when the vault is set up
+                }
             }
 
             Section("Default vault per category")
@@ -120,6 +138,22 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
             )
             ListItem(headlineContent = { Text("About") }, modifier = Modifier.clickable(onClick = onAbout))
         }
+    }
+
+    if (confirmNew) {
+        ConfirmDialog(
+            title = "Start a new vault?",
+            text = NEW_VAULT_WARNING,
+            confirm = "Start new vault",
+            onConfirm = {
+                confirmNew = false
+                act {
+                    val activity = context.fragmentActivity() ?: return@act
+                    report(startNewStandardVault(activity, graph, minFor(VaultTier.STANDARD), fingerprint = false))
+                }
+            },
+            onDismiss = { confirmNew = false },
+        )
     }
 }
 

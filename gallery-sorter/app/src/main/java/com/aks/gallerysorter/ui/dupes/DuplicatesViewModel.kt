@@ -20,7 +20,10 @@ import kotlinx.coroutines.flow.stateIn
 /** One duplicate group; [keep] is what the user keeps (initially the suggested keep). */
 data class DupeGroupUi(val id: Long, val items: List<DupeItem>, val keep: Set<Long>)
 
-data class DupesState(val loaded: Boolean = false, val groups: List<DupeGroupUi> = emptyList())
+/** [missingKeep]: groups where nothing is kept; deleting is blocked until each keeps at least one. */
+data class DupesState(val loaded: Boolean = false, val groups: List<DupeGroupUi> = emptyList()) {
+    val missingKeep: Set<Long> get() = groups.filter { it.keep.isEmpty() }.map { it.id }.toSet()
+}
 
 /**
  * Duplicate groups side by side. While locked, a group with any lockable member is hidden
@@ -56,6 +59,10 @@ class DuplicatesViewModel(db: () -> AppDatabase, lockState: LockState) : ViewMod
         keepChoice.value = keepChoice.value + (groupId to keep)
     }
 
-    /** The visible members not kept ("Delete N suggested"). */
-    fun toDelete(): List<Long> = state.value.groups.flatMap { g -> g.items.map { it.media.id }.filter { it !in g.keep } }
+    /** The visible members not kept ("Delete N suggested"); empty while any group keeps nothing. */
+    fun toDelete(): List<Long> {
+        val s = state.value
+        if (s.missingKeep.isNotEmpty()) return emptyList()
+        return s.groups.flatMap { g -> g.items.map { it.media.id }.filter { it !in g.keep } }
+    }
 }

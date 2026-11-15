@@ -64,7 +64,7 @@ fun DuplicatesScreen(onBack: () -> Unit) {
                 title = { Text("Duplicates") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
-                    if (toDelete > 0) {
+                    if (toDelete > 0 && state.missingKeep.isEmpty()) {
                         TextButton(onClick = {
                             scope.launch { trashRequest(graph, vm.toDelete())?.let { trash.launch(IntentSenderRequest.Builder(it).build()) } }
                         }) { Text("Delete $toDelete suggested") }
@@ -75,6 +75,13 @@ fun DuplicatesScreen(onBack: () -> Unit) {
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             if (state.loaded && state.groups.isEmpty()) Text("No duplicates found", Modifier.align(Alignment.Center))
+            if (state.missingKeep.isNotEmpty()) {
+                Text(
+                    "Keep at least one copy in each group to delete the rest",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                )
+            }
             LazyColumn(Modifier.fillMaxSize()) {
                 items(state.groups, key = { it.id }) { g ->
                     Column(Modifier.padding(8.dp)) {
