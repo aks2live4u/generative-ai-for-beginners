@@ -82,11 +82,55 @@ class VaultKeysTest {
         keys(dir).unlockWithSecret(pw("123456"))
     }
 
-    @Test fun createRefusesWhenOnlyOneKeyFileExists() {
+    /** Simulates a crash after private.pin.enc was renamed into place but before public.keyset. */
+    private fun orphan(dir: File) = check(File(dir, "public.keyset").delete())
+
+    @Test fun createRepairsOrphanedPrivateKeyWithCorrectSecret() {
+        val dir = File(tmp.root, "keys")
+        val k = keys(dir)
+        k.create(pw("123456"))
+        val out = ByteArrayOutputStream()
+        val wrapped = VaultCrypto.encrypt(k.publicHandle(), ByteArrayInputStream(sample), out)
+        val f = tmp.newFile().apply { writeBytes(out.toByteArray()) }
+        val pinBefore = File(dir, "private.pin.enc").readBytes()
+        orphan(dir)
+        assertThat(keys(dir).isCreated()).isFalse()
+
+        val secret = pw("123456")
+        keys(dir).create(secret)
+        assertThat(secret.all { it == '\u0000' }).isTrue()
+
+        val fresh = keys(dir)
+        assertThat(fresh.isCreated()).isTrue()
+        assertThat(File(dir, "private.pin.enc").readBytes()).isEqualTo(pinBefore)
+        val priv = fresh.unlockWithSecret(pw("123456"))
+        VaultCrypto.decryptingStream(priv, wrapped, f).use { ch ->
+            val buf = ByteBuffer.allocate(sample.size)
+            while (buf.hasRemaining() && ch.read(buf) >= 0) Unit
+            assertThat(buf.array()).isEqualTo(sample)
+        }
+        assertThat(roundTrip(fresh, priv, sample)).isEqualTo(sample)
+    }
+
+    @Test fun createRefusesOrphanedPrivateKeyWithWrongSecret() {
         val dir = File(tmp.root, "keys")
         keys(dir).create(pw("123456"))
-        File(dir, "public.keyset").delete()
-        assertThrows(IllegalStateException::class.java) { keys(dir).create(pw("999999")) }
+        val pinBefore = File(dir, "private.pin.enc").readBytes()
+        orphan(dir)
+
+        val wrong = pw("999999")
+        assertThrows(OrphanedVaultException::class.java) { keys(dir).create(wrong) }
+        assertThat(wrong.all { it == '\u0000' }).isTrue()
+        assertThat(File(dir, "private.pin.enc").readBytes()).isEqualTo(pinBefore)
+        assertThat(File(dir, "public.keyset").exists()).isFalse()
+        assertThat(dir.list()!!.toList()).containsExactly("private.pin.enc")
+    }
+
+    @Test fun createIgnoresStrayTempFiles() {
+        val dir = File(tmp.root, "keys").apply { mkdirs() }
+        File(dir, "private.pin.enc.tmp").writeBytes(ByteArray(7))
+        File(dir, "public.keyset.tmp").writeBytes(ByteArray(7))
+        keys(dir).create(pw("123456"))
         keys(dir).unlockWithSecret(pw("123456"))
     }
 
@@ -142,6 +186,39 @@ class VaultKeysTest {
         ByteBuffer.wrap(bytes).putInt(4 + 1 + 16 + 4, Int.MAX_VALUE) // memory KiB
         f.writeBytes(bytes)
         assertThrows(IOException::class.java) { keys(dir).unlockWithSecret(pw("123456")) }
+    }
+
+    @Test fun argonParamCeilingsOnRead() {
+        // offsets: iterations, memory KiB, parallelism; each value is just over its ceiling
+        for ((offset, value) in listOf(21 to 11, 25 to 131073, 29 to 5)) {
+            val dir = File(tmp.root, "ceil$offset")
+            keys(dir).create(pw("123456"))
+            val f = File(dir, "private.pin.enc")
+            val bytes = f.readBytes()
+            ByteBuffer.wrap(bytes).putInt(offset, value)
+            f.writeBytes(bytes)
+            assertThrows(IOException::class.java) { keys(dir).unlockWithSecret(pw("123456")) }
+        }
+    }
+
+    @Test fun productionParamsAreWithinTheReadCeilings() {
+        VaultKeys(File(tmp.root, "x"), wrapper, Argon2Params(10, 131072, 4))
+        assertThrows(IllegalArgumentException::class.java) {
+            VaultKeys(File(tmp.root, "y"), wrapper, Argon2Params(3, 131073, 1))
+        }
+    }
+
+    @Test fun unpairedSurrogateSecretIsRejectedNotReplaced() {
+        val k = keys()
+        val lone = charArrayOf('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', '\uD800')
+        assertThat(validateSecret(VaultTier.HIGH_SECURITY, lone)).isFalse()
+        assertThrows(InvalidSecretException::class.java) { k.create(lone) }
+        assertThat(lone.all { it == '\u0000' }).isTrue()
+        assertThat(k.isCreated()).isFalse()
+        // A valid surrogate pair (emoji) is fine and distinct from '?'.
+        k.create("abcdefghi\uD83D\uDE00".toCharArray())
+        assertThrows(WrongSecretException::class.java) { k.unlockWithSecret(pw("abcdefghi?")) }
+        k.unlockWithSecret("abcdefghi\uD83D\uDE00".toCharArray())
     }
 
     @Test fun truncatedPinFileIsAnIoError() {
@@ -208,6 +285,27 @@ class VaultKeysTest {
         assertThrows(BiometricInvalidatedException::class.java) { k.biometricCipher() }
         val priv = k.unlockWithSecret(pw("123456"))
         assertThat(roundTrip(k, priv, sample)).isEqualTo(sample)
+    }
+
+    @Test fun tamperedBioFileGivesTypedErrorAndPinStillWorks() {
+        val dir = File(tmp.root, "keys")
+        val k = keys(dir)
+        k.create(pw("123456"))
+        k.enableBiometric(k.unlockWithSecret(pw("123456")), k.biometricEncryptCipher())
+        val f = File(dir, "private.bio.enc")
+        val good = f.readBytes()
+
+        val flipped = good.copyOf().also { it[it.size - 1] = (it.last().toInt() xor 1).toByte() }
+        f.writeBytes(flipped)
+        assertThrows(BiometricInvalidatedException::class.java) { k.unlockWithBiometric(k.biometricCipher()) }
+
+        f.writeBytes(good.copyOf().also { it[0] = 'X'.code.toByte() })
+        assertThrows(BiometricInvalidatedException::class.java) { k.biometricCipher() }
+
+        f.writeBytes(good.copyOf(8))
+        assertThrows(BiometricInvalidatedException::class.java) { k.unlockWithBiometric(k.biometricCipher()) }
+
+        assertThat(roundTrip(k, k.unlockWithSecret(pw("123456")), sample)).isEqualTo(sample)
     }
 
     @Test fun disableBiometricRemovesWrapAndKey() {
