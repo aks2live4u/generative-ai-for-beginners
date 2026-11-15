@@ -42,7 +42,8 @@ import kotlinx.coroutines.withContext
  * Indexes the gallery (spec 6.2–6.3): lists MediaStore, analyses new/changed items one at a time, writes
  * labels, then recomputes duplicate groups and trips. Resumable: items are first stored PENDING and a later
  * run picks up whatever is still PENDING. ML calls block their thread, so analysis runs on Dispatchers.Default.
- * [autoHide] is called for confidently Sensitive items when the auto-hide setting is on.
+ * [autoHide] is called for confidently Sensitive items when the auto-hide setting is on, unless the
+ * user has any override on the item.
  */
 class ScanPipeline(
     private val source: MediaSource,
@@ -159,7 +160,9 @@ class ScanPipeline(
         val sensitive = assignments.any { it.category.group == CategoryGroup.SENSITIVE && it.confidence >= AUTO_HIDE_MIN }
         if (ctx.autoHide && sensitive) {
             try {
-                autoHide(row, assignments)
+                // Any user correction (override) on the item means it is never auto-hidden: the
+                // user's decision must not be undone by re-classification.
+                if (db.labelDao().overridesFor(item.id).isEmpty()) autoHide(row, assignments)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

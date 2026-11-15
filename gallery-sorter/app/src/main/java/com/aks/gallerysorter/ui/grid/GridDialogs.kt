@@ -24,6 +24,8 @@ import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.entities.AlbumRow
 import com.aks.gallerysorter.ui.label
 
+const val HIGH_SECURITY_UNINSTALL_WARNING = "High-security items are deleted for good if the app is uninstalled."
+
 /** Confirm a hide of [count] items, choosing the tier ([initial] = the category's default). */
 @Composable
 fun HideDialog(count: Int, initial: VaultTier, exists: (VaultTier) -> Boolean, onHide: (VaultTier) -> Unit, onDismiss: () -> Unit) {
@@ -40,9 +42,7 @@ fun HideDialog(count: Int, initial: VaultTier, exists: (VaultTier) -> Boolean, o
                         Text(t.label + if (exists(t)) "" else " (not set up)")
                     }
                 }
-                if (tier == VaultTier.HIGH_SECURITY) {
-                    Text("High-security items are deleted for good if the app is uninstalled.", Modifier.padding(top = 8.dp))
-                }
+                if (tier == VaultTier.HIGH_SECURITY) Text(HIGH_SECURITY_UNINSTALL_WARNING, Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = { TextButton(enabled = exists(tier), onClick = { onHide(tier) }) { Text("Hide") } },

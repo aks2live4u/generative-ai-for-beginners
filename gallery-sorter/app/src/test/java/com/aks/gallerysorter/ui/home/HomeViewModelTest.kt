@@ -68,8 +68,7 @@ class HomeViewModelTest {
     )
 
     private fun viewModel() = HomeViewModel(
-        labelDao = db.labelDao(), mediaDao = db.mediaDao(), peopleDao = db.peopleDao(), dupeDao = db.dupeDao(),
-        scanSettings = ScanSettings(db.settingsDao(), deviceModel = "test"), lockState = lockState,
+        db = { db }, scanSettings = { ScanSettings(db.settingsDao(), deviceModel = "test") }, lockState = lockState,
     )
 
     private fun tile(state: HomeState, c: Category) = state.groups.flatMap { it.tiles }.single { it.category == c }

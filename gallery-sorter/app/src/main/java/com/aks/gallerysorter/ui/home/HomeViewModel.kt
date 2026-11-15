@@ -4,16 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aks.gallerysorter.core.Category
 import com.aks.gallerysorter.core.CategoryGroup
-import com.aks.gallerysorter.index.dao.DupeDao
-import com.aks.gallerysorter.index.dao.LabelDao
-import com.aks.gallerysorter.index.dao.MediaDao
-import com.aks.gallerysorter.index.dao.PeopleDao
+import com.aks.gallerysorter.index.AppDatabase
 import com.aks.gallerysorter.lock.LockState
 import com.aks.gallerysorter.scan.ScanSettings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
@@ -39,21 +40,26 @@ data class HomeState(
 /** Home: category tiles by group with counts, plus the People/Places/Duplicates/Review/Vault entries. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
-    private val labelDao: LabelDao,
-    mediaDao: MediaDao,
-    peopleDao: PeopleDao,
-    dupeDao: DupeDao,
-    private val scanSettings: ScanSettings,
+    db: () -> AppDatabase,
+    private val scanSettings: () -> ScanSettings,
     lockState: LockState,
 ) : ViewModel() {
+    /** Resolved on IO: the lazy database must never be opened from the main thread. */
+    private val labelDao by lazy { db().labelDao() }
 
     private data class Inputs(val counts: Map<Category, Int>, val unlocked: Boolean, val people: Int, val cities: Int, val dupes: Int)
 
-    val state: StateFlow<HomeState> = combine(
-        labelDao.counts(), lockState.includeLocked, peopleDao.people(), mediaDao.cityCount(), dupeDao.groupCount(),
-    ) { counts, unlocked, people, cities, dupes -> Inputs(counts, unlocked, people.size, cities, dupes) }
+    val state: StateFlow<HomeState> = flow {
+        val d = db()
+        emitAll(
+            combine(
+                d.labelDao().counts(), lockState.includeLocked, d.peopleDao().people(), d.mediaDao().cityCount(), d.dupeDao().groupCount(),
+            ) { counts, unlocked, people, cities, dupes -> Inputs(counts, unlocked, people.size, cities, dupes) },
+        )
+    }
         // Re-queried whenever counts or the lock change, so a lock drops previews at once.
         .mapLatest { build(it) }
+        .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
     private suspend fun build(i: Inputs): HomeState {
@@ -69,7 +75,7 @@ class HomeViewModel(
         }
         return HomeState(
             loaded = true, groups = groups, people = i.people, cities = i.cities,
-            trips = scanSettings.trips().size, duplicateGroups = i.dupes,
+            trips = scanSettings().trips().size, duplicateGroups = i.dupes,
             review = i.counts[Category.REVIEW] ?: 0, unlocked = i.unlocked,
         )
     }

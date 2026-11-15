@@ -9,8 +9,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.launch
 
 /**
- * Builds the [AppGraph], then in order: auto-lock on background, vault partial cleanup (scans
- * and hides wait for it), the MediaStore observer, and the periodic scan once the first is done.
+ * Builds the [AppGraph], then in order: auto-lock on background, opening the index on IO and
+ * vault partial cleanup (scans and hides wait for it), the MediaStore observer, and the periodic scan once the first is done.
  */
 class GallerySorterApp : Application() {
     lateinit var graph: AppGraph
@@ -21,7 +21,7 @@ class GallerySorterApp : Application() {
         graph = AppGraph(this)
         AppLockObserver.install(graph.lockState)
         graph.watchLock()
-        graph.runStartupCleanup()
+        graph.runStartup()
         MediaObserver(this).register()
         graph.appScope.launch {
             try {

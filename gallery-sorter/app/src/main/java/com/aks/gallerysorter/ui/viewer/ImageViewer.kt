@@ -38,12 +38,16 @@ import com.aks.gallerysorter.index.entities.VaultRow
 import com.aks.gallerysorter.vault.PrivateHandle
 import com.aks.gallerysorter.vault.VaultCrypto
 import com.aks.gallerysorter.vault.VaultStore
+import java.io.IOException
 import java.nio.ByteBuffer
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val MAX_PX = 2560
+
+/** Consecutive empty channel reads after which a vault read is treated as stalled. */
+internal const val MAX_ZERO_READS = 16
 
 /**
  * A full-screen image with pinch zoom (1–5x), pan while zoomed and double-tap to toggle 2x.
@@ -52,6 +56,7 @@ private const val MAX_PX = 2560
 @Composable
 fun ImageViewer(key: Any, load: suspend () -> Bitmap?) {
     val bmp by produceState<Bitmap?>(null, key) {
+        value = null
         value = try {
             withContext(Dispatchers.IO) { load() }
         } catch (e: CancellationException) {
@@ -120,7 +125,13 @@ fun loadVaultImage(store: VaultStore, priv: PrivateHandle, row: VaultRow): Bitma
         val size = ch.size()
         require(size <= Int.MAX_VALUE) { "image too large" }
         val buf = ByteBuffer.allocate(size.toInt())
-        while (buf.hasRemaining() && ch.read(buf) >= 0) Unit
+        var zeros = 0
+        while (buf.hasRemaining()) {
+            val n = ch.read(buf)
+            if (n < 0) break
+            zeros = if (n == 0) zeros + 1 else 0
+            if (zeros >= MAX_ZERO_READS) throw IOException("vault read stalled")
+        }
         buf.array()
     }
     try {

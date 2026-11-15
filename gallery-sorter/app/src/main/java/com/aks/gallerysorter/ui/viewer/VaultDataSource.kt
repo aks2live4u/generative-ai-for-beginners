@@ -65,7 +65,11 @@ class VaultDataSource(
         val n = try {
             // A channel read may return 0; the DataSource contract wants at least one byte.
             var r = 0
-            while (r == 0) r = ch.read(dst)
+            var zeros = 0
+            while (r == 0) {
+                r = ch.read(dst)
+                if (r == 0 && ++zeros >= MAX_ZERO_READS) throw IOException("vault read stalled")
+            }
             r
         } catch (e: IOException) {
             throw DataSourceException(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)

@@ -27,6 +27,8 @@ import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.vault.VaultScreen
 import com.aks.gallerysorter.ui.vault.VaultViewerScreen
 import com.aks.gallerysorter.ui.viewer.ViewerScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Route names. Screens marked 14b are placeholders until Task 14b replaces them. */
 object Routes {
@@ -75,7 +77,7 @@ fun AppNav(nav: NavHostController = rememberNavController()) {
                 val title = when (source) {
                     is GridSource.OfCategory -> source.category.label
                     is GridSource.OfAlbum -> produceState("Album", source.albumId) {
-                        value = graph.db.albumDao().get(source.albumId)?.name ?: "Album"
+                        value = withContext(Dispatchers.IO) { graph.db.albumDao().get(source.albumId)?.name } ?: "Album"
                     }.value
                 }
                 GridScreen(

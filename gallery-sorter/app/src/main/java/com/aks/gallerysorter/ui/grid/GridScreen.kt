@@ -47,7 +47,7 @@ import com.aks.gallerysorter.ui.label
 import kotlinx.coroutines.launch
 
 private sealed interface GridDialog {
-    class Hide(val ids: List<Long>, val tier: VaultTier) : GridDialog
+    class Hide(val ids: List<Long>, val tier: VaultTier, val created: Set<VaultTier>) : GridDialog
     class Album(val ids: List<Long>) : GridDialog
     class NotThis(val ids: List<Long>) : GridDialog
 }
@@ -75,7 +75,9 @@ fun GridScreen(source: GridSource, title: String, onOpen: (index: Int) -> Unit, 
     val trash = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK) graph.notify("Moved to trash")
     }
-    fun askHide(ids: List<Long>) = scope.launch { if (ids.isNotEmpty()) dialog = GridDialog.Hide(ids, vm.defaultTier()) }
+    fun askHide(ids: List<Long>) = scope.launch {
+        if (ids.isNotEmpty()) vm.hideChoice().let { (tier, created) -> dialog = GridDialog.Hide(ids, tier, created) }
+    }
 
     Scaffold(
         topBar = {
@@ -139,7 +141,7 @@ fun GridScreen(source: GridSource, title: String, onOpen: (index: Int) -> Unit, 
     }
 
     when (val d = dialog) {
-        is GridDialog.Hide -> HideDialog(d.ids.size, d.tier, vm::vaultExists, onHide = { vm.hide(d.ids, it); dialog = null }, onDismiss = { dialog = null })
+        is GridDialog.Hide -> HideDialog(d.ids.size, d.tier, { it in d.created }, onHide = { vm.hide(d.ids, it); dialog = null }, onDismiss = { dialog = null })
         is GridDialog.Album -> AlbumDialog(albums, onPick = { id, name -> vm.addToAlbum(d.ids, id, name); dialog = null }, onDismiss = { dialog = null })
         is GridDialog.NotThis -> ConfirmDialog(
             title = "Not ${category?.label}?",

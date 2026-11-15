@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,9 +53,10 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
 
     val items: Flow<PagingData<MediaRow>> = lockState.includeLocked
         .flatMapLatest { inc -> Pager(PagingConfig(pageSize = 60)) { source.paging(graph, inc) }.flow }
+        .flowOn(Dispatchers.IO) // the paging source factory touches the lazy index
         .cachedIn(viewModelScope)
 
-    val albums: StateFlow<List<AlbumRow>> = graph.db.albumDao().albums()
+    val albums: StateFlow<List<AlbumRow>> = graph.dbFlow { it.albumDao().albums() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _selection = MutableStateFlow<Set<Long>>(emptySet())
@@ -78,13 +80,12 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
 
     suspend fun allIds(): List<Long> = withContext(Dispatchers.IO) { source.ids(graph, lockState.includeLocked.value) }
 
-    /** The hide dialog's preselected tier: the category's default (user setting, else built-in). */
-    suspend fun defaultTier(): VaultTier {
-        val category = (source as? GridSource.OfCategory)?.category ?: return VaultTier.STANDARD
-        return defaultTierFor(listOf(category), graph.tierSettings.overrides())
+    /** The hide dialog's preselected tier (the category's default: user setting, else built-in) and the set-up tiers. */
+    suspend fun hideChoice(): Pair<VaultTier, Set<VaultTier>> = withContext(Dispatchers.IO) {
+        val category = (source as? GridSource.OfCategory)?.category
+        val tier = if (category == null) VaultTier.STANDARD else defaultTierFor(listOf(category), graph.tierSettings.overrides())
+        tier to graph.createdTiers()
     }
-
-    fun vaultExists(tier: VaultTier) = graph.guard.keys(tier).isCreated()
 
     fun hide(ids: List<Long>, tier: VaultTier) {
         clearSelection()
@@ -112,10 +113,17 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
     fun addToAlbum(ids: List<Long>, albumId: Long?, newName: String?) {
         clearSelection()
         viewModelScope.launch(Dispatchers.IO) {
-            val dao = graph.db.albumDao()
-            val target = albumId ?: dao.insert(AlbumRow(name = newName?.trim().orEmpty().ifEmpty { "Album" }))
-            dao.addItems(ids.map { AlbumItemRow(target, it) })
-            graph.notify("Added ${ids.size} to the album")
+            try {
+                val dao = graph.db.albumDao()
+                val target = albumId ?: dao.insert(AlbumRow(name = newName?.trim().orEmpty().ifEmpty { "Album" }))
+                dao.addItems(ids.map { AlbumItemRow(target, it) })
+                graph.notify("Added ${ids.size} to the album")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "add to album failed: ${e.javaClass.name}")
+                graph.notify("Couldn't add to the album")
+            }
         }
     }
 
@@ -127,12 +135,20 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
         val category = (source as? GridSource.OfCategory)?.category ?: return
         clearSelection()
         viewModelScope.launch(Dispatchers.IO) {
-            val db = graph.db
-            for (id in ids) {
-                db.labelDao().upsertOverride(OverrideRow(id, category, isExcluded = true))
-                db.mediaDao().setStatus(id, ScanStatus.PENDING)
+            try {
+                val db = graph.db
+                for (id in ids) {
+                    db.labelDao().upsertOverride(OverrideRow(id, category, isExcluded = true))
+                    db.mediaDao().setStatus(id, ScanStatus.PENDING)
+                }
+                graph.notify("Removed ${ids.size} from ${category.label}")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "not-this-category failed: ${e.javaClass.name}")
+                graph.notify("Couldn't remove the items from ${category.label}")
+                return@launch
             }
-            graph.notify("Removed ${ids.size} from ${category.label}")
             try {
                 ScanWorker.enqueueOnChange(graph.appContext)
             } catch (e: CancellationException) {

@@ -24,7 +24,7 @@ class VaultViewModel(private val graph: AppGraph) : ViewModel() {
     val unlocked: StateFlow<Set<VaultTier>> = graph.lockState.unlocked
 
     val rows: Map<VaultTier, StateFlow<List<VaultRow>>> = VaultTier.entries.associateWith { tier ->
-        graph.db.vaultDao().byTier(tier).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        graph.dbFlow { it.vaultDao().byTier(tier) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
     private val _selection = MutableStateFlow<Set<Long>>(emptySet())
@@ -33,11 +33,14 @@ class VaultViewModel(private val graph: AppGraph) : ViewModel() {
     private val _busy = MutableStateFlow<String?>(null)
     val busy: StateFlow<String?> = _busy.asStateFlow()
 
+    private val _created = MutableStateFlow<Set<VaultTier>?>(null)
+    /** Tiers whose vault is set up; null until checked (on IO). */
+    val created: StateFlow<Set<VaultTier>?> = _created.asStateFlow()
+
     init {
         viewModelScope.launch { unlocked.drop(1).collect { clearSelection() } }
+        viewModelScope.launch { unlocked.collect { _created.value = graph.createdTiers() } }
     }
-
-    fun exists(tier: VaultTier) = graph.guard.keys(tier).isCreated()
 
     fun toggle(id: Long) {
         _selection.value = _selection.value.let { if (id in it) it - id else it + id }
@@ -56,9 +59,10 @@ class VaultViewModel(private val graph: AppGraph) : ViewModel() {
         "Restored ${res.restored}" + if (res.failed.isNotEmpty()) "; ${res.failed.size} failed" else ""
     }
 
+    /** Call only after the user confirmed (MoveDialog); the target vault must be set up. */
     fun moveTier(from: VaultTier, ids: List<Long>) {
         val to = other(from)
-        if (!exists(to)) {
+        if (created.value?.contains(to) != true) {
             graph.notify("Set up the ${to.label.lowercase()} vault first")
             return
         }

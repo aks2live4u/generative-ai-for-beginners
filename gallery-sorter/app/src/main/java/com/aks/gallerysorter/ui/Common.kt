@@ -40,7 +40,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.aks.gallerysorter.AppGraph
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.graph
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** A ViewModel built from the app graph, scoped to the current navigation destination. */
 @Composable
@@ -62,12 +64,15 @@ tailrec fun Context.fragmentActivity(): FragmentActivity? = when (this) {
 suspend fun unlock(context: Context, tier: VaultTier? = null): Boolean {
     val graph = context.graph
     val activity = context.fragmentActivity() ?: return false
-    val target = tier ?: VaultTier.entries.firstOrNull { graph.guard.keys(it).isCreated() }
-    if (target == null || !graph.guard.keys(target).isCreated()) {
+    // Key files and the (lazy) index are touched on IO; only the prompt itself runs on main.
+    val created = graph.createdTiers()
+    val target = tier ?: VaultTier.entries.firstOrNull { it in created }
+    if (target == null || target !in created) {
         graph.notify("Set up a vault PIN first")
         return false
     }
-    return graph.biometricGate.prompt(activity, target) != null
+    val gate = withContext(Dispatchers.IO) { graph.biometricGate }
+    return gate.prompt(activity, target) != null
 }
 
 /** Shown instead of a locked screen's content. */
@@ -97,7 +102,10 @@ fun ThumbCell(
     onLongClick: () -> Unit,
     load: suspend () -> Bitmap?,
 ) {
-    val bmp by produceState<Bitmap?>(null, key) { value = load() }
+    val bmp by produceState<Bitmap?>(null, key) {
+        value = null // no stale thumbnail for a new key
+        value = load()
+    }
     Box(
         Modifier
             .padding(1.dp)

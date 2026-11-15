@@ -40,6 +40,7 @@ import com.aks.gallerysorter.ui.SecureScreen
 import com.aks.gallerysorter.ui.ThumbCell
 import com.aks.gallerysorter.ui.graphViewModel
 import com.aks.gallerysorter.ui.grid.ConfirmDialog
+import com.aks.gallerysorter.ui.grid.HIGH_SECURITY_UNINSTALL_WARNING
 import com.aks.gallerysorter.ui.label
 
 /** The vault: Standard and High-security tabs, each unlocked separately. Always FLAG_SECURE. */
@@ -53,7 +54,9 @@ fun VaultScreen(onOpen: (VaultTier, Int) -> Unit, onBack: () -> Unit) = SecureSc
     val selection by vm.selection.collectAsState()
     val busy by vm.busy.collectAsState()
     val rows by vm.rows.getValue(tab).collectAsState()
+    val created by vm.created.collectAsState()
     var confirmUnhide by rememberSaveable { mutableStateOf(false) }
+    var confirmMove by rememberSaveable { mutableStateOf(false) }
     val open = tab in unlocked
     BackHandler(enabled = selection.isNotEmpty()) { vm.clearSelection() }
 
@@ -76,7 +79,7 @@ fun VaultScreen(onOpen: (VaultTier, Int) -> Unit, onBack: () -> Unit) = SecureSc
                     TextButton(onClick = {
                         if (vm.anySensitive(tab, selection)) confirmUnhide = true else vm.unhide(tab, selection.toList())
                     }) { Text("Unhide") }
-                    TextButton(onClick = { vm.moveTier(tab, selection.toList()) }) {
+                    TextButton(onClick = { confirmMove = true }) {
                         Text("Move to ${VaultViewModel.other(tab).label.lowercase()}")
                     }
                 }
@@ -91,7 +94,8 @@ fun VaultScreen(onOpen: (VaultTier, Int) -> Unit, onBack: () -> Unit) = SecureSc
             }
             Box(Modifier.fillMaxSize()) {
                 when {
-                    !vm.exists(tab) -> Text(
+                    created == null -> Unit
+                    tab !in created.orEmpty() -> Text(
                         "The ${tab.label.lowercase()} vault isn't set up yet. Set it up in Settings.",
                         Modifier.align(Alignment.Center).padding(24.dp),
                     )
@@ -119,6 +123,18 @@ fun VaultScreen(onOpen: (VaultTier, Int) -> Unit, onBack: () -> Unit) = SecureSc
                 }
             }
         }
+    }
+
+    if (confirmMove) {
+        val to = VaultViewModel.other(tab)
+        ConfirmDialog(
+            title = "Move ${selection.size} to the ${to.label.lowercase()} vault?",
+            text = "Each item is re-encrypted into the ${to.label.lowercase()} vault, one at a time." +
+                if (to == VaultTier.HIGH_SECURITY) " $HIGH_SECURITY_UNINSTALL_WARNING" else "",
+            confirm = "Move",
+            onConfirm = { confirmMove = false; vm.moveTier(tab, selection.toList()) },
+            onDismiss = { confirmMove = false },
+        )
     }
 
     if (confirmUnhide) {

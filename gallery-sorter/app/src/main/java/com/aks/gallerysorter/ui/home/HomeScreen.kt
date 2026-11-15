@@ -43,11 +43,14 @@ import androidx.compose.ui.unit.dp
 import com.aks.gallerysorter.core.Category
 import com.aks.gallerysorter.graph
 import com.aks.gallerysorter.scan.ScanWorker
+import com.aks.gallerysorter.ui.SecureWhile
 import com.aks.gallerysorter.ui.graphViewModel
 import com.aks.gallerysorter.ui.grid.ConfirmDialog
 import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.unlock
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Where Home navigates; routes are owned by AppNav. */
 class HomeActions(
@@ -66,9 +69,9 @@ class HomeActions(
 fun HomeScreen(actions: HomeActions) {
     val graph = LocalContext.current.graph
     val context = LocalContext.current
-    val vm = graphViewModel { HomeViewModel(it.db.labelDao(), it.db.mediaDao(), it.db.peopleDao(), it.db.dupeDao(), it.scanSettings, it.lockState) }
+    val vm = graphViewModel { g -> HomeViewModel({ g.db }, { g.scanSettings }, g.lockState) }
     val state by vm.state.collectAsState()
-    val albums by remember { graph.db.albumDao().albums() }.collectAsState(emptyList())
+    val albums by remember { graph.dbFlow { it.albumDao().albums() } }.collectAsState(emptyList())
     val scope = rememberCoroutineScope()
     var chargerPrompt by rememberSaveable { mutableStateOf(false) }
 
@@ -84,6 +87,9 @@ fun HomeScreen(actions: HomeActions) {
     fun guarded(locked: Boolean, go: () -> Unit) {
         if (!locked) go() else scope.launch { if (unlock(context)) go() }
     }
+
+    // Previews can show Sensitive items while unlocked (and the recents snapshot is taken before the lock).
+    SecureWhile(state.unlocked)
 
     Scaffold(
         topBar = {
@@ -153,7 +159,10 @@ private fun CategoryTileView(tile: CategoryTile, onClick: () -> Unit) {
     val graph = LocalContext.current.graph
     val previewId = tile.previewIds.firstOrNull()
     val bmp by produceState<Bitmap?>(null, previewId, tile.locked) {
-        value = if (tile.locked || previewId == null) null else graph.db.mediaDao().get(previewId)?.let { graph.thumbnails.media(it) }
+        value = null // never keep a previous preview across a key (lock) change
+        if (!tile.locked && previewId != null) {
+            value = withContext(Dispatchers.IO) { graph.db.mediaDao().get(previewId) }?.let { graph.thumbnails.media(it) }
+        }
     }
     Card(onClick = onClick, modifier = Modifier.padding(4.dp).fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {

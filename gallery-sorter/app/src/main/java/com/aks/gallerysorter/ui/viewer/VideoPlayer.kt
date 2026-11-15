@@ -12,6 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
@@ -37,6 +40,13 @@ fun VideoPlayer(key: Any, active: Boolean, source: (Context) -> MediaSource) {
         }
     }
     DisposableEffect(player) { onDispose { player.release() } }
+    // Stop playback when the app goes to the background (vault videos lock then too).
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(player, lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) player.pause() }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     LaunchedEffect(player, active) { if (!active) player.pause() }
     AndroidView(factory = { PlayerView(it).apply { this.player = player } }, modifier = Modifier.fillMaxSize())
 }

@@ -21,6 +21,7 @@ import javax.crypto.Cipher
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
@@ -150,6 +151,7 @@ class BiometricGate(
     private fun noun(tier: VaultTier) = if (tier == VaultTier.STANDARD) "PIN" else "passcode"
 
     /** Shows the passcode dialog; the entry is copied to a CharArray and the field cleared at once. */
+    @OptIn(ExperimentalCoroutinesApi::class) // resume(value, onCancellation) zeroes an undelivered secret
     private suspend fun askSecret(activity: Activity, tier: VaultTier, error: String?): CharArray? =
         suspendCancellableCoroutine { cont ->
             val field = EditText(activity).apply {

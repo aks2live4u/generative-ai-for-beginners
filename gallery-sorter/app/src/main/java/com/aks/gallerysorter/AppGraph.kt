@@ -38,10 +38,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The app's object graph (manual constructor injection), built once by [GallerySorterApp].
@@ -88,14 +93,27 @@ class AppGraph(private val app: Application) {
         _notices.tryEmit(message)
     }
 
+    /** A flow over the index whose lazy database is resolved on IO (never on the main thread). */
+    fun <T> dbFlow(query: (AppDatabase) -> Flow<T>): Flow<T> = flow { emitAll(query(db)) }.flowOn(Dispatchers.IO)
+
+    /** Which vault tiers have been set up (key files exist); checked on IO. */
+    suspend fun createdTiers(): Set<VaultTier> = withContext(Dispatchers.IO) {
+        VaultTier.entries.filter { guard.keys(it).isCreated() }.toSet()
+    }
+
     private val startup = CompletableDeferred<Unit>()
 
     /** Completes once [HideManager.cleanupPartials] has run; scans and hides wait for it. */
     suspend fun awaitStartup() = startup.await()
 
-    internal fun runStartupCleanup() {
+    /**
+     * Startup, on IO: opens the index (Keystore passphrase + SQLCipher) so the UI never does it on
+     * the main thread, then [HideManager.cleanupPartials]; completes [awaitStartup] either way.
+     */
+    internal fun runStartup() {
         appScope.launch(Dispatchers.IO) {
             try {
+                db.openHelper.writableDatabase
                 hideManager.cleanupPartials()
             } catch (e: CancellationException) {
                 throw e

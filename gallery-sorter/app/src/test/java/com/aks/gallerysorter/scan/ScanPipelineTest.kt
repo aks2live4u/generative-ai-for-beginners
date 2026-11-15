@@ -175,6 +175,25 @@ class ScanPipelineTest {
     }
 
     @Test
+    fun pipeline_autoHideSkipsItemsWithAnyUserOverride() = runBlocking<Unit> {
+        settings.setAutoHideSensitive(true)
+        source.add(item(1))
+        nsfw.scores[source.thumbs.getValue(1)] = NsfwScore(0.95f, 0f)
+        source.add(item(2))
+        nsfw.scores[source.thumbs.getValue(2)] = NsfwScore(0.95f, 0f)
+        source.add(item(3))
+        nsfw.scores[source.thumbs.getValue(3)] = NsfwScore(0.95f, 0f)
+        // Unrelated correction, and a user-confirmed Sensitive category: both block auto-hide.
+        db.labelDao().upsertOverride(OverrideRow(1, Category.SCREENSHOTS, isExcluded = true))
+        db.labelDao().upsertOverride(OverrideRow(2, Category.MY_NUDES, isExcluded = false))
+
+        pipeline().runIncremental { _, _ -> }
+
+        assertThat(hidden.map { it.first.id }).containsExactly(3L)
+        assertThat(labels(2)).contains(Category.MY_NUDES)
+    }
+
+    @Test
     fun pipeline_emptySourceWithKnownItems_doesNotDeleteRows() = runBlocking<Unit> {
         source.add(item(1))
         source.add(item(2))
