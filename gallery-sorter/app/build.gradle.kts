@@ -57,6 +57,8 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.common)
     implementation(libs.sqlcipher)
+    implementation(libs.biometric)
+    implementation(libs.lifecycle.process)
     implementation(libs.exifinterface)
     implementation(libs.work.runtime.ktx)
     ksp(libs.room.compiler)
