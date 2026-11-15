@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.aks.gallerysorter.R
+import com.aks.gallerysorter.graph
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -94,11 +95,12 @@ class ScanService : Service() {
             ContextCompat.startForegroundService(context, Intent(context, ScanService::class.java))
         }
 
-        /** Runs one scan; after it completes the first-scan flag is set and the periodic job rescheduled. */
+        /** Runs one scan (after startup cleanup); after it completes the first-scan flag is set and the periodic job rescheduled. */
         suspend fun runScan(context: Context, progress: (done: Int, total: Int) -> Unit) = runLock.withLock {
-            // Auto-hide is wired to the real HideManager in Task 14; a no-op until then.
-            ScanPipeline.create(context) { _, _ -> }.use { it.runIncremental(progress) }
-            ScanSettings(ScanPipeline.database(context).settingsDao()).markFirstScanDone()
+            val graph = context.graph
+            graph.awaitStartup() // vault partials are cleaned up before any scan (and its auto-hide) runs
+            graph.newScanPipeline().use { it.runIncremental(progress) }
+            graph.scanSettings.markFirstScanDone()
             ScanWorker.schedulePeriodic(context)
         }
 

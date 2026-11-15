@@ -18,6 +18,7 @@ import com.aks.gallerysorter.vault.VaultKeyGuard
 import com.aks.gallerysorter.vault.WrongSecretException
 import java.io.IOException
 import javax.crypto.Cipher
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -27,7 +28,7 @@ import kotlinx.coroutines.withContext
  * Unlocks a vault tier: fingerprint first when enabled (BIOMETRIC_STRONG with a CryptoObject),
  * otherwise, or on "Use PIN" / an invalidated key, an in-app passcode dialog (5 tries).
  * Call [prompt] from the main thread. On success the handle goes into [lockState] and
- * [onUnlocked] runs (Task 14 wires it to HideManager.verifyPending + rebuildIndex).
+ * [onUnlocked] runs (AppGraph: HideManager.verifyPending, then rebuildIndex if rows are missing).
  */
 class BiometricGate(
     private val guard: VaultKeyGuard,
@@ -76,6 +77,8 @@ class BiometricGate(
             return Step.UsePasscode
         } catch (e: IOException) {
             return Step.UsePasscode
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IllegalStateException) {
             return Step.UsePasscode
         }
@@ -115,6 +118,8 @@ class BiometricGate(
             Step.UsePasscode
         } catch (e: IOException) {
             Step.UsePasscode
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IllegalStateException) {
             Step.UsePasscode
         }
@@ -133,6 +138,8 @@ class BiometricGate(
                 error = "Wrong ${noun(tier)}"
             } catch (e: IOException) {
                 return null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: IllegalStateException) {
                 return null
             }

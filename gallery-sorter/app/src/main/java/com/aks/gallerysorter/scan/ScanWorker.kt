@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.aks.gallerysorter.graph
 import java.util.concurrent.TimeUnit
 
 /**
@@ -55,8 +56,7 @@ class ScanWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
 
         private suspend fun constraints(context: Context): Constraints {
-            val settings = ScanSettings(ScanPipeline.database(context).settingsDao())
-            return Constraints.Builder().setRequiresCharging(settings.requiresCharging()).build()
+            return Constraints.Builder().setRequiresCharging(context.graph.scanSettings.requiresCharging()).build()
         }
     }
 }

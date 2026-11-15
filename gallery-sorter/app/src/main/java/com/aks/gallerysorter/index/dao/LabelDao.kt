@@ -39,33 +39,28 @@ abstract class LabelDao {
             hidden = LOCKED_HIDDEN.map { it.name },
         )
 
-    @Query(
-        """
-        SELECT m.* FROM media m
-        WHERE (
-            (EXISTS (SELECT 1 FROM labels l WHERE l.mediaId = m.id AND l.category = :category)
-             AND NOT EXISTS (SELECT 1 FROM overrides o
-                             WHERE o.mediaId = m.id AND o.category = :category AND o.isExcluded = 1))
-            OR EXISTS (SELECT 1 FROM overrides o
-                       WHERE o.mediaId = m.id AND o.category = :category AND o.isExcluded = 0)
-        )
-        AND (:includeLocked = 1 OR (
-            NOT EXISTS (SELECT 1 FROM labels l
-                        WHERE l.mediaId = m.id
-                          AND l.category IN (:hidden)
-                          AND NOT EXISTS (SELECT 1 FROM overrides o
-                                          WHERE o.mediaId = l.mediaId AND o.category = l.category AND o.isExcluded = 1))
-            AND NOT EXISTS (SELECT 1 FROM overrides o
-                            WHERE o.mediaId = m.id AND o.isExcluded = 0 AND o.category IN (:hidden))
-        ))
-        ORDER BY m.dateTakenMs DESC, m.id DESC
-        """
-    )
+    /** Up to [limit] ids of [itemsIn], newest first (Home tile previews). */
+    suspend fun previewIds(category: Category, includeLocked: Boolean, limit: Int): List<Long> =
+        previewIdsQuery(category, if (includeLocked) 1 else 0, LOCKED_HIDDEN.map { it.name }, limit)
+
+    /** Every id of [itemsIn] ("Hide all (N)"). */
+    suspend fun idsIn(category: Category, includeLocked: Boolean): List<Long> =
+        previewIdsQuery(category, if (includeLocked) 1 else 0, LOCKED_HIDDEN.map { it.name }, -1)
+
+    @Query("SELECT m.* FROM media m WHERE $IN_CATEGORY AND $LOCK_FILTER ORDER BY m.dateTakenMs DESC, m.id DESC")
     protected abstract fun itemsInQuery(
         category: Category,
         includeLocked: Int,
         hidden: List<String>,
     ): PagingSource<Int, MediaRow>
+
+    @Query("SELECT m.id FROM media m WHERE $IN_CATEGORY AND $LOCK_FILTER ORDER BY m.dateTakenMs DESC, m.id DESC LIMIT :limit")
+    protected abstract suspend fun previewIdsQuery(
+        category: Category,
+        includeLocked: Int,
+        hidden: List<String>,
+        limit: Int,
+    ): List<Long>
 
     @Query(
         """

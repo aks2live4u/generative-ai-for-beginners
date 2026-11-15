@@ -34,4 +34,7 @@ interface MediaDao {
 
     @Query("SELECT COUNT(*) FROM media")
     fun count(): Flow<Int>
+
+    @Query("SELECT COUNT(DISTINCT city) FROM media WHERE city IS NOT NULL")
+    fun cityCount(): Flow<Int>
 }

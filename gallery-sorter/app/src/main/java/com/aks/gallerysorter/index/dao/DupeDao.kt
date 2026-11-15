@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 import com.aks.gallerysorter.index.entities.DupeRow
 
 @Dao
@@ -20,6 +21,9 @@ abstract class DupeDao {
 
     @Query("SELECT * FROM dupes WHERE groupId = :groupId")
     abstract suspend fun group(groupId: Long): List<DupeRow>
+
+    @Query("SELECT COUNT(DISTINCT groupId) FROM dupes")
+    abstract fun groupCount(): Flow<Int>
 
     @Transaction
     open suspend fun replaceAll(rows: List<DupeRow>) {

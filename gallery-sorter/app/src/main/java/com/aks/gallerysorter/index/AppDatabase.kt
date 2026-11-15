@@ -5,12 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.aks.gallerysorter.index.dao.AlbumDao
 import com.aks.gallerysorter.index.dao.DupeDao
 import com.aks.gallerysorter.index.dao.LabelDao
 import com.aks.gallerysorter.index.dao.MediaDao
 import com.aks.gallerysorter.index.dao.PeopleDao
 import com.aks.gallerysorter.index.dao.SettingsDao
 import com.aks.gallerysorter.index.dao.VaultDao
+import com.aks.gallerysorter.index.entities.AlbumItemRow
+import com.aks.gallerysorter.index.entities.AlbumRow
 import com.aks.gallerysorter.index.entities.DupeRow
 import com.aks.gallerysorter.index.entities.FaceRow
 import com.aks.gallerysorter.index.entities.LabelRow
@@ -25,6 +28,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
     entities = [
         MediaRow::class, LabelRow::class, FaceRow::class, PersonRow::class,
         OverrideRow::class, VaultRow::class, DupeRow::class, SettingRow::class,
+        AlbumRow::class, AlbumItemRow::class,
     ],
     version = 1,
     exportSchema = false,
@@ -37,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vaultDao(): VaultDao
     abstract fun dupeDao(): DupeDao
     abstract fun settingsDao(): SettingsDao
+    abstract fun albumDao(): AlbumDao
 
     companion object {
         const val FILE_NAME = "index.db"

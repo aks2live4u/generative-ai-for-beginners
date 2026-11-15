@@ -1,6 +1,5 @@
 package com.aks.gallerysorter.scan
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.room.withTransaction
@@ -11,11 +10,6 @@ import com.aks.gallerysorter.classify.categorize
 import com.aks.gallerysorter.classify.documentCategory
 import com.aks.gallerysorter.classify.isOwnCameraOriginal
 import com.aks.gallerysorter.classify.ml.FaceEngine
-import com.aks.gallerysorter.classify.ml.LiteRtNsfwClassifier
-import com.aks.gallerysorter.classify.ml.MlKitFaceEngine
-import com.aks.gallerysorter.classify.ml.MlKitQrDetector
-import com.aks.gallerysorter.classify.ml.MlKitSceneLabeler
-import com.aks.gallerysorter.classify.ml.MlKitTextReader
 import com.aks.gallerysorter.classify.ml.NsfwClassifier
 import com.aks.gallerysorter.classify.ml.NsfwScore
 import com.aks.gallerysorter.classify.ml.QrDetector
@@ -29,7 +23,6 @@ import com.aks.gallerysorter.core.ExifData
 import com.aks.gallerysorter.core.MediaItem
 import com.aks.gallerysorter.core.MediaKind
 import com.aks.gallerysorter.core.MediaSource
-import com.aks.gallerysorter.core.MediaStoreSource
 import com.aks.gallerysorter.core.ScanStatus
 import com.aks.gallerysorter.dupes.pHash
 import com.aks.gallerysorter.index.AppDatabase
@@ -63,7 +56,7 @@ class ScanPipeline(
     private val frames: FrameSource,
     private val settings: ScanSettings = ScanSettings(db.settingsDao()),
     private val clusterer: FaceClusterer = FaceClusterer(),
-    private val autoHide: (MediaRow, List<CategoryAssignment>) -> Unit,
+    private val autoHide: suspend (MediaRow, List<CategoryAssignment>) -> Unit,
 ) : AutoCloseable {
 
     private class RunContext(val ownModels: Set<String>, val mePersonId: Long?, val autoHide: Boolean)
@@ -167,6 +160,8 @@ class ScanPipeline(
         if (ctx.autoHide && sensitive) {
             try {
                 autoHide(row, assignments)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "auto-hide failed for item ${item.id}: ${e.javaClass.name}")
             }
@@ -333,28 +328,5 @@ class ScanPipeline(
         /** Analysis failures of one item (same generation, across runs) after which it is UNREADABLE. */
         private const val MAX_ANALYSIS_FAILURES = 3
         private val DOC_LABELS = setOf("document", "text", "paper", "receipt")
-
-        @Volatile private var database: AppDatabase? = null
-
-        /** The process-wide encrypted index (Task 14's AppGraph takes this over). */
-        fun database(context: Context): AppDatabase = database ?: synchronized(this) {
-            database ?: AppDatabase.open(context.applicationContext).also { database = it }
-        }
-
-        /** Builds the pipeline on the real MediaStore and on-device models; throws if a model can't load. */
-        fun create(
-            context: Context,
-            autoHide: (MediaRow, List<CategoryAssignment>) -> Unit = { _, _ -> },
-        ): ScanPipeline {
-            val app = context.applicationContext
-            val nsfw = LiteRtNsfwClassifier.create(app) ?: error("NSFW model unavailable")
-            val faces = MlKitFaceEngine.create(app) ?: run { nsfw.close(); error("face model unavailable") }
-            return ScanPipeline(
-                source = MediaStoreSource(app.contentResolver), db = database(app), nsfw = nsfw, faces = faces,
-                text = MlKitTextReader(), scenes = MlKitSceneLabeler(), qr = MlKitQrDetector(),
-                cityIndex = app.assets.open("cities.bin").use { CityIndex(it) },
-                frames = RetrieverFrameSource(app), autoHide = autoHide,
-            )
-        }
     }
 }

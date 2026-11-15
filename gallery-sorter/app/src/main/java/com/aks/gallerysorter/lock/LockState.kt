@@ -69,7 +69,7 @@ class AppLockObserver(private val lockState: LockState) : DefaultLifecycleObserv
     override fun onStop(owner: LifecycleOwner) = lockState.lockAll()
 
     companion object {
-        /** Call once from `Application.onCreate` (Task 14). */
+        /** Called once from `GallerySorterApp.onCreate`. */
         fun install(lockState: LockState) {
             ProcessLifecycleOwner.get().lifecycle.addObserver(AppLockObserver(lockState))
         }
