@@ -9,6 +9,9 @@ import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.SettingRow
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** What auto-hide needs to know about one tier: set up in this index, and when it was last unlocked. */
 data class TierState(val setUp: Boolean, val lastUnlockMs: Long?)
@@ -51,8 +54,9 @@ class AutoHider(
     private val blocked: () -> Unit,
     private val incomplete: (VaultTier, HideResult) -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    suspend fun autoHide(row: MediaRow, assignments: List<CategoryAssignment>) {
+    suspend fun autoHide(row: MediaRow, assignments: List<CategoryAssignment>) = withContext(io) {
         val wanted = defaultTierFor(assignments.map { it.category }, tierSettings.overrides())
         val tiers = VaultTier.entries.associateWith { TierState(guard.isSetUp(it), guard.lastUnlockMs(it)) }
         val now = clock()
@@ -62,7 +66,7 @@ class AutoHider(
                 Log.i(TAG, "auto-hide skipped for item ${row.id}: no vault in use")
                 notifyBlocked(now)
             }
-            return
+            return@withContext
         }
         val res = hideManager.hide(listOf(row.id), tier, { _, _ -> }, priv = privateHandle(tier), auto = true)
         if (res.failed.isNotEmpty() || res.aborted != null || res.missing.isNotEmpty() || res.skipped.isNotEmpty()) {
