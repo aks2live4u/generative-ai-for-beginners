@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.room.paging)
     implementation(libs.paging.common)
     implementation(libs.sqlcipher)
+    implementation(libs.exifinterface)
     ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
