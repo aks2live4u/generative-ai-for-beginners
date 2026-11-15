@@ -3,32 +3,34 @@ package com.aks.gallerysorter.classify
 import com.aks.gallerysorter.core.Category
 import com.aks.gallerysorter.core.CategoryAssignment
 
-/** All keyword lists live here. Matched case-insensitively on whole words. */
+/**
+ * All keyword lists live here. Matched case-insensitively on whole words.
+ * SPECIFIC keywords are distinctive on their own; GENERIC ones appear in ordinary prose
+ * and can never lift a result to the top confidence band without a specific hit or pattern.
+ */
 internal object DocumentKeywords {
-    val ID = listOf(
-        "aadhaar", "aadhar", "uidai", "government of india", "income tax",
-        "permanent account number", "driving licence", "driving license",
-        "passport", "election commission", "voter id",
+    val ID_SPECIFIC = listOf(
+        "aadhaar", "aadhar", "uidai", "government of india", "permanent account number",
+        "driving licence", "driving license", "income tax department",
     )
+    val ID_GENERIC = listOf("passport", "income tax", "election commission", "voter id", "licence", "license")
     val DRIVING = listOf("driving licence", "driving license")
     val BANK_NAMES = listOf(
         "sbi", "state bank of india", "hdfc", "icici", "axis bank", "kotak", "pnb",
         "punjab national bank", "bank of baroda", "canara", "union bank", "yes bank", "idfc",
     )
-    val PAYMENT = listOf(
-        "upi", "paid to", "transaction id", "utr", "debited", "credited", "balance",
-        "statement", "account no", "ifsc",
-    )
-    val BANKING = BANK_NAMES + PAYMENT
+    val BANKING_SPECIFIC = BANK_NAMES + listOf("upi", "paid to", "transaction id", "utr", "account no", "ifsc")
+    val BANKING_GENERIC = listOf("balance", "statement", "credited", "debited")
 }
 
 private const val STRONG = 0.9f
 private const val MULTI = 0.95f
+private const val GENERIC_ONLY = 0.7f
 private const val KEYWORD_ONLY = 0.6f // one weak signal (keyword or UPI handle): Review band
 private const val OTHER_DOCS_CONFIDENCE = 0.7f
 private const val OTHER_DOCS_MIN_WORDS = 60
 
-private val CARD_RUN = Regex("(?<!\\d)\\d(?:[ -]?\\d){12,18}(?!\\d)")
+private val DIGITS = Regex("\\d+")
 private val IFSC = Regex("\\b[A-Z]{4}0[A-Z0-9]{6}\\b")
 private val UPI = Regex("(?<![a-z0-9._-])[a-z0-9._-]{2,}@[a-z]{2,}(?![a-z0-9]|\\.[a-z])")
 private val PAN = Regex("\\b[A-Z]{5}[0-9]{4}[A-Z]\\b")
@@ -38,12 +40,16 @@ private val MRZ_FIRST = Regex("^P<[A-Z]{3}[A-Z0-9<]{25,}$")
 private val MRZ_LIKE = Regex("^(?=.*[<0-9])[A-Z0-9<]{30,}$")
 private val WORD = Regex("\\p{L}{2,}")
 
-private class Signals(val keywords: Int, val patterns: Int, val strong: Boolean) {
-    fun confidence(): Float? = when {
-        keywords + patterns >= 2 -> MULTI
-        strong -> STRONG
-        keywords + patterns == 1 -> KEYWORD_ONLY
-        else -> null
+private class Signals(val specific: Int, val generic: Int, val patterns: Int, val strong: Boolean) {
+    fun confidence(): Float? {
+        val total = specific + generic + patterns
+        return when {
+            total >= 2 && specific + patterns >= 1 -> MULTI
+            strong -> STRONG
+            total >= 2 -> GENERIC_ONLY
+            total == 1 -> KEYWORD_ONLY
+            else -> null
+        }
     }
 }
 
@@ -61,8 +67,17 @@ fun luhnValid(digits: String): Boolean {
     return sum % 10 == 0
 }
 
-private fun countKeywords(lower: String, keywords: List<String>): Int =
-    keywords.count { Regex("\\b${Regex.escape(it)}\\b").containsMatchIn(lower) }
+private val keywordRegexes = HashMap<String, Regex>()
+
+private fun keywordRegex(k: String): Regex =
+    keywordRegexes.getOrPut(k) { Regex("\\b${Regex.escape(k)}\\b") }
+
+private fun matched(lower: String, keywords: List<String>): List<String> =
+    keywords.filter { keywordRegex(it).containsMatchIn(lower) }
+
+/** Generic keywords already covered by a matched specific keyword (e.g. "income tax") don't count twice. */
+private fun countGeneric(lower: String, generic: List<String>, matchedSpecific: List<String>): Int =
+    matched(lower, generic).count { g -> matchedSpecific.none { it.contains(g) } }
 
 private fun hasMrz(lines: List<String>): Boolean {
     val first = lines.indexOfFirst { MRZ_FIRST.matches(it) }
@@ -70,25 +85,47 @@ private fun hasMrz(lines: List<String>): Boolean {
     return lines.withIndex().any { (i, l) -> i != first && MRZ_LIKE.matches(l) }
 }
 
+/** Slide over consecutive digit groups (separated by one space or hyphen) looking for a Luhn-valid 13-19 digit run. */
+private fun hasValidCard(text: String): Boolean {
+    val groups = DIGITS.findAll(text).toList()
+    for (i in groups.indices) {
+        val sb = StringBuilder()
+        var j = i
+        while (j < groups.size) {
+            if (j > i) {
+                val gap = text.substring(groups[j - 1].range.last + 1, groups[j].range.first)
+                if (gap != " " && gap != "-") break
+            }
+            sb.append(groups[j].value)
+            if (sb.length > 19) break
+            if (sb.length >= 13 && luhnValid(sb.toString())) return true
+            j++
+        }
+    }
+    return false
+}
+
 private fun idSignals(lines: List<String>, upper: String, lower: String): Signals {
-    val keywords = countKeywords(lower, DocumentKeywords.ID)
+    val specific = matched(lower, DocumentKeywords.ID_SPECIFIC)
+    val generic = countGeneric(lower, DocumentKeywords.ID_GENERIC, specific)
     val mrz = hasMrz(lines)
     var patterns = if (mrz) 1 else 0
-    if (keywords > 0) {
+    if (specific.isNotEmpty() || generic > 0) {
         if (PAN.containsMatchIn(upper)) patterns++
         if (AADHAAR.containsMatchIn(upper)) patterns++
-        if (countKeywords(lower, DocumentKeywords.DRIVING) > 0 && DL_NUMBER.containsMatchIn(upper)) patterns++
+        if (matched(lower, DocumentKeywords.DRIVING).isNotEmpty() && DL_NUMBER.containsMatchIn(upper)) patterns++
     }
-    return Signals(keywords, patterns, strong = mrz)
+    return Signals(specific.size, generic, patterns, strong = mrz)
 }
 
 private fun bankingSignals(upper: String, lower: String): Signals {
-    val keywords = countKeywords(lower, DocumentKeywords.BANKING)
-    val card = CARD_RUN.findAll(upper).any { luhnValid(it.value.filter(Char::isDigit)) }
+    val specific = matched(lower, DocumentKeywords.BANKING_SPECIFIC)
+    val generic = countGeneric(lower, DocumentKeywords.BANKING_GENERIC, specific)
+    val card = hasValidCard(upper)
     val ifsc = IFSC.containsMatchIn(upper)
     val upi = UPI.containsMatchIn(lower)
     val patterns = listOf(card, ifsc, upi).count { it }
-    return Signals(keywords, patterns, strong = card || ifsc)
+    return Signals(specific.size, generic, patterns, strong = card || ifsc)
 }
 
 /** IDS beats BANKING beats OTHER_DOCS; null when the OCR text shows no document signal. */

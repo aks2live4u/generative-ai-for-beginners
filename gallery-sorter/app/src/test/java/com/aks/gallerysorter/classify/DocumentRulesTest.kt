@@ -106,4 +106,25 @@ class DocumentRulesTest {
         assertThat(documentCategory("")).isNull()
         assertThat(documentCategory("a few plain words only")).isNull()
     }
+
+    @Test fun cardAfterOtherNumbers() {
+        listOf(
+            "Card 2 4111 1111 1111 1111",
+            "on 12 03 2024 4111 1111 1111 1111",
+            "amount 500 4111 1111 1111 1111",
+        ).forEach { assertThat(documentCategory(it)?.category).isEqualTo(Category.BANKING) }
+    }
+
+    @Test fun genericKeywordsStayBelowTopBand() {
+        val a = documentCategory("work life balance statement")
+        assertThat(a!!.confidence).isLessThan(0.85f)
+        val b = documentCategory("passport income tax")
+        assertThat(b!!.confidence).isLessThan(0.85f)
+        assertThat(documentCategory("Account Statement\nClosing Balance")!!.confidence).isEqualTo(0.7f)
+    }
+
+    @Test fun specificPlusGenericIsTopBand() {
+        assertThat(documentCategory("HDFC statement")!!.confidence).isEqualTo(0.95f)
+        assertThat(documentCategory("Income Tax Department")!!.confidence).isEqualTo(0.6f)
+    }
 }
