@@ -56,12 +56,48 @@ class DuplicateGrouperTest {
         assertThat(g).hasSize(1)
     }
 
-    @Test fun transitiveClosureMergesChain() {
+    @Test fun chainIsNotTransitive_memberFarFromTheKeepLeavesTheGroup() {
         val a = 0L
         val b = flip(a, 0, 1, 2)
         val c = flip(b, 10, 20, 30) // 6 bits from a, 3 from b
+        // Same resolution: the keep is the lowest id, 1 (a). c only matches b, not the keep.
         val g = groupDuplicates(listOf(img(1, phash = a), img(3, phash = c), img(2, phash = b)))
-        assertThat(ids(g)).containsExactly(listOf(1L, 3L, 2L))
+        assertThat(ids(g)).containsExactly(listOf(1L, 2L))
+    }
+
+    @Test fun chainIsNotTransitive_leftoversAreRegroupedAroundTheirOwnKeep() {
+        val a = 0L
+        val b = flip(a, 0, 1, 2)
+        val c = flip(b, 10, 20, 30) // 6 from a, 3 from b
+        val d = flip(c, 40, 50) // 8 from a, 5 from b, 2 from c
+        val g = groupDuplicates(listOf(img(1, phash = a), img(2, phash = b), img(3, phash = c), img(4, phash = d)))
+        assertThat(ids(g)).containsExactly(listOf(1L, 2L), listOf(3L, 4L)).inOrder()
+        for (group in g) {
+            val keep = suggestKeep(group)
+            assertThat(group.all { it === keep || hamming(it.phash!!, keep.phash!!) <= 4 }).isTrue()
+        }
+    }
+
+    @Test fun shaEqualToTheKeepStaysEvenWhenPhashIsFar() {
+        val g = groupDuplicates(listOf(img(1, sha = "x", phash = 0L), img(2, sha = "x", phash = -1L), img(3, phash = flip(-1L, 1))))
+        assertThat(ids(g)).containsExactly(listOf(1L, 2L)) // 3 matched only 2's phash
+    }
+
+    @Test fun videoChainIsNotTransitive() {
+        val f = listOf(0L, 0L, 0L)
+        val g = groupDuplicates(listOf(vid(1, 10_000, f), vid(2, 10_400, f), vid(3, 10_800, f))) // 3 is 800 ms from 1
+        assertThat(ids(g)).containsExactly(listOf(1L, 2L))
+    }
+
+    @Test fun grouping_5000IdenticalHashes_completesUnder2s() {
+        val items = (0L until 5_000L).map { img(it, phash = 0x5A5A5A5A5A5A5A5AL) }
+        val start = System.nanoTime()
+        val groups = groupDuplicates(items)
+        val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
+        println("groupDuplicates(5000 identical) took $elapsedMs ms")
+        assertThat(groups).hasSize(1)
+        assertThat(groups.single()).hasSize(5_000)
+        assertThat(elapsedMs).isLessThan(2000.0)
     }
 
     @Test fun imageNeverMatchesVideoOnPhash() {

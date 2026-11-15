@@ -17,8 +17,15 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 
-/** One duplicate group; [keep] is what the user keeps (initially the suggested keep). */
-data class DupeGroupUi(val id: Long, val items: List<DupeItem>, val keep: Set<Long>)
+/**
+ * One duplicate group; [keep] is what the user keeps (initially the suggested keep).
+ * [needsConfirm]: more than [LARGE_GROUP] items and not yet confirmed by the user, so it is left
+ * out of "Delete N suggested".
+ */
+data class DupeGroupUi(val id: Long, val items: List<DupeItem>, val keep: Set<Long>, val needsConfirm: Boolean = false)
+
+/** Groups larger than this need an extra confirmation before their copies are deleted. */
+const val LARGE_GROUP = 10
 
 /** [missingKeep]: groups where nothing is kept; deleting is blocked until each keeps at least one. */
 data class DupesState(val loaded: Boolean = false, val groups: List<DupeGroupUi> = emptyList()) {
@@ -35,6 +42,9 @@ class DuplicatesViewModel(db: () -> AppDatabase, lockState: LockState) : ViewMod
     /** User changes to the suggested keep, per group. */
     private val keepChoice = MutableStateFlow<Map<Long, Set<Long>>>(emptyMap())
 
+    /** Large groups the user confirmed for deletion. */
+    private val confirmedLarge = MutableStateFlow<Set<Long>>(emptySet())
+
     val state: StateFlow<DupesState> = combine(
         lockState.includeLocked.flatMapLatest { inc ->
             flow<List<DupeItem>?> {
@@ -43,12 +53,16 @@ class DuplicatesViewModel(db: () -> AppDatabase, lockState: LockState) : ViewMod
             }
         }.flowOn(Dispatchers.IO),
         keepChoice,
-    ) { rows, choice ->
+        confirmedLarge,
+    ) { rows, choice, confirmed ->
         if (rows == null) return@combine DupesState()
         DupesState(
             loaded = true,
             groups = rows.groupBy { it.groupId }.map { (id, items) ->
-                DupeGroupUi(id, items, choice[id] ?: items.filter { it.suggestedKeep }.map { it.media.id }.toSet())
+                DupeGroupUi(
+                    id, items, choice[id] ?: items.filter { it.suggestedKeep }.map { it.media.id }.toSet(),
+                    needsConfirm = items.size > LARGE_GROUP && id !in confirmed,
+                )
             },
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DupesState())
@@ -59,10 +73,18 @@ class DuplicatesViewModel(db: () -> AppDatabase, lockState: LockState) : ViewMod
         keepChoice.value = keepChoice.value + (groupId to keep)
     }
 
-    /** The visible members not kept ("Delete N suggested"); empty while any group keeps nothing. */
+    /** After the extra confirmation: group [groupId]'s copies count towards "Delete N suggested". */
+    fun includeLargeGroup(groupId: Long) {
+        confirmedLarge.value = confirmedLarge.value + groupId
+    }
+
+    /**
+     * The visible members not kept ("Delete N suggested"), leaving out unconfirmed large groups;
+     * empty while any group keeps nothing.
+     */
     fun toDelete(): List<Long> {
         val s = state.value
         if (s.missingKeep.isNotEmpty()) return emptyList()
-        return s.groups.flatMap { g -> g.items.map { it.media.id }.filter { it !in g.keep } }
+        return s.groups.filterNot { it.needsConfirm }.flatMap { g -> g.items.map { it.media.id }.filter { it !in g.keep } }
     }
 }

@@ -1,6 +1,7 @@
 package com.aks.gallerysorter.dupes
 
 import com.aks.gallerysorter.core.MediaKind
+import java.util.IdentityHashMap
 
 data class DupeCandidate(
     val id: Long,
@@ -40,11 +41,40 @@ private class UnionFind(n: Int) {
 
 /**
  * Groups exact (same sha256) and visually identical (pHash within 4 bits; videos also need
- * duration within 500 ms and all 3 frame hashes within 4 bits) items, with transitive closure.
- * Only same-kind items are compared. Groups of one are omitted. Groups are ordered by their
- * first member's position in [items]; members keep input order.
+ * duration within 500 ms and all 3 frame hashes within 4 bits) items. Only same-kind items are
+ * compared. Groups are not transitive: candidates are first linked through any chain of matches,
+ * then each candidate group keeps only the members that match its [suggestKeep] directly; the
+ * rest are regrouped the same way, or dropped when nothing matches. Groups of one are omitted.
+ * Groups are ordered by their first member's position in [items]; members keep input order.
  */
 fun groupDuplicates(items: List<DupeCandidate>): List<List<DupeCandidate>> {
+    val out = ArrayList<List<DupeCandidate>>()
+    val work = ArrayDeque(candidateGroups(items))
+    while (work.isNotEmpty()) {
+        val group = work.removeFirst()
+        val keep = suggestKeep(group)
+        val (members, rest) = group.partition { it === keep || matchesKeep(keep, it) }
+        if (members.size > 1) out += members
+        if (rest.size > 1) work.addAll(candidateGroups(rest))
+    }
+    val position = IdentityHashMap<DupeCandidate, Int>(items.size).apply { items.forEachIndexed { i, it -> put(it, i) } }
+    return out.sortedBy { position.getValue(it.first()) }
+}
+
+/** A direct match with the group's keep: same sha256, or within the near-match rule for its kind. */
+private fun matchesKeep(keep: DupeCandidate, x: DupeCandidate): Boolean {
+    if (keep.kind != x.kind) return false
+    if (keep.sha256 != null && keep.sha256 == x.sha256) return true
+    return when (keep.kind) {
+        MediaKind.IMAGE -> keep.phash != null && x.phash != null && hamming(keep.phash, x.phash) <= MAX_HAMMING
+        MediaKind.VIDEO -> videoEligible(keep) && videoEligible(x) && videosMatch(keep, x)
+    }
+}
+
+private fun videoEligible(v: DupeCandidate) = v.durationMs != null && v.framePhashes.size == VIDEO_FRAMES
+
+/** Transitive candidate groups (union-find over every match), in input order; singletons omitted. */
+private fun candidateGroups(items: List<DupeCandidate>): List<List<DupeCandidate>> {
     val uf = UnionFind(items.size)
 
     // Exact matches.
@@ -55,24 +85,28 @@ fun groupDuplicates(items: List<DupeCandidate>): List<List<DupeCandidate>> {
         if (first != null) uf.union(first, i)
     }
 
-    // Near matches: images on phash, videos on the first frame's phash.
-    val imageIdx = ArrayList<Int>()
-    val videoIdx = ArrayList<Int>()
+    // Equal full hashes are matches outright: collapse them to one representative before the band
+    // pass, so thousands of identical hashes don't make one huge bucket.
+    val imageRep = HashMap<Long, Int>()
+    val videoRep = HashMap<Pair<Long, List<Long>>, Int>()
     for ((i, it) in items.withIndex()) {
         when (it.kind) {
-            MediaKind.IMAGE -> if (it.phash != null) imageIdx.add(i)
-            MediaKind.VIDEO ->
-                if (it.durationMs != null && it.framePhashes.size == VIDEO_FRAMES) videoIdx.add(i)
+            MediaKind.IMAGE -> it.phash?.let { h -> imageRep.putIfAbsent(h, i)?.let { r -> uf.union(r, i) } }
+            MediaKind.VIDEO -> if (videoEligible(it)) {
+                videoRep.putIfAbsent(it.durationMs!! to it.framePhashes, i)?.let { r -> uf.union(r, i) }
+            }
         }
     }
+
+    // Near matches between representatives: images on phash, videos on the first frame's phash.
     bandMatch(
-        imageIdx.toIntArray(),
+        imageRep.values.sorted().toIntArray(),
         key = { items[it].phash!! },
         verify = { a, b -> hamming(items[a].phash!!, items[b].phash!!) <= MAX_HAMMING },
         uf = uf,
     )
     bandMatch(
-        videoIdx.toIntArray(),
+        videoRep.values.sorted().toIntArray(),
         key = { items[it].framePhashes[0] },
         verify = { a, b -> videosMatch(items[a], items[b]) },
         uf = uf,

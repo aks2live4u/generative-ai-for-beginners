@@ -95,4 +95,22 @@ class DuplicatesViewModelTest {
         assertThat(vm.state.value.missingKeep).isEmpty()
         assertThat(vm.toDelete()).containsExactly(1L, 3L)
     }
+
+    @Test fun aGroupOfMoreThanTen_isLeftOutOfTheDeleteUntilConfirmed() = runBlocking<Unit> {
+        db.mediaDao().upsertAll((100L..110L).map { TestIndex.media(it) })
+        db.dupeDao().replaceAll(
+            listOf(DupeRow(10, 1, suggestedKeep = true), DupeRow(10, 2, suggestedKeep = false)) +
+                (100L..110L).map { DupeRow(100, it, suggestedKeep = it == 100L) },
+        )
+        val vm = vm()
+        val s = withTimeout(10_000) { vm.state.first { it.loaded && it.groups.size == 2 } }
+        assertThat(s.groups.first { it.id == 100L }.needsConfirm).isTrue()
+        assertThat(s.groups.first { it.id == 10L }.needsConfirm).isFalse()
+        assertThat(vm.toDelete()).containsExactly(2L)
+
+        vm.includeLargeGroup(100)
+
+        assertThat(vm.state.value.groups.first { it.id == 100L }.needsConfirm).isFalse()
+        assertThat(vm.toDelete()).containsExactlyElementsIn(listOf(2L) + (101L..110L))
+    }
 }
