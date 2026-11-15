@@ -58,4 +58,13 @@ class LockStateTest {
         state.lockAll()
         assertThat(state.unlockedAt(VaultTier.STANDARD)).isNull()
     }
+
+    @Test fun unlock_afterLockAllDuringPrompt_isRejected() {
+        val epoch = state.epoch()
+        state.lockAll() // app backgrounded while the unlock was in flight
+        assertThat(state.unlock(VaultTier.STANDARD, handle(), epoch)).isFalse()
+        assertThat(state.unlocked.value).isEmpty()
+        assertThat(state.privateHandle(VaultTier.STANDARD)).isNull()
+        assertThat(state.unlock(VaultTier.STANDARD, handle(), state.epoch())).isTrue()
+    }
 }

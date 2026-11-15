@@ -36,6 +36,7 @@ class BiometricGate(
 ) {
     suspend fun prompt(activity: FragmentActivity, tier: VaultTier): PrivateHandle? {
         lockState.privateHandle(tier)?.let { return it }
+        val epoch = lockState.epoch()
         val keys = guard.keys(tier)
         val handle = if (keys.isBiometricEnabled() && canUseBiometric(activity)) {
             when (val r = biometricStep(activity, tier)) {
@@ -46,7 +47,8 @@ class BiometricGate(
         } else {
             passcodeStep(activity, tier)
         } ?: return null
-        lockState.unlock(tier, handle)
+        // Backgrounded mid-unlock (lockAll ran): drop the handle.
+        if (!lockState.unlock(tier, handle, epoch)) return null
         onUnlocked(tier, handle)
         return handle
     }
@@ -72,6 +74,10 @@ class BiometricGate(
             keys.biometricCipher()
         } catch (e: BiometricInvalidatedException) {
             return Step.UsePasscode
+        } catch (e: IOException) {
+            return Step.UsePasscode
+        } catch (e: IllegalStateException) {
+            return Step.UsePasscode
         }
         val authed: Auth = suspendCancellableCoroutine { cont ->
             val prompt = BiometricPrompt(
@@ -86,7 +92,7 @@ class BiometricGate(
                     override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                         if (!cont.isActive) return
                         // Negative button and hard failures (lockout, no hardware) go to the PIN.
-                        cont.resume(if (errorCode == BiometricPrompt.ERROR_USER_CANCELED) Auth.Cancelled else Auth.UsePin)
+                        cont.resume(if (errorCode == BiometricPrompt.ERROR_USER_CANCELED || errorCode == BiometricPrompt.ERROR_CANCELED) Auth.Cancelled else Auth.UsePin)
                     }
                 },
             )
@@ -107,6 +113,10 @@ class BiometricGate(
             Step.Done(withContext(Dispatchers.Default) { keys.unlockWithBiometric(ok.cipher) })
         } catch (e: BiometricInvalidatedException) {
             Step.UsePasscode
+        } catch (e: IOException) {
+            Step.UsePasscode
+        } catch (e: IllegalStateException) {
+            Step.UsePasscode
         }
     }
 
@@ -122,7 +132,9 @@ class BiometricGate(
             } catch (e: InvalidSecretException) {
                 error = "Wrong ${noun(tier)}"
             } catch (e: IOException) {
-                error = "Could not read the vault keys"
+                return null
+            } catch (e: IllegalStateException) {
+                return null
             }
         }
         return null
@@ -142,18 +154,19 @@ class BiometricGate(
             }
             fun submit(): CharArray {
                 val text = field.text
-                val chars = CharArray(text.length).also { text.getChars(0, text.length, it, 0) }
-                text.clear()
-                return chars
+                return CharArray(text.length).also { text.getChars(0, text.length, it, 0) }
             }
             val dialog = AlertDialog.Builder(activity)
                 .setTitle(if (tier == VaultTier.STANDARD) "Enter PIN" else "Enter passcode")
                 .setMessage(error)
                 .setView(field)
                 .setCancelable(true)
-                .setPositiveButton("Unlock") { _, _ -> if (cont.isActive) cont.resume(submit()) }
+                .setPositiveButton("Unlock") { _, _ ->
+                    val chars = submit()
+                    if (cont.isActive) cont.resume(chars) { chars.fill('\u0000') } else chars.fill('\u0000')
+                }
                 .setNegativeButton("Cancel") { _, _ -> if (cont.isActive) cont.resume(null) }
-                .setOnCancelListener { if (cont.isActive) cont.resume(null) }
+                .setOnDismissListener { field.text.clear(); if (cont.isActive) cont.resume(null) }
                 .create()
             dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             cont.invokeOnCancellation { dialog.dismiss() }

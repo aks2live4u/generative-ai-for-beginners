@@ -27,13 +27,25 @@ class LockState(private val clock: () -> Long = System::currentTimeMillis) {
     private val _includeLocked = MutableStateFlow(false)
     val includeLocked: StateFlow<Boolean> = _includeLocked.asStateFlow()
 
-    fun unlock(tier: VaultTier, handle: PrivateHandle) = synchronized(lock) {
+    private var epoch = 0L
+
+    /** Changes on every [lockAll]; capture it before starting an unlock and pass it to [unlock]. */
+    fun epoch(): Long = synchronized(lock) { epoch }
+
+    /**
+     * Stores [handle], unless [lockAll] ran since [epoch] was captured (the app went to the
+     * background mid-unlock); then the handle is dropped and false is returned.
+     */
+    fun unlock(tier: VaultTier, handle: PrivateHandle, epoch: Long = epoch()): Boolean = synchronized(lock) {
+        if (epoch != this.epoch) return@synchronized false
         handles[tier] = handle
         unlockTimes[tier] = clock()
         publish()
+        true
     }
 
     fun lockAll() = synchronized(lock) {
+        epoch++
         handles.clear()
         unlockTimes.clear()
         publish()
