@@ -55,11 +55,14 @@ class MediaStoreSource(private val resolver: ContentResolver) : MediaSource {
         val uri = uriOf(item)
         try {
             val original = try {
-                // Needs ACCESS_MEDIA_LOCATION at runtime to keep GPS tags.
+                // Needs ACCESS_MEDIA_LOCATION at runtime to keep GPS tags; without it the open throws
+                // (SecurityException or UnsupportedOperationException) and the redacted file is read.
                 resolver.openInputStream(MediaStore.setRequireOriginal(uri))?.let { it to true }
             } catch (e: SecurityException) {
                 null
-            } ?: (resolver.openInputStream(uri)?.let { it to false } ?: return@withContext null)
+            } catch (e: UnsupportedOperationException) {
+                null
+            } ?:(resolver.openInputStream(uri)?.let { it to false } ?: return@withContext null)
             original.first.use { stream ->
                 val exif = ExifInterface(stream)
                 val ll = if (original.second) exif.latLong else null
