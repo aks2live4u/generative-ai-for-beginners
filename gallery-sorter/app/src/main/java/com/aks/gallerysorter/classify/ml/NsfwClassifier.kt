@@ -16,7 +16,9 @@ interface NsfwClassifier {
 /**
  * [NsfwClassifier] on `assets/models/nsfw.tflite`, a MobileNetV4-small classifier converted to TFLite
  * (see assets/models/LICENSES.md). Input: 1×224×224×3 float32 RGB in 0..1 (ImageNet normalisation is
- * inside the model). Output: 1×5 softmax over [LABELS]. Thread-safe; [close] releases the interpreter.
+ * inside the model). Output: 1×5 softmax over [LABELS]. Thread-safe; [score] blocks the calling thread
+ * while inference runs on the model's own thread (see [LiteRtModel]), so call it off the main thread.
+ * [close] releases the interpreter.
  */
 class LiteRtNsfwClassifier private constructor(private val model: LiteRtModel) : NsfwClassifier, AutoCloseable {
     private val input = floatBuffer(SIZE * SIZE * 3)
@@ -30,8 +32,10 @@ class LiteRtNsfwClassifier private constructor(private val model: LiteRtModel) :
             input.putFloat(((p shr 8) and 0xFF) / 255f)
             input.putFloat((p and 0xFF) / 255f)
         }
-        input.rewind()
-        model.interpreter.run(input, output)
+        model.run { interpreter ->
+            input.rewind() // also on the CPU retry
+            interpreter.run(input, output)
+        }
         val probs = output[0]
         return NsfwScore(explicit = probs[PORN] + probs[HENTAI], suggestive = probs[SEXY])
     }

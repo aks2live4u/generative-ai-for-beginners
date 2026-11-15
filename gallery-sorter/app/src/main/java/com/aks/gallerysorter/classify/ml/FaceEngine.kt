@@ -22,7 +22,8 @@ interface FaceEngine {
  * ML Kit face detection (bundled) → crop each face box → 112×112 → `assets/models/face_embed.tflite`
  * (MobileFaceNet, 128-d). The model has two image inputs (img1, img2: 1×3×112×112 float32 RGB in 0..1,
  * channels first) and outputs 2×128, one row per input, computed independently; faces are embedded two
- * per call and an odd last face is paired with itself.
+ * per call and an odd last face is paired with itself. [faces] suspends for detection and then blocks its
+ * thread while the embeddings run on the model's own thread (see [LiteRtModel]); call it off the main thread.
  */
 class MlKitFaceEngine private constructor(
     private val detector: FaceDetector,
@@ -50,7 +51,11 @@ class MlKitFaceEngine private constructor(
     private fun embedPair(a: IntArray, b: IntArray): Pair<FloatArray, FloatArray> {
         fill(in1, a)
         fill(in2, b)
-        model.interpreter.runForMultipleInputsOutputs(arrayOf<Any>(in1, in2), mapOf<Int, Any>(0 to out))
+        model.run { interpreter ->
+            in1.rewind() // also on the CPU retry
+            in2.rewind()
+            interpreter.runForMultipleInputsOutputs(arrayOf<Any>(in1, in2), mapOf<Int, Any>(0 to out))
+        }
         return l2Normalize(out[0]) to l2Normalize(out[1])
     }
 
