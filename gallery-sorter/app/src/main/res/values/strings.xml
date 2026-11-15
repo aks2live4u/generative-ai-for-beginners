@@ -3,4 +3,7 @@
     <string name="geonames_credit">Place names from GeoNames (geonames.org), CC BY 4.0</string>
     <string name="scan_channel_name">Gallery scan</string>
     <string name="scan_progress">Organising your gallery — %1$d%%</string>
+    <string name="notices_channel_name">Notices</string>
+    <string name="autohide_blocked_title">Gallery Sorter</string>
+    <string name="autohide_blocked_text">Some items couldn\'t be hidden — open the app to review.</string>
 </resources>

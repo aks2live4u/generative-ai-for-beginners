@@ -1,9 +1,17 @@
 package com.aks.gallerysorter
 
+import android.Manifest
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.aks.gallerysorter.classify.ml.LiteRtNsfwClassifier
 import com.aks.gallerysorter.classify.ml.MlKitFaceEngine
 import com.aks.gallerysorter.classify.ml.MlKitQrDetector
@@ -23,7 +31,9 @@ import com.aks.gallerysorter.scan.ScanPipeline
 import com.aks.gallerysorter.scan.ScanService
 import com.aks.gallerysorter.scan.ScanSettings
 import com.aks.gallerysorter.ui.Thumbnails
+import com.aks.gallerysorter.ui.summary
 import com.aks.gallerysorter.vault.AndroidFileOps
+import com.aks.gallerysorter.vault.AutoHider
 import com.aks.gallerysorter.vault.HideManager
 import com.aks.gallerysorter.vault.KeystoreKeyWrapper
 import com.aks.gallerysorter.vault.PrivateHandle
@@ -31,7 +41,7 @@ import com.aks.gallerysorter.vault.TierSettings
 import com.aks.gallerysorter.vault.VaultKeyGuard
 import com.aks.gallerysorter.vault.VaultKeys
 import com.aks.gallerysorter.vault.VaultStore
-import com.aks.gallerysorter.vault.defaultTierFor
+import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +86,22 @@ class AppGraph(private val app: Application) {
     val hideManager: HideManager by lazy {
         HideManager(
             store = vaultStore, guard = guard, vaultDao = db.vaultDao(), mediaDao = db.mediaDao(),
-            labelDao = db.labelDao(), settings = db.settingsDao(), media = mediaSource, fileOps = AndroidFileOps(app),
+            labelDao = db.labelDao(), settings = db.settingsDao(), unhidden = db.unhiddenDao(), media = mediaSource,
+            fileOps = AndroidFileOps(app), privateDirs = appPrivateDirs(),
+        )
+    }
+
+    /** Folders an unhide must never write into: the app's internal data and its external app folders. */
+    private fun appPrivateDirs(): List<File> =
+        listOf(app.dataDir) + listOf("Android/data", "Android/obb", "Android/media").map {
+            File(VaultStore.EXTERNAL_ROOT, "$it/${app.packageName}")
+        }
+
+    private val autoHider: AutoHider by lazy {
+        AutoHider(
+            hideManager = hideManager, guard = guard, tierSettings = tierSettings, settings = db.settingsDao(),
+            unhidden = db.unhiddenDao(), privateHandle = lockState::privateHandle,
+            blocked = ::postAutoHideBlocked, incomplete = { tier, res -> notify(res.summary(tier, verb = "Auto-hide: hid")) },
         )
     }
 
@@ -140,15 +165,34 @@ class AppGraph(private val app: Application) {
         )
     }
 
-    /** Auto-hide: the item's default tier; locked mode when that tier is locked; skipped if its vault isn't set up. */
-    private suspend fun autoHide(row: MediaRow, assignments: List<CategoryAssignment>) {
-        val tier = defaultTierFor(assignments.map { it.category }, tierSettings.overrides())
-        if (!guard.isSetUp(tier)) {
-            Log.i(TAG, "auto-hide skipped for item ${row.id}: vault not set up")
-            return
-        }
-        val res = hideManager.hide(listOf(row.id), tier, { _, _ -> }, priv = lockState.privateHandle(tier))
-        if (res.failed.isNotEmpty() || res.aborted != null) Log.w(TAG, "auto-hide did not complete for item ${row.id}")
+    /**
+     * Auto-hide ([AutoHider]): the item's default tier if it is in use (unlocked in the last 30
+     * days), else the standard tier, else skipped with one neutral notification a day. Locked
+     * mode when the tier is locked. Content the user unhid before is never re-hidden.
+     */
+    private suspend fun autoHide(row: MediaRow, assignments: List<CategoryAssignment>) = autoHider.autoHide(row, assignments)
+
+    /** Neutral text only: no thumbnail, no names, no counts. Needs the notification permission. */
+    private fun postAutoHideBlocked() {
+        if (ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val nm = app.getSystemService(NotificationManager::class.java) ?: return
+        nm.createNotificationChannel(
+            NotificationChannel(NOTICES_CHANNEL, app.getString(R.string.notices_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
+                .apply { setShowBadge(false) },
+        )
+        val open = PendingIntent.getActivity(
+            app, 0, Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(app, NOTICES_CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_notify_more)
+            .setContentTitle(app.getString(R.string.autohide_blocked_title))
+            .setContentText(app.getString(R.string.autohide_blocked_text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        nm.notify(AUTO_HIDE_BLOCKED_ID, n)
     }
 
     private val unlockJobs = mutableMapOf<VaultTier, Job>()
@@ -161,6 +205,7 @@ class AppGraph(private val app: Application) {
     private fun afterUnlock(tier: VaultTier, priv: PrivateHandle) {
         val job = appScope.launch(Dispatchers.IO) {
             try {
+                guard.recordUnlock(tier) // auto-hide only targets tiers unlocked recently
                 if (lockState.privateHandle(tier) !== priv) return@launch
                 val v = hideManager.verifyPending(tier, priv)
                 if (v.failed.isNotEmpty()) notify("${v.failed.size} hidden items could not be verified")
@@ -207,6 +252,8 @@ class AppGraph(private val app: Application) {
 
     private companion object {
         const val TAG = "AppGraph"
+        const val NOTICES_CHANNEL = "notices"
+        const val AUTO_HIDE_BLOCKED_ID = 2001
     }
 }
 

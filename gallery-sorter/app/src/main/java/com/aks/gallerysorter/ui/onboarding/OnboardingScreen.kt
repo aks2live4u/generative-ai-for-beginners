@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,12 +30,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.aks.gallerysorter.core.Category
+import com.aks.gallerysorter.core.CategoryGroup
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.graph
 import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.canUseFingerprint
 import com.aks.gallerysorter.ui.fragmentActivity
 import com.aks.gallerysorter.ui.graphViewModel
+import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
 import com.aks.gallerysorter.ui.NEW_VAULT_WARNING
 import com.aks.gallerysorter.ui.grid.ConfirmDialog
@@ -42,7 +46,10 @@ import com.aks.gallerysorter.ui.VaultSetup
 import com.aks.gallerysorter.ui.secretNoun
 import com.aks.gallerysorter.ui.settings.SettingsViewModel
 import com.aks.gallerysorter.ui.unlock
+import com.aks.gallerysorter.vault.BUILT_IN_TIERS
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** The first-run wizard; [onDone] runs after completion has been recorded. */
 @Composable
@@ -92,10 +99,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
                         "${state.backupApps.joinToString(" and ")} is installed. Photos it already uploaded stay in the cloud: " +
                             "remove sensitive ones there yourself. Hidden items stop being uploaded, because they leave the gallery.",
                     )
-                    Step.AUTO_HIDE -> {
-                        StepText("Hide new sensitive items automatically?", "New photos detected as Sensitive go straight into their vault. You can change this in Settings.")
-                        ToggleRow("Automatically hide new Sensitive items", state.autoHide, vm::setAutoHide)
-                    }
+                    Step.AUTO_HIDE -> AutoHideStep(state.autoHide, vm::setAutoHide)
                     Step.SCAN -> {
                         StepText("Start sorting", "The first scan looks at every photo and video once. It can take a while; you can use the phone meanwhile.")
                         ToggleRow("Only while charging", state.onlyWhileCharging, vm::setOnlyWhileCharging)
@@ -211,4 +215,34 @@ fun ToggleRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
         Text(text, Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+/**
+ * Auto-hide, offered once (default off). States plainly that it covers the existing library on the
+ * first scan, which vault each Sensitive/Documents category goes to (current defaults), and what
+ * happens when that vault isn't in use.
+ */
+@Composable
+private fun AutoHideStep(on: Boolean, onChange: (Boolean) -> Unit) {
+    val graph = LocalContext.current.graph
+    val tiers by produceState(BUILT_IN_TIERS) {
+        value = withContext(Dispatchers.IO) {
+            val overrides = graph.tierSettings.overrides()
+            BUILT_IN_TIERS.mapValues { (category, tier) -> overrides[category] ?: tier }
+        }
+    }
+    StepText("Hide sensitive items automatically?", autoHideExplainer(tiers))
+    ToggleRow("Automatically hide Sensitive items", on, onChange)
+}
+
+/** The auto-hide step's text for the per-category default vaults [tiers]. */
+internal fun autoHideExplainer(tiers: Map<Category, VaultTier>): String {
+    fun list(group: CategoryGroup) = tiers.filterKeys { it.group == group }.entries
+        .joinToString("; ") { (c, t) -> "${c.label} → ${t.label.lowercase()} vault" }
+    return "If you turn this on, it applies to everything the first scan finds, including all the photos and videos " +
+        "already on your phone, not just new ones. Each item detected as Sensitive is moved into its vault and leaves " +
+        "the gallery: ${list(CategoryGroup.SENSITIVE)}. Documents are not hidden automatically; when you hide them, " +
+        "they go to: ${list(CategoryGroup.DOCUMENTS)}. If an item's vault isn't set up or hasn't been unlocked in the " +
+        "last 30 days, it goes to the standard vault instead; if that isn't possible either, it stays in the gallery " +
+        "and you get a notification. Items you unhide are never hidden again automatically. You can change this in Settings."
 }

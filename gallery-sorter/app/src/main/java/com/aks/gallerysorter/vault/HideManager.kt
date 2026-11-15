@@ -8,6 +8,7 @@ import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.dao.LabelDao
 import com.aks.gallerysorter.index.dao.MediaDao
 import com.aks.gallerysorter.index.dao.SettingsDao
+import com.aks.gallerysorter.index.dao.UnhiddenDao
 import com.aks.gallerysorter.index.dao.VaultDao
 import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.VaultRow
@@ -19,6 +20,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -31,9 +33,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * [skipped]: ids no longer indexed, or already in the vault with identical bytes.
- * [aborted]: set when a batch-level failure (vault key check) stopped the batch after the
- * items already counted; the remaining ids were not attempted.
+ * [hidden] includes items whose identical bytes were already in the vault (their leftover
+ * original is deleted now). [missing]: the file is gone from the phone. [skipped]: ids no longer
+ * indexed. [keptUnhidden]: auto-hide only, content the user unhid earlier (never re-hidden
+ * automatically). [aborted]: set when a batch-level failure (vault key check) stopped the batch
+ * after the items already counted; the remaining ids were not attempted.
  */
 data class HideResult(
     val hidden: Int,
@@ -41,6 +45,7 @@ data class HideResult(
     val failed: List<Pair<Long, String>>,
     val skipped: List<Long> = emptyList(),
     val aborted: String? = null,
+    val keptUnhidden: List<Long> = emptyList(),
 )
 data class UnhideResult(val restored: Int, val failed: List<Pair<Long, String>>)
 data class MoveResult(val moved: Int, val failed: List<Pair<Long, String>>, val aborted: String? = null)
@@ -55,7 +60,8 @@ typealias Encryptor = (PublicHandle, InputStream, OutputStream) -> ByteArray
  * moveTier, verifyPending, rebuildIndex, cleanupPartials), so bulk hide, auto-hide and unhide
  * never race on the same item.
  *
- * Hide, per item: still indexed and not already vaulted → exists → free space → encrypt to
+ * Hide, per item: still indexed → exists → (auto-hide: not unhidden by the user before) → not
+ * already vaulted (if it is, see [hideVaulted]) → free space → encrypt to
  * `.part` (hashing the plaintext) → fsync → verify → rename to `.enc` → thumbnail → `.meta` →
  * private key confirmed → insert the row (committed) → delete the original → remove its
  * MediaStore entry. Verify = the original re-hashed now equals the streamed hash, the `.part`
@@ -63,7 +69,10 @@ typealias Encryptor = (PublicHandle, InputStream, OutputStream) -> ByteArray
  * [PrivateHandle] is supplied, a full decrypt whose SHA-256 equals the original's (row
  * `verified`; locked hides are checked later by [verifyPending]). Any failure before the commit
  * deletes the new vault files and leaves the original untouched. After the commit, a failure to
- * delete the original keeps both copies and is reported as "original not deleted".
+ * delete the original keeps both copies and is reported as "original not deleted"; hiding it
+ * again later finds the vault copy and only deletes the original. A successful unhide records
+ * the content's SHA-256 in `user_unhidden` so auto-hide leaves it alone; an explicit hide of
+ * that content removes the record.
  *
  * Logs carry only exception classes and ids, never paths or names.
  */
@@ -74,15 +83,18 @@ class HideManager(
     private val mediaDao: MediaDao,
     private val labelDao: LabelDao,
     private val settings: SettingsDao,
+    private val unhidden: UnhiddenDao,
     private val media: MediaSource,
     private val fileOps: FileOps,
     externalRoot: File = File(VaultStore.EXTERNAL_ROOT),
+    privateDirs: List<File> = emptyList(),
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val encrypt: Encryptor = VaultCrypto::encrypt,
 ) {
     private val lock = Mutex()
     private val files = VaultFiles(store, encrypt)
-    private val restore = VaultRestore(store, files, guard, vaultDao, settings, fileOps, externalRoot, encrypt)
+    private val restore =
+        VaultRestore(store, files, guard, vaultDao, settings, unhidden, fileOps, externalRoot, privateDirs, encrypt)
     private val rebuilder = VaultIndexRebuild(store, files, vaultDao)
 
     /**
@@ -90,13 +102,15 @@ class HideManager(
      * [VaultPrivateKeyMissingException] before touching anything if the tier's keys fail their
      * pins; the same failure mid-batch stops it and is returned as [HideResult.aborted].
      * [progress] gets (done, total) after each item, on the IO dispatcher. Pass [priv] when
-     * unlocked for decrypt-verification.
+     * unlocked for decrypt-verification. [auto]: an automatic hide, which leaves content the user
+     * unhid earlier in the gallery ([HideResult.keptUnhidden]).
      */
     suspend fun hide(
         ids: List<Long>,
         tier: VaultTier,
         progress: (Int, Int) -> Unit,
         priv: PrivateHandle? = null,
+        auto: Boolean = false,
     ): HideResult = serialized {
         guard.publicHandle(tier)
         guard.requirePrivateKey(tier)
@@ -105,38 +119,42 @@ class HideManager(
         var aborted: String? = null
         val missing = mutableListOf<Long>()
         val skipped = mutableListOf<Long>()
+        val keptUnhidden = mutableListOf<Long>()
         val failed = mutableListOf<Pair<Long, String>>()
         for ((i, id) in ids.withIndex()) {
             currentCoroutineContext().ensureActive()
-            val reason = perItem("hide", id, { aborted = it }) { hideOne(id, tier, priv) }
+            val reason = perItem("hide", id, { aborted = it }) { hideOne(id, tier, priv, auto) }
             when (reason) {
                 null -> hidden++
                 MISSING -> missing += id
                 SKIPPED -> skipped += id
+                USER_UNHIDDEN -> keptUnhidden += id
                 else -> failed += id to reason
             }
             progress(i + 1, ids.size)
             if (aborted != null) break
         }
-        HideResult(hidden, missing, failed, skipped, aborted)
+        HideResult(hidden, missing, failed, skipped, aborted, keptUnhidden)
     }
 
-    /** Null on success, else [MISSING], [SKIPPED] or a failure reason. */
-    private suspend fun hideOne(id: Long, tier: VaultTier, priv: PrivateHandle?): String? {
+    /** Null on success, else [MISSING], [SKIPPED], [USER_UNHIDDEN] or a failure reason. */
+    private suspend fun hideOne(id: Long, tier: VaultTier, priv: PrivateHandle?, auto: Boolean): String? {
         val row = mediaDao.get(id) ?: return SKIPPED
         if (!fileOps.exists(row.path)) {
             mediaDao.delete(id)
             return MISSING
         }
         val original = File(row.path)
-        if (alreadyVaulted(original)) return SKIPPED
+        val stamp = original.lastModified() // before hashing: any later write shows in finishHide
+        val now by lazy { VaultIo.digest(original) }
+        if (auto && unhidden.contains(now.sha256)) return USER_UNHIDDEN
+        vaultedCopy(original) { now }?.let { return hideVaulted(id, it, original, stamp, tier, priv) }
         if (fileOps.freeBytes(store.filesDir(tier)) < original.length() + SPACE_MARGIN) return INSUFFICIENT_SPACE
         val pub = guard.publicHandle(tier) // re-verified before every encrypt
         val uuid = UUID.randomUUID().toString()
         val part = File(store.filesDir(tier), uuid + VaultStore.PART)
         var committed = false
         try {
-            val stamp = original.lastModified()
             val w = FileInputStream(original).use { VaultIo.writeEncrypted(part, pub, it, encrypt) }
             verify(id, part, w, original, priv)?.let { return it }
             VaultIo.moveAtomic(part, store.resolve(tier, files.encRel(uuid)))
@@ -160,6 +178,7 @@ class HideManager(
             return withContext(NonCancellable) {
                 vaultDao.insert(vaultRow) // committed before the original is touched
                 committed = true
+                unhidden.delete(w.plainSha256) // hidden on purpose again
                 finishHide(id, original, stamp)
             }
         } finally {
@@ -168,12 +187,53 @@ class HideManager(
         }
     }
 
-    /** The same bytes from the same path are already in the vault (e.g. its delete failed earlier). */
-    private suspend fun alreadyVaulted(original: File): Boolean {
+    /**
+     * The vault row holding the same bytes from the same path, if any: left by an earlier hide
+     * whose delete failed, a crash between the row insert and the delete, or a rebuild from the
+     * `.meta` of a hide that crashed before its insert. Verified rows first.
+     */
+    private suspend fun vaultedCopy(original: File, now: () -> Digest): VaultRow? {
         val rows = vaultDao.byOriginalPath(original.path)
-        if (rows.isEmpty()) return false
-        val now = VaultIo.digest(original)
-        return rows.any { Digest(it.plainSha256, it.sizeBytes) == now }
+        if (rows.isEmpty()) return null
+        val digest = now()
+        return rows.sortedByDescending { it.verified }.firstOrNull { Digest(it.plainSha256, it.sizeBytes) == digest }
+    }
+
+    /**
+     * The original's bytes are already in the vault as [row]: finish that hide by deleting the
+     * original (and its MediaStore entry), once the vault copy is checked as on a fresh hide (the
+     * `.enc` has Tink's exact length and header byte; fully decrypted when [priv] is [row]'s tier
+     * key) and [row]'s tier private key passes its pin. No second copy is made.
+     */
+    private suspend fun hideVaulted(
+        id: Long, row: VaultRow, original: File, stamp: Long, tier: VaultTier, priv: PrivateHandle?,
+    ): String? {
+        val enc = store.resolve(row.tier, row.vaultFile)
+        if (!enc.isFile || enc.length() != VaultCrypto.expectedCiphertextSize(row.sizeBytes) ||
+            FileInputStream(enc).use { it.read() } != VaultCrypto.headerLength
+        ) {
+            return VERIFY_FAILED
+        }
+        if (priv != null && row.tier == tier) {
+            val dec = try {
+                VaultIo.decryptedDigest(priv, row.wrappedFileKey, enc)
+            } catch (e: Exception) {
+                Log.w(TAG, "verify failed for vault item ${row.id}: ${e.javaClass.name}")
+                return VERIFY_FAILED
+            }
+            if (dec != Digest(row.plainSha256, row.sizeBytes)) return VERIFY_FAILED
+            if (!row.verified) vaultDao.setVerified(row.id)
+        }
+        try {
+            guard.requirePrivateKey(row.tier) // never delete an original into a vault nobody can open
+        } catch (e: VaultPrivateKeyMissingException) {
+            if (row.tier == tier) throw e // the batch's own tier: stop the batch as usual
+            return PRIVATE_KEY_MISSING
+        }
+        return withContext(NonCancellable) {
+            unhidden.delete(row.plainSha256)
+            finishHide(id, original, stamp)
+        }
     }
 
     /** Null when [part] is a faithful encryption of [original] as it is now; else the reason. */
@@ -287,6 +347,21 @@ class HideManager(
         VerifyResult(verified, failed)
     }
 
+    /**
+     * "Start a new vault": moves [tier]'s whole vault folder aside, never deleting it (see
+     * [VaultKeyGuard.archiveStandardVault] and [VaultKeyGuard.archiveHighSecurityVault]). For the
+     * high-security tier its index rows are dropped too: they point into the archived folder,
+     * whose `.meta` files still hold everything needed with the old passcode. Returns the archive.
+     */
+    suspend fun archiveVault(tier: VaultTier, now: LocalDateTime): File = serialized {
+        when (tier) {
+            VaultTier.STANDARD -> guard.archiveStandardVault(now)
+            VaultTier.HIGH_SECURITY -> guard.archiveHighSecurityVault(now).also {
+                withContext(NonCancellable) { vaultDao.deleteTier(tier) }
+            }
+        }
+    }
+
     /** Recreates rows lost from the index from the tier's `.meta` files; returns how many. */
     suspend fun rebuildIndex(tier: VaultTier, priv: PrivateHandle): Int = serialized {
         rebuilder.rebuild(tier, priv)
@@ -363,6 +438,7 @@ class HideManager(
         private const val THUMB_PX = 320
         private const val MISSING = "missing"
         private const val SKIPPED = "skipped"
+        private const val USER_UNHIDDEN = "unhidden by the user"
         private const val ORIGINAL_CHANGED = "original changed during hide"
         private const val ORIGINAL_NOT_DELETED = "original not deleted"
         private const val CHANGED_AFTER_COPY = "original changed after copy; not deleted"

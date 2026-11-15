@@ -38,8 +38,10 @@ import com.aks.gallerysorter.ui.SetupResult
 import com.aks.gallerysorter.ui.fragmentActivity
 import com.aks.gallerysorter.ui.graphViewModel
 import com.aks.gallerysorter.ui.HIGH_SECURITY_UNINSTALL_WARNING
+import com.aks.gallerysorter.ui.NEW_HIGH_SECURITY_VAULT_WARNING
 import com.aks.gallerysorter.ui.NEW_VAULT_WARNING
 import com.aks.gallerysorter.ui.grid.ConfirmDialog
+import com.aks.gallerysorter.ui.startNewHighSecurityVault
 import com.aks.gallerysorter.ui.startNewStandardVault
 import com.aks.gallerysorter.ui.label
 import com.aks.gallerysorter.ui.onboarding.ToggleRow
@@ -64,6 +66,7 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
     val state by vm.state.collectAsState()
     val scope = rememberCoroutineScope()
     var confirmNew by remember { mutableStateOf(false) }
+    var confirmNewHigh by remember { mutableStateOf(false) }
     fun report(r: SetupResult) = when (r) {
         is SetupResult.Failed -> graph.notify(r.message)
         is SetupResult.Done -> graph.notify(if (r.fromEarlierInstall) "Vault restored; unlock it to recover its items" else "Vault set up")
@@ -94,6 +97,8 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
                 if (v?.created == true) {
                     TextButton(onClick = { act { changeSecret(context, tier, minFor(tier)) } }) { Text("Change $noun") }
                     ToggleRow("Unlock with fingerprint", v.fingerprint) { on -> act { setFingerprint(context, tier, on) } }
+                    // Can't unlock it any more: move it aside (never deleted) and start over.
+                    if (tier == VaultTier.HIGH_SECURITY) TextButton(onClick = { confirmNewHigh = true }) { Text("Forgot passcode? Start a new vault") }
                 } else if (v != null) {
                     // Keys from an earlier install: the same flow as onboarding (existing PIN, or archive and start anew).
                     TextButton(onClick = {
@@ -153,6 +158,22 @@ fun SettingsScreen(onPastPhones: () -> Unit, onAbout: () -> Unit, onBack: () -> 
                 }
             },
             onDismiss = { confirmNew = false },
+        )
+    }
+
+    if (confirmNewHigh) {
+        ConfirmDialog(
+            title = "Start a new high-security vault?",
+            text = NEW_HIGH_SECURITY_VAULT_WARNING,
+            confirm = "Start new vault",
+            onConfirm = {
+                confirmNewHigh = false
+                act {
+                    val activity = context.fragmentActivity() ?: return@act
+                    report(startNewHighSecurityVault(activity, graph, minFor(VaultTier.HIGH_SECURITY), fingerprint = false))
+                }
+            },
+            onDismiss = { confirmNewHigh = false },
         )
     }
 }

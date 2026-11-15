@@ -3,10 +3,13 @@ package com.aks.gallerysorter.vault
 import android.util.Log
 import com.aks.gallerysorter.core.VaultTier
 import com.aks.gallerysorter.index.dao.SettingsDao
+import com.aks.gallerysorter.index.dao.UnhiddenDao
 import com.aks.gallerysorter.index.dao.VaultDao
 import com.aks.gallerysorter.index.entities.SettingRow
+import com.aks.gallerysorter.index.entities.UnhiddenRow
 import com.aks.gallerysorter.index.entities.VaultRow
 import java.io.File
+import java.io.IOException
 import java.nio.channels.Channels
 import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
@@ -24,25 +27,30 @@ internal class VaultRestore(
     private val guard: VaultKeyGuard,
     private val vaultDao: VaultDao,
     private val settings: SettingsDao,
+    private val unhidden: UnhiddenDao,
     private val fileOps: FileOps,
     private val externalRoot: File,
+    private val privateDirs: List<File>,
     private val encrypt: Encryptor,
 ) {
     /**
      * Decrypts to a hidden `.gs-<uuid>.part` in the destination folder (its path recorded in
      * [INFLIGHT_KEY] first, so [HideManager.cleanupPartials] can remove the plaintext after a
      * crash), fsyncs, checks the SHA-256, then renames it to the first free name without ever
-     * replacing a file. Only then are the vault files and row deleted.
+     * replacing a file. Only then is the content recorded as unhidden by the user and the vault
+     * files and row deleted. The destination comes from the row (possibly rebuilt from a `.meta`
+     * on shared storage), so it is only trusted when [allowedOriginal] accepts it.
      */
     suspend fun unhideOne(vid: Long, priv: PrivateHandle): String? {
         val row = vaultDao.get(vid) ?: return NOT_FOUND
         val enc = store.resolve(row.tier, row.vaultFile)
         if (!enc.isFile) return VAULT_FILE_MISSING
-        val original = File(row.originalPath)
-        val dir = original.parentFile?.takeIf { it.isDirectory && it.canWrite() } ?: File(externalRoot, RESTORED_DIR)
+        val original = allowedOriginal(row.originalPath)
+        val dir = original?.parentFile?.takeIf { it.isDirectory && it.canWrite() } ?: File(externalRoot, RESTORED_DIR)
         if (!dir.isDirectory && !dir.mkdirs()) return "cannot create folder"
         if (fileOps.freeBytes(dir) < row.sizeBytes + SPACE_MARGIN) return INSUFFICIENT_SPACE
-        val target = freeName(dir, original.name) ?: return "no free name"
+        val name = (original ?: File(row.originalPath)).name.takeUnless { it.isEmpty() || it == "." || it == ".." } ?: FALLBACK_NAME
+        val target = freeName(dir, name) ?: return "no free name"
         val part = File(dir, ".gs-${UUID.randomUUID()}${VaultStore.PART}")
         settings.put(SettingRow(INFLIGHT_KEY, part.absolutePath))
         try {
@@ -68,6 +76,8 @@ internal class VaultRestore(
             withContext(NonCancellable) { settings.delete(INFLIGHT_KEY) }
         }
         withContext(NonCancellable) {
+            // Before the media scan, so the rescan it triggers never auto-hides this content again.
+            unhidden.put(UnhiddenRow(row.plainSha256, target.path, System.currentTimeMillis()))
             try {
                 fileOps.scanIntoMediaStore(target.path)
             } catch (e: Exception) {
@@ -78,6 +88,31 @@ internal class VaultRestore(
         }
         return null
     }
+
+    /**
+     * [path] canonicalised (`..` and symlinks resolved), or null unless it lies under
+     * [externalRoot] and outside both vault roots, archived standard vaults
+     * (`.vault-gs.old-*`) and the app's private folders ([privateDirs]).
+     */
+    private fun allowedOriginal(path: String): File? {
+        val f = canonical(File(path)) ?: return null
+        val ext = canonical(externalRoot) ?: return null
+        if (!f.isUnder(ext) || f == ext) return null
+        val forbidden = VaultTier.entries.map { store.root(it) } + privateDirs
+        if (forbidden.any { dir -> canonical(dir)?.let { f.isUnder(it) } ?: true }) return null
+        val std = canonical(store.root(VaultTier.STANDARD)) ?: return null
+        val top = f.relativeToOrNull(std.parentFile ?: return null)?.path?.substringBefore(File.separatorChar)
+        if (top != null && !top.startsWith("..") && top.startsWith("${std.name}.old-")) return null
+        return f
+    }
+
+    private fun canonical(f: File): File? = try {
+        f.canonicalFile
+    } catch (e: IOException) {
+        null
+    }
+
+    private fun File.isUnder(dir: File): Boolean = this == dir || path.startsWith(dir.path + File.separator)
 
     /** First of `name.ext`, `name (1).ext`, `name (2).ext`… that does not exist. */
     private fun freeName(dir: File, name: String): File? {
@@ -196,5 +231,6 @@ internal class VaultRestore(
         private const val TAG = "VaultRestore"
         private const val MAX_SUFFIX = 9999
         private const val RESTORED_DIR = "Pictures/Restored"
+        private const val FALLBACK_NAME = "restored"
     }
 }

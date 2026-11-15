@@ -11,6 +11,7 @@ import com.aks.gallerysorter.index.dao.LabelDao
 import com.aks.gallerysorter.index.dao.MediaDao
 import com.aks.gallerysorter.index.dao.PeopleDao
 import com.aks.gallerysorter.index.dao.SettingsDao
+import com.aks.gallerysorter.index.dao.UnhiddenDao
 import com.aks.gallerysorter.index.dao.VaultDao
 import com.aks.gallerysorter.index.entities.AlbumItemRow
 import com.aks.gallerysorter.index.entities.AlbumRow
@@ -21,6 +22,7 @@ import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.OverrideRow
 import com.aks.gallerysorter.index.entities.PersonRow
 import com.aks.gallerysorter.index.entities.SettingRow
+import com.aks.gallerysorter.index.entities.UnhiddenRow
 import com.aks.gallerysorter.index.entities.VaultRow
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
@@ -28,7 +30,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
     entities = [
         MediaRow::class, LabelRow::class, FaceRow::class, PersonRow::class,
         OverrideRow::class, VaultRow::class, DupeRow::class, SettingRow::class,
-        AlbumRow::class, AlbumItemRow::class,
+        AlbumRow::class, AlbumItemRow::class, UnhiddenRow::class,
     ],
     version = 1,
     exportSchema = false,
@@ -42,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dupeDao(): DupeDao
     abstract fun settingsDao(): SettingsDao
     abstract fun albumDao(): AlbumDao
+    abstract fun unhiddenDao(): UnhiddenDao
 
     companion object {
         const val FILE_NAME = "index.db"

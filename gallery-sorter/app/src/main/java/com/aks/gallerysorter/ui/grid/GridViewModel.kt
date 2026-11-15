@@ -17,6 +17,7 @@ import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.OverrideRow
 import com.aks.gallerysorter.scan.ScanWorker
 import com.aks.gallerysorter.ui.label
+import com.aks.gallerysorter.ui.summary
 import com.aks.gallerysorter.ui.trashRequest as systemTrashRequest
 import com.aks.gallerysorter.vault.defaultTierFor
 import kotlin.coroutines.cancellation.CancellationException
@@ -99,11 +100,7 @@ class GridViewModel(val source: GridSource, private val graph: AppGraph) : ViewM
                 graph.awaitStartup()
                 _busy.value = "Hiding…"
                 val res = graph.hideManager.hide(ids, tier, { done, total -> _busy.value = "Hiding $done of $total" }, priv = lockState.privateHandle(tier))
-                graph.notify(
-                    "Hid ${res.hidden} in the ${tier.label.lowercase()} vault" +
-                        (if (res.failed.isNotEmpty()) "; ${res.failed.size} failed" else "") +
-                        (res.aborted?.let { "; stopped: $it" } ?: ""),
-                )
+                graph.notify(res.summary(tier))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

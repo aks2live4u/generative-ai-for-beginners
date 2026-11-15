@@ -43,6 +43,7 @@ class WeakSecretException : IllegalArgumentException("Secret does not meet the v
 class VaultKeyGuard(
     private val store: VaultStore,
     private val settings: SettingsDao,
+    private val clock: () -> Long = System::currentTimeMillis,
     newKeys: (dir: File) -> VaultKeys,
 ) {
     private val keys: Map<VaultTier, VaultKeys> =
@@ -75,6 +76,7 @@ class VaultKeyGuard(
                 k.create(secret.copyOf())
                 recordPins(tier, publicFile(tier).readBytes())
             }
+            recordUnlock(tier) // the secret was just proven
         } finally {
             secret.fill('\u0000')
         }
@@ -113,18 +115,42 @@ class VaultKeyGuard(
      * `<root>.old-<yyyyMMdd-HHmmss>` with one atomic rename on the same volume. Nothing is deleted;
      * the old items stay openable with the old PIN. Clears the tier's pins so [createVault] then
      * creates fresh keys. Refuses a vault that is set up in this index (its rows point into it).
+     * Call through [HideManager.archiveVault], which serialises it with every other vault operation.
      */
     suspend fun archiveStandardVault(now: LocalDateTime): File {
-        val tier = VaultTier.STANDARD
-        check(!isSetUp(tier)) { "The standard vault is in use" }
+        check(!isSetUp(VaultTier.STANDARD)) { "The standard vault is in use" }
+        return moveAside(VaultTier.STANDARD, now)
+    }
+
+    /**
+     * "Forgot passcode? Start a new vault" for the high-security tier: renames `filesDir/hsvault`
+     * to `hsvault.old-<yyyyMMdd-HHmmss>` (never deletes; the old items stay openable with the old
+     * passcode until the app is uninstalled) and clears the tier's pins, so [createVault] creates
+     * fresh keys. The caller confirms first and drops the tier's index rows
+     * ([HideManager.archiveVault]).
+     */
+    suspend fun archiveHighSecurityVault(now: LocalDateTime): File {
+        val root = store.root(VaultTier.HIGH_SECURITY)
+        if (!root.isDirectory) throw IOException("No high-security vault to archive")
+        return moveAside(VaultTier.HIGH_SECURITY, now)
+    }
+
+    private suspend fun moveAside(tier: VaultTier, now: LocalDateTime): File {
         val root = store.root(tier)
         val target = File(root.parentFile, "${root.name}.old-${now.format(ARCHIVE_STAMP)}")
         if (target.exists()) throw IOException("Archive folder already exists")
         Files.move(root.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
         settings.delete(pinKey(tier))
         settings.delete(privPinKey(tier))
+        settings.delete(lastUnlockKey(tier))
         return target
     }
+
+    /** Records a successful unlock of [tier] now (auto-hide only targets tiers opened recently). */
+    suspend fun recordUnlock(tier: VaultTier) = settings.put(SettingRow(lastUnlockKey(tier), clock().toString()))
+
+    /** When [tier] was last unlocked (or set up) successfully, or null if never recorded. */
+    suspend fun lastUnlockMs(tier: VaultTier): Long? = settings.get(lastUnlockKey(tier))?.toLongOrNull()
 
     /** The pinned public key; throws [VaultKeyMismatchException] when it cannot be verified. */
     suspend fun publicHandle(tier: VaultTier): PublicHandle {
@@ -188,5 +214,6 @@ class VaultKeyGuard(
 
         fun pinKey(tier: VaultTier) = "vault.${tier.name.lowercase()}.pubhash"
         fun privPinKey(tier: VaultTier) = "vault.${tier.name.lowercase()}.privhash"
+        fun lastUnlockKey(tier: VaultTier) = "vault.${tier.name.lowercase()}.lastUnlockMs"
     }
 }

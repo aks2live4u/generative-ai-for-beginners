@@ -72,14 +72,14 @@ suspend fun setUpVault(activity: FragmentActivity, graph: AppGraph, tier: VaultT
 
 /**
  * "Start a new vault": the standard vault from an earlier install (PIN forgotten) is archived
- * intact by [com.aks.gallerysorter.vault.VaultKeyGuard.archiveStandardVault], then a new vault is
+ * intact by [com.aks.gallerysorter.vault.HideManager.archiveVault], then a new vault is
  * set up from scratch. createVault is never run over existing keys. The caller confirms first
  * ([NEW_VAULT_WARNING]). Main thread.
  */
 suspend fun startNewStandardVault(activity: FragmentActivity, graph: AppGraph, minLength: Int, fingerprint: Boolean): SetupResult {
     if (vaultSetup(graph, VaultTier.STANDARD) != VaultSetup.EXISTING) return SetupResult.Failed("There is no earlier vault to replace.")
     try {
-        withContext(Dispatchers.IO) { graph.guard.archiveStandardVault(LocalDateTime.now()) }
+        withContext(Dispatchers.IO) { graph.hideManager.archiveVault(VaultTier.STANDARD, LocalDateTime.now()) }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -91,4 +91,26 @@ suspend fun startNewStandardVault(activity: FragmentActivity, graph: AppGraph, m
         is SetupResult.Done -> SetupResult.Done(fromEarlierInstall = false)
         else -> r
     }
+}
+
+/**
+ * "Forgot passcode? Start a new vault" for the high-security tier: the current vault is moved
+ * aside intact ([com.aks.gallerysorter.vault.HideManager.archiveVault], which also drops its index
+ * rows), then a new one is set up. The caller confirms first ([NEW_HIGH_SECURITY_VAULT_WARNING]).
+ * Main thread.
+ */
+suspend fun startNewHighSecurityVault(activity: FragmentActivity, graph: AppGraph, minLength: Int, fingerprint: Boolean): SetupResult {
+    val tier = VaultTier.HIGH_SECURITY
+    if (vaultSetup(graph, tier) != VaultSetup.READY) return SetupResult.Failed("There is no high-security vault to replace.")
+    if (graph.lockState.isUnlocked(tier)) graph.lockState.lockAll() // its handle belongs to the old keys
+    try {
+        withContext(Dispatchers.IO) { graph.hideManager.archiveVault(tier, LocalDateTime.now()) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w("VaultSetup", "archiving the high-security vault failed: ${e.javaClass.name}")
+        return SetupResult.Failed("Couldn't move the old vault aside, so no new vault was created.")
+    }
+    graph.notify("The old vault was kept in a backup folder")
+    return setUpVault(activity, graph, tier, minLength, fingerprint)
 }
