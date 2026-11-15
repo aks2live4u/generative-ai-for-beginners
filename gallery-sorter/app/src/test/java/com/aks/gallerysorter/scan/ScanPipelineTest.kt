@@ -132,13 +132,24 @@ class ScanPipelineTest {
         assertThat(text.calls).isEqualTo(0)
         assertThat(labels(1)).contains(Category.PETS)
 
-        // Positive controls: a screenshot, a "Paper" label, and an A4-like aspect each trigger OCR.
+        // Positive controls: a screenshot, a "Paper" label, and an A4-like non-camera image each trigger OCR.
         source.add(item(2, path = "/storage/emulated/0/Pictures/Screenshots/s.png", w = 1080, h = 1920))
         source.add(item(3, w = 1000, h = 1000))
         scenes.labels[source.thumbs.getValue(3)] = mapOf("Paper" to 0.6f)
-        source.add(item(4, w = 1000, h = 1414))
+        source.add(item(4, path = "/storage/emulated/0/Download/form.jpg", w = 1000, h = 1414))
         pipeline().runIncremental { _, _ -> }
         assertThat(text.calls).isEqualTo(3)
+    }
+
+    @Test
+    fun pipeline_aspectGateAppliesOnlyToNonCameraItems() = runBlocking<Unit> {
+        source.add(item(1, w = 4000, h = 3000)) // 4:3 camera photo, no doc labels
+        pipeline().runIncremental { _, _ -> }
+        assertThat(text.calls).isEqualTo(0)
+
+        source.add(item(2, path = "/storage/emulated/0/Download/scan.jpg", w = 4000, h = 3000)) // 4:3 download
+        pipeline().runIncremental { _, _ -> }
+        assertThat(text.calls).isEqualTo(1)
     }
 
     @Test

@@ -224,6 +224,8 @@ class ScanPipeline(
     private fun needsOcr(labels: Set<String>, sources: Set<Category>, item: MediaItem, thumb: Bitmap): Boolean {
         if (labels.any { it.lowercase() in DOC_LABELS }) return true
         if (Category.SCREENSHOTS in sources) return true
+        // Camera photos are mostly 4:3, so for them only a document-like scene label triggers OCR.
+        if (Category.CAMERA in sources) return false
         val w = if (item.width > 0) item.width else thumb.width
         val h = if (item.height > 0) item.height else thumb.height
         if (w <= 0 || h <= 0) return false
