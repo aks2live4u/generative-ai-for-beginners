@@ -34,6 +34,10 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources {
+        // LiteRT memory-maps models straight out of the APK, which needs them stored uncompressed.
+        noCompress += "tflite"
+    }
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
@@ -55,6 +59,15 @@ dependencies {
     implementation(libs.sqlcipher)
     implementation(libs.exifinterface)
     ksp(libs.room.compiler)
+
+    // On-device ML: ML Kit bundled models only (never play-services-mlkit-*), plus LiteRT.
+    implementation(libs.mlkit.face.detection)
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.image.labeling)
+    implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.litert)
+    implementation(libs.litert.gpu)
+    implementation(libs.litert.gpu.api)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
