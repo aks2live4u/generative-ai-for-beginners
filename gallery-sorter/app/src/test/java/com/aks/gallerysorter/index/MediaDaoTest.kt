@@ -60,7 +60,7 @@ class MediaDaoTest {
             db.mediaDao().upsert(media(1)) // adult + camera
             db.mediaDao().upsert(media(2)) // camera only
             db.mediaDao().upsert(media(3)) // camera + doc
-            db.mediaDao().upsert(media(4)) // camera + review-band confidence
+            db.mediaDao().upsert(media(4)) // camera + mid-confidence content label (stays visible)
             db.mediaDao().upsert(media(5)) // camera + REVIEW label
             db.labelDao().upsertAll(
                 listOf(
@@ -72,7 +72,7 @@ class MediaDaoTest {
                 )
             )
         }
-        assertThat(ids(false, Category.CAMERA)).containsExactly(2L)
+        assertThat(ids(false, Category.CAMERA)).containsExactly(2L, 4L)
         assertThat(ids(true, Category.CAMERA)).containsExactly(1L, 2L, 3L, 4L, 5L)
     }
 
@@ -119,13 +119,18 @@ class MediaDaoTest {
     }
 
     @Test
-    fun reviewBandBoundaries_whenLocked() {
-        seed(1, LabelRow(1, Category.CAMERA, 0.85f))   // just above band: visible
-        seed(2, LabelRow(2, Category.PETS, 0.50f))     // band lower edge: hidden
-        seed(3, LabelRow(3, Category.PETS, 0.8499f))   // inside band: hidden
-        seed(4, LabelRow(4, Category.PETS, 0.4999f))   // below band: visible
+    fun lowConfidenceContentLabels_stayVisibleWhenLocked() {
+        seed(1, LabelRow(1, Category.CAMERA, 0.85f))
+        seed(2, LabelRow(2, Category.PETS, 0.50f))
+        seed(3, LabelRow(3, Category.MEMES, 0.8f))
+        seed(4, LabelRow(4, Category.OTHER_ADULT, 0.60f))
+        seed(5, LabelRow(5, Category.REVIEW, 0.60f))
         assertThat(ids(false, Category.CAMERA)).containsExactly(1L)
-        assertThat(ids(false, Category.PETS)).containsExactly(4L)
-        assertThat(ids(true, Category.PETS)).containsExactly(2L, 3L, 4L)
+        assertThat(ids(false, Category.PETS)).containsExactly(2L)
+        assertThat(ids(false, Category.MEMES)).containsExactly(3L)
+        assertThat(ids(false, Category.OTHER_ADULT)).isEmpty()
+        assertThat(ids(false, Category.REVIEW)).isEmpty()
+        assertThat(ids(true, Category.OTHER_ADULT)).containsExactly(4L)
+        assertThat(ids(true, Category.REVIEW)).containsExactly(5L)
     }
 }

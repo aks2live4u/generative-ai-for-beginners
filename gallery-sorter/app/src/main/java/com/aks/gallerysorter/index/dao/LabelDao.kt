@@ -26,8 +26,8 @@ abstract class LabelDao {
 
     /**
      * Items in [category], newest first. Honours user overrides (excluded = removed, not excluded = forced in).
-     * When [includeLocked] is false, items carrying any label in SENSITIVE/DOCUMENTS/REVIEW or any label
-     * in the review band (0.50 <= confidence < 0.85) are excluded.
+     * When [includeLocked] is false, items carrying any label in SENSITIVE/DOCUMENTS/REVIEW are excluded
+     * (band-confidence sensitive/doc items always also carry a REVIEW label from the categorizer).
      */
     fun itemsIn(category: Category, includeLocked: Boolean): PagingSource<Int, MediaRow> =
         itemsInQuery(
@@ -49,7 +49,7 @@ abstract class LabelDao {
         AND (:includeLocked = 1 OR (
             NOT EXISTS (SELECT 1 FROM labels l
                         WHERE l.mediaId = m.id
-                          AND (l.category IN (:hidden) OR (l.confidence >= 0.5 AND l.confidence < 0.85))
+                          AND l.category IN (:hidden)
                           AND NOT EXISTS (SELECT 1 FROM overrides o
                                           WHERE o.mediaId = l.mediaId AND o.category = l.category AND o.isExcluded = 1))
             AND NOT EXISTS (SELECT 1 FROM overrides o
@@ -82,7 +82,7 @@ abstract class LabelDao {
         rawCounts().map { rows -> rows.associate { it.category to it.n } }
 
     companion object {
-        /** Categories whose items are hidden while locked (REVIEW label is part of the review band). */
+        /** Categories whose items are hidden while locked (the REVIEW label marks review-band items). */
         val LOCKED_HIDDEN: List<Category> = Category.lockedExcluded + Category.REVIEW
     }
 }
