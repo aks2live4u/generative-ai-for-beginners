@@ -25,30 +25,23 @@ import com.aks.gallerysorter.classify.sourceCategories
 import com.aks.gallerysorter.core.Category
 import com.aks.gallerysorter.core.CategoryAssignment
 import com.aks.gallerysorter.core.CategoryGroup
+import com.aks.gallerysorter.core.ExifData
 import com.aks.gallerysorter.core.MediaItem
 import com.aks.gallerysorter.core.MediaKind
 import com.aks.gallerysorter.core.MediaSource
 import com.aks.gallerysorter.core.MediaStoreSource
 import com.aks.gallerysorter.core.ScanStatus
-import com.aks.gallerysorter.dupes.DupeCandidate
-import com.aks.gallerysorter.dupes.groupDuplicates
 import com.aks.gallerysorter.dupes.pHash
-import com.aks.gallerysorter.dupes.sha256
-import com.aks.gallerysorter.dupes.suggestKeep
 import com.aks.gallerysorter.index.AppDatabase
-import com.aks.gallerysorter.index.entities.DupeRow
 import com.aks.gallerysorter.index.entities.FaceRow
 import com.aks.gallerysorter.index.entities.LabelRow
 import com.aks.gallerysorter.index.entities.MediaRow
 import com.aks.gallerysorter.index.entities.PersonRow
 import com.aks.gallerysorter.places.CityIndex
-import com.aks.gallerysorter.places.TripPoint
-import com.aks.gallerysorter.places.detectTrips
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
@@ -78,7 +71,17 @@ class ScanPipeline(
     /** Per person: the sum of its L2-normalised face embeddings (cosine-equivalent to the mean). */
     private var centroids: MutableMap<Long, FloatArray>? = null
 
+    private enum class Outcome { DONE, UNREADABLE, FAILED }
+
+    private class MediaRead(val thumb: Bitmap, val frames: List<Bitmap?>, val exif: ExifData?)
+
     suspend fun runIncremental(progress: (done: Int, total: Int) -> Unit) {
+        // Poison pill: a marker left behind means the process died (native crash / OOM) on that item.
+        settings.inflightItem()?.let { id ->
+            Log.w(TAG, "item $id crashed the previous scan; marking it unreadable")
+            db.mediaDao().get(id)?.let { db.mediaDao().upsert(it.copy(status = ScanStatus.UNREADABLE)) }
+            settings.clearInflightItem()
+        }
         val current = source.all()
         val known = db.mediaDao().generations().associate { it.id to it.generation }
         val delta = computeDelta(known, current)
@@ -94,18 +97,25 @@ class ScanPipeline(
         val pending = db.mediaDao().byStatus(ScanStatus.PENDING, Int.MAX_VALUE)
         val ctx = runContext()
         progress(0, pending.size)
+        var failuresInARow = 0
         pending.forEachIndexed { i, row ->
-            processWith(row.toItem(), ctx)
+            failuresInARow = if (processWith(row.toItem(), ctx) == Outcome.FAILED) failuresInARow + 1 else 0
+            if (failuresInARow >= MAX_FAILURES_IN_A_ROW) {
+                throw ScanAbortedException("$failuresInARow consecutive analysis failures; stopping this run")
+            }
             progress(i + 1, pending.size)
         }
 
-        val done = db.mediaDao().byStatus(ScanStatus.DONE, Int.MAX_VALUE)
-        recomputeDuplicates(done)
-        recomputeTrips(done)
+        PostScan(source, db, cityIndex, settings).run()
     }
 
-    /** Analyses one item and writes its row, faces and labels; any failure marks it UNREADABLE. */
-    suspend fun process(item: MediaItem) = processWith(item, runContext())
+    /**
+     * Analyses one item and writes its row, faces and labels. A media-read failure marks it UNREADABLE; a
+     * classifier or DB failure leaves it PENDING for the next run.
+     */
+    suspend fun process(item: MediaItem) {
+        processWith(item, runContext())
+    }
 
     override fun close() {
         listOf(nsfw, faces, text, scenes, qr).forEach { dep ->
@@ -119,39 +129,74 @@ class ScanPipeline(
         autoHide = settings.autoHideSensitive(),
     )
 
-    private suspend fun processWith(item: MediaItem, ctx: RunContext) {
-        val (row, assignments) = try {
-            analyseAndWrite(item, ctx)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "item ${item.id} unreadable", e)
-            // Earlier labels are kept on purpose: a read failure must never un-hide a Sensitive item.
-            db.mediaDao().upsert(item.toRow(ScanStatus.UNREADABLE))
-            return
-        }
-        val sensitive = assignments.any { it.category.group == CategoryGroup.SENSITIVE && it.confidence >= AUTO_HIDE_MIN }
-        if (ctx.autoHide && sensitive) {
-            try {
-                autoHide(row, assignments)
-            } catch (e: Exception) {
-                Log.w(TAG, "auto-hide failed for ${item.id}", e)
+    private suspend fun processWith(item: MediaItem, ctx: RunContext): Outcome {
+        settings.setInflightItem(item.id)
+        try {
+            val media = try {
+                readMedia(item)
+            } catch (e: MediaReadException) {
+                Log.w(TAG, "item ${item.id} unreadable: ${e.cause?.javaClass?.name}")
+                // The previous row (and its labels) is kept: a read failure must never un-hide a Sensitive item.
+                val previous = db.mediaDao().get(item.id)
+                db.mediaDao().upsert(
+                    previous?.copy(status = ScanStatus.UNREADABLE, generation = item.generation)
+                        ?: item.toRow(ScanStatus.UNREADABLE),
+                )
+                return Outcome.UNREADABLE
             }
+            val (row, assignments) = try {
+                analyseAndWrite(item, media, ctx)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "analysis failed for item ${item.id}: ${e.javaClass.name}")
+                return Outcome.FAILED
+            }
+            val sensitive = assignments.any { it.category.group == CategoryGroup.SENSITIVE && it.confidence >= AUTO_HIDE_MIN }
+            if (ctx.autoHide && sensitive) {
+                try {
+                    autoHide(row, assignments)
+                } catch (e: Exception) {
+                    Log.w(TAG, "auto-hide failed for item ${item.id}: ${e.javaClass.name}")
+                }
+            }
+            return Outcome.DONE
+        } finally {
+            withContext(NonCancellable) { settings.clearInflightItem() }
         }
     }
 
-    private suspend fun analyseAndWrite(item: MediaItem, ctx: RunContext): Pair<MediaRow, List<CategoryAssignment>> =
-        withContext(Dispatchers.Default) {
-            // 1. Thumbnail; videos also sample frames (max score per label across them).
+    /** Step 1: thumbnail, video frames and EXIF. Any failure here (OOM while decoding included) is a read failure. */
+    private suspend fun readMedia(item: MediaItem): MediaRead = withContext(Dispatchers.IO) {
+        try {
             val thumb = source.thumbnail(item, THUMB_PX)?.software() ?: throw IOException("no thumbnail for ${item.id}")
             val frameBitmaps = if (item.kind == MediaKind.VIDEO) {
                 frames.frames(item, videoSampleTimesMs(item.durationMs ?: 0), THUMB_PX).map { it?.software() }
             } else {
                 emptyList()
             }
-            val views = frameBitmaps.filterNotNull().ifEmpty { listOf(thumb) }
             // EXIF is read up front because the source rules (screenshot check, step 5) take it.
-            val exif = source.exif(item)
+            MediaRead(thumb, frameBitmaps, source.exif(item))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw MediaReadException(e)
+        } catch (e: OutOfMemoryError) {
+            throw MediaReadException(e)
+        }
+    }
+
+    private suspend fun analyseAndWrite(
+        item: MediaItem,
+        media: MediaRead,
+        ctx: RunContext,
+    ): Pair<MediaRow, List<CategoryAssignment>> =
+        withContext(Dispatchers.Default) {
+            val thumb = media.thumb
+            val frameBitmaps = media.frames
+            val exif = media.exif
+            // Videos: max score per label across the sampled frames (the thumbnail if none decoded).
+            val views = frameBitmaps.filterNotNull().ifEmpty { listOf(thumb) }
 
             // 2. NSFW.
             val scores = views.map { nsfw.score(it) }
@@ -243,53 +288,14 @@ class ScanPipeline(
         if (sum == null || sum.size != e.size) m[person] = e.copyOf() else for (i in e.indices) sum[i] += e[i]
     }
 
-    private suspend fun recomputeDuplicates(rows: List<MediaRow>) {
-        val colliding = rows.groupBy { it.kind to it.sizeBytes }.values.filter { it.size > 1 }.flatten()
-        val shaById = HashMap<Long, String>()
-        for (r in colliding) {
-            val sha = r.sha256 ?: try {
-                withContext(Dispatchers.IO) { source.open(r.toItem()).use { sha256(it) } }
-                    .also { db.mediaDao().upsert(r.copy(sha256 = it)) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w(TAG, "cannot hash ${r.id}", e)
-                null
-            }
-            if (sha != null) shaById[r.id] = sha
-        }
-        val candidates = rows.map { r ->
-            DupeCandidate(
-                id = r.id, kind = r.kind, sizeBytes = r.sizeBytes, sha256 = shaById[r.id], phash = r.phash,
-                durationMs = r.durationMs,
-                framePhashes = r.framePhashes?.split(',')?.map { it.toLong() }.orEmpty(),
-                width = r.width, height = r.height, isOwnCameraOriginal = r.ownCameraOriginal, exifDateMs = r.dateTakenMs,
-            )
-        }
-        val dupeRows = groupDuplicates(candidates).flatMap { group ->
-            val keep = suggestKeep(group).id
-            val groupId = group.minOf { it.id }
-            group.map { DupeRow(groupId, it.id, suggestedKeep = it.id == keep) }
-        }
-        db.dupeDao().replaceAll(dupeRows)
-    }
-
-    private suspend fun recomputeTrips(rows: List<MediaRow>) {
-        val points = rows.mapNotNull { r ->
-            val lat = r.lat ?: return@mapNotNull null
-            val lon = r.lon ?: return@mapNotNull null
-            val date = r.dateTakenMs ?: return@mapNotNull null
-            cityIndex.nearest(lat, lon)?.let { TripPoint(r.id, date, it) }
-        }
-        settings.setTrips(detectTrips(points))
-    }
-
     companion object {
         const val THUMB_PX = 320
         /** Auto-hide only confident Sensitive results (spec: explicit ≥ 0.85). */
         private const val AUTO_HIDE_MIN = 0.85f
         /** A single face covering more than this fraction of the thumbnail counts as a selfie. */
         private const val LARGE_FACE = 0.20f
+        /** Consecutive classifier/DB failures after which a run gives up (something systemic is wrong). */
+        private const val MAX_FAILURES_IN_A_ROW = 3
         private val DOC_LABELS = setOf("document", "text", "paper", "receipt")
 
         @Volatile private var database: AppDatabase? = null
@@ -315,23 +321,4 @@ class ScanPipeline(
             )
         }
     }
-}
-
-private fun MediaItem.toRow(status: ScanStatus) = MediaRow(
-    id = id, path = path, kind = kind, sizeBytes = sizeBytes, mime = mime, width = width, height = height,
-    dateTakenMs = dateTakenMs, durationMs = durationMs, generation = generation, status = status,
-)
-
-private fun MediaRow.toItem() = MediaItem(
-    id = id, path = path, kind = kind, sizeBytes = sizeBytes, mime = mime, width = width, height = height,
-    dateTakenMs = dateTakenMs, durationMs = durationMs, generation = generation,
-)
-
-/** Face embeddings are stored as little-endian float32. */
-internal fun encodeEmbedding(e: FloatArray): ByteArray =
-    ByteBuffer.allocate(e.size * 4).order(ByteOrder.LITTLE_ENDIAN).apply { asFloatBuffer().put(e) }.array()
-
-internal fun decodeEmbedding(b: ByteArray): FloatArray {
-    val fb = ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-    return FloatArray(fb.remaining()).also { fb.get(it) }
 }

@@ -42,6 +42,11 @@ class ScanSettings(private val dao: SettingsDao, private val deviceModel: String
         "${t.name.replace('\t', ' ').replace('\n', ' ')}\t${t.startMs}\t${t.endMs}\t${t.itemIds.joinToString(",")}"
     })
 
+    /** The item being analysed right now; left behind only if the process died mid-item (poison pill). */
+    suspend fun inflightItem(): Long? = dao.get(INFLIGHT)?.toLongOrNull()
+    suspend fun setInflightItem(id: Long) = put(INFLIGHT, id.toString())
+    suspend fun clearInflightItem() = put(INFLIGHT, "")
+
     private suspend fun put(key: String, value: String) = dao.put(SettingRow(key, value))
 
     private companion object {
@@ -50,5 +55,6 @@ class ScanSettings(private val dao: SettingsDao, private val deviceModel: String
         const val AUTO_HIDE_SENSITIVE = "scan.auto_hide_sensitive"
         const val OWN_CAMERA_MODELS = "scan.own_camera_models"
         const val TRIPS = "scan.trips"
+        const val INFLIGHT = "scan.inflight"
     }
 }

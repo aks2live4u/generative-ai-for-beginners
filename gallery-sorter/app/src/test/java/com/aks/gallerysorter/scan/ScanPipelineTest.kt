@@ -21,6 +21,7 @@ import com.aks.gallerysorter.core.MediaSource
 import com.aks.gallerysorter.core.ScanStatus
 import com.aks.gallerysorter.index.AppDatabase
 import com.aks.gallerysorter.index.entities.MediaRow
+import com.aks.gallerysorter.index.entities.OverrideRow
 import com.aks.gallerysorter.places.CityIndex
 import com.google.common.truth.Truth.assertThat
 import java.io.ByteArrayInputStream
@@ -28,6 +29,7 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InputStream
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -228,6 +230,83 @@ class ScanPipelineTest {
         assertThat(labels(1)).contains(Category.SELFIES)
     }
 
+    @Test
+    fun pipeline_leftoverInflightMarker_marksItemUnreadable() = runBlocking<Unit> {
+        source.add(item(1))
+        source.add(item(2))
+        // Simulate a native crash while analysing item 2: its row is PENDING and the marker was left behind.
+        db.mediaDao().upsert(MediaRow(2, item(2).path, MediaKind.IMAGE, 1002, "image/jpeg", 1920, 1080, 2000, null, 1, ScanStatus.PENDING, city = "Kept"))
+        settings.setInflightItem(2)
+
+        pipeline().runIncremental { _, _ -> }
+
+        assertThat(status(1)).isEqualTo(ScanStatus.DONE)
+        assertThat(status(2)).isEqualTo(ScanStatus.UNREADABLE)
+        assertThat(db.mediaDao().get(2)!!.city).isEqualTo("Kept") // previous fields preserved
+        assertThat(source.thumbnailCalls).doesNotContain(2L)
+        assertThat(settings.inflightItem()).isNull()
+    }
+
+    @Test
+    fun pipeline_classifierFailure_leavesPendingAndContinues() = runBlocking<Unit> {
+        listOf(item(1), item(2), item(3)).forEach { source.add(it) }
+        nsfw.failing += source.thumbs.getValue(2)
+
+        pipeline().runIncremental { _, _ -> }
+
+        assertThat(status(1)).isEqualTo(ScanStatus.DONE)
+        assertThat(status(2)).isEqualTo(ScanStatus.PENDING)
+        assertThat(status(3)).isEqualTo(ScanStatus.DONE)
+        assertThat(settings.inflightItem()).isNull()
+
+        nsfw.failing.clear() // transient: the next run retries it
+        pipeline().runIncremental { _, _ -> }
+        assertThat(status(2)).isEqualTo(ScanStatus.DONE)
+    }
+
+    @Test
+    fun pipeline_threeConsecutiveClassifierFailures_abortRun() = runBlocking<Unit> {
+        (1L..5L).forEach { source.add(item(it)) }
+        (1L..3L).forEach { nsfw.failing += source.thumbs.getValue(it) }
+
+        val error = runCatching { pipeline().runIncremental { _, _ -> } }.exceptionOrNull()
+
+        assertThat(error).isInstanceOf(ScanAbortedException::class.java)
+        assertThat(source.thumbnailCalls).containsExactly(1L, 2L, 3L)
+        (1L..5L).forEach { assertThat(status(it)).isEqualTo(ScanStatus.PENDING) }
+    }
+
+    @Test
+    fun pipeline_cancellation_leavesItemPending() = runBlocking<Unit> {
+        source.add(item(1))
+        nsfw.cancelling += source.thumbs.getValue(1)
+
+        val error = runCatching { pipeline().runIncremental { _, _ -> } }.exceptionOrNull()
+
+        assertThat(error).isInstanceOf(CancellationException::class.java)
+        assertThat(status(1)).isEqualTo(ScanStatus.PENDING)
+        assertThat(settings.inflightItem()).isNull()
+    }
+
+    @Test
+    fun pipeline_rescanChangedItem_keepsExcludedOverrideAndDoesNotDuplicateLabels() = runBlocking<Unit> {
+        source.add(item(1))
+        nsfw.scores[source.thumbs.getValue(1)] = NsfwScore(0.95f, 0f)
+        scenes.labels[source.thumbs.getValue(1)] = mapOf("Dog" to 0.9f)
+        pipeline().runIncremental { _, _ -> }
+        assertThat(labels(1)).containsAtLeast(Category.OTHER_ADULT, Category.PETS, Category.CAMERA)
+
+        db.labelDao().upsertOverride(OverrideRow(1, Category.OTHER_ADULT, isExcluded = true))
+        scenes.labels.clear() // the edited file no longer shows a dog
+        source.add(item(1, generation = 2))
+        pipeline().runIncremental { _, _ -> }
+
+        val rows = db.labelDao().labelsFor(1)
+        assertThat(rows.map { it.category }).containsNoDuplicates()
+        assertThat(rows.map { it.category }).containsExactly(Category.CAMERA)
+        assertThat(db.labelDao().overridesFor(1)).containsExactly(OverrideRow(1, Category.OTHER_ADULT, true))
+    }
+
     // ---- fakes ----
 
     private class FakeSource : MediaSource {
@@ -270,7 +349,13 @@ class ScanPipelineTest {
 
     private class FakeNsfw : NsfwClassifier {
         val scores = HashMap<Bitmap, NsfwScore>()
-        override fun score(bmp: Bitmap) = scores[bmp] ?: NsfwScore(0.01f, 0.01f)
+        val failing = mutableSetOf<Bitmap>()
+        val cancelling = mutableSetOf<Bitmap>()
+        override fun score(bmp: Bitmap): NsfwScore {
+            if (bmp in failing) throw IllegalStateException("inference failed")
+            if (bmp in cancelling) throw CancellationException("stopped")
+            return scores[bmp] ?: NsfwScore(0.01f, 0.01f)
+        }
     }
 
     private class FakeText : TextReader {
