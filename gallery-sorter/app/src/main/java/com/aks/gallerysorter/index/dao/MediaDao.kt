@@ -7,6 +7,8 @@ import com.aks.gallerysorter.core.ScanStatus
 import com.aks.gallerysorter.index.entities.MediaRow
 import kotlinx.coroutines.flow.Flow
 
+data class IdGeneration(val id: Long, val generation: Long)
+
 @Dao
 interface MediaDao {
     @Upsert suspend fun upsert(row: MediaRow)
@@ -23,6 +25,9 @@ interface MediaDao {
 
     @Query("DELETE FROM media WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("SELECT id, generation FROM media")
+    suspend fun generations(): List<IdGeneration>
 
     @Query("SELECT id FROM media")
     suspend fun allIds(): List<Long>

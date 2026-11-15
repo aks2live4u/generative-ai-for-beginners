@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.paging.common)
     implementation(libs.sqlcipher)
     implementation(libs.exifinterface)
+    implementation(libs.work.runtime.ktx)
     ksp(libs.room.compiler)
 
     // On-device ML: ML Kit bundled models only (never play-services-mlkit-*), plus LiteRT.

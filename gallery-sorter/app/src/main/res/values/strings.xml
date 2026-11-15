@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="geonames_credit">Place names from GeoNames (geonames.org), CC BY 4.0</string>
+    <string name="scan_channel_name">Gallery scan</string>
+    <string name="scan_progress">Organising your gallery — %1$d%%</string>
 </resources>

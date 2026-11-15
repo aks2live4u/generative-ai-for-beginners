@@ -47,6 +47,11 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".scan.ScanService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- ML Kit's datatransport telemetry: strip it entirely (it could not send anything anyway). -->
         <service
             android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"

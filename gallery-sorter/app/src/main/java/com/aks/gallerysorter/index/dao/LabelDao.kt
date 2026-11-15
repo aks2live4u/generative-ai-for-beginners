@@ -24,6 +24,9 @@ abstract class LabelDao {
     @Query("SELECT * FROM labels WHERE mediaId = :mediaId")
     abstract suspend fun labelsFor(mediaId: Long): List<LabelRow>
 
+    @Query("SELECT * FROM overrides WHERE mediaId = :mediaId")
+    abstract suspend fun overridesFor(mediaId: Long): List<OverrideRow>
+
     /**
      * Items in [category], newest first. Honours user overrides (excluded = removed, not excluded = forced in).
      * When [includeLocked] is false, items carrying any label in SENSITIVE/DOCUMENTS/REVIEW are excluded

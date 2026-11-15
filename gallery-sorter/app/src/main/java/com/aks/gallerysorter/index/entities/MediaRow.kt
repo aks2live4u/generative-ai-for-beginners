@@ -6,7 +6,11 @@ import androidx.room.PrimaryKey
 import com.aks.gallerysorter.core.MediaKind
 import com.aks.gallerysorter.core.ScanStatus
 
-/** One indexed media file. [id] is the MediaStore id. Faces live in [FaceRow]. */
+/**
+ * One indexed media file. [id] is the MediaStore id. Faces live in [FaceRow].
+ * [framePhashes]: videos only, the pHashes of the frames at 25/50/75% as comma-joined decimal longs.
+ * [ownCameraOriginal]: a DCIM/Camera file whose EXIF model is one of the user's own phones (keep rule).
+ */
 @Entity(tableName = "media", indices = [Index("sha256"), Index("phash"), Index("status")])
 data class MediaRow(
     @PrimaryKey val id: Long,
@@ -25,4 +29,6 @@ data class MediaRow(
     val lat: Double? = null,
     val lon: Double? = null,
     val city: String? = null,
+    val framePhashes: String? = null,
+    val ownCameraOriginal: Boolean = false,
 )
