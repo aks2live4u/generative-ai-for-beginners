@@ -96,13 +96,6 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    if (state.isToday) "Today's Medicines" else "Medicines",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = headerColor
-                )
-
                 WeekStrip(
                     selectedDate = state.selectedDate,
                     onPreviousWeek = viewModel::goToPreviousWeek,
@@ -130,8 +123,9 @@ fun DashboardScreen(
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Text("⚠️ Running Low", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Spacer(Modifier.height(6.dp))
-                        state.lowStockMedicines.forEach {
-                            Text("${it.name} — restock soon (${it.quantityAvailable} left)", fontSize = 12.sp)
+                        state.lowStockMedicines.forEach { (med, daysLeft) ->
+                            val daysText = if (daysLeft <= 0) "runs out today" else "~$daysLeft day${if (daysLeft == 1) "" else "s"} left"
+                            Text("${med.name} — $daysText", fontSize = 12.sp)
                         }
                     }
                 }

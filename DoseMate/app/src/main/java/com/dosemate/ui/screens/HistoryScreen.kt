@@ -43,7 +43,7 @@ fun HistoryScreen() {
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(HistoryFilter.TODAY to "Today", HistoryFilter.WEEK to "Week", HistoryFilter.MONTH to "Month")
+                    listOf(HistoryFilter.TODAY to "Today", HistoryFilter.WEEK to "Week", HistoryFilter.MONTH to "Month", HistoryFilter.ALL to "All")
                         .forEach { (value, label) ->
                             FilterChip(
                                 selected = currentFilter == value,

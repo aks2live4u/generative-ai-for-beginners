@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 
-enum class HistoryFilter { TODAY, WEEK, MONTH }
+enum class HistoryFilter { TODAY, WEEK, MONTH, ALL }
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = DoseMateRepository(application)
@@ -23,6 +23,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             HistoryFilter.TODAY -> today
             HistoryFilter.WEEK -> today - 6
             HistoryFilter.MONTH -> today - 29
+            HistoryFilter.ALL -> Long.MIN_VALUE
         }
         logs.filter { it.dateEpochDay in cutoff..today }
             .sortedByDescending { it.scheduledEpochMillis }

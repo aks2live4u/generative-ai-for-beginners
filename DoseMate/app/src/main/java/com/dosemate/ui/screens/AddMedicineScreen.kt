@@ -19,10 +19,21 @@ import com.dosemate.ui.theme.GlassBackdrop
 import com.dosemate.ui.theme.LocalDoseMateColors
 import com.dosemate.viewmodel.AddMedicineViewModel
 import java.time.LocalDate
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 private val dosagePresets = listOf("1 Tablet", "2 Tablets", "5 ml", "Custom")
 private val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 private val defaultSlotTimes = listOf(9 to 0, 14 to 0, 21 to 0, 7 to 0, 12 to 0, 18 to 0)
+private val MEDICINE_COLORS = listOf(
+    "#0F9B8E", "#6366F1", "#F59E0B", "#EF4444",
+    "#10B981", "#8B5CF6", "#F97316", "#EC4899"
+)
+private val MEDICINE_ICONS = listOf("💊", "💉", "🩺", "🫀", "🧬", "🩹", "🌡️", "💪")
 
 private fun resizeTimes(current: List<Pair<Int, Int>>, count: Int): List<Pair<Int, Int>> {
     if (count <= current.size) return current.take(count)
@@ -50,6 +61,8 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
     var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var quantityText by remember { mutableStateOf("") }
     var dosesPerIntake by remember { mutableIntStateOf(1) }
+    var colorHex by remember { mutableStateOf(MEDICINE_COLORS.first()) }
+    var selectedIcon by remember { mutableStateOf(MEDICINE_ICONS.first()) }
     var loaded by remember { mutableStateOf(medicineId == null) }
 
     LaunchedEffect(medicineId) {
@@ -67,6 +80,8 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                 endDate = m.endDateEpochDay?.let { LocalDate.ofEpochDay(it) }
                 quantityText = m.quantityAvailable?.toString() ?: ""
                 dosesPerIntake = m.dosesPerIntake
+                colorHex = m.colorHex
+                selectedIcon = m.icon
             }
             loaded = true
         }
@@ -291,6 +306,41 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
             }
 
             item {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Colour", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MEDICINE_COLORS.forEach { hex ->
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(android.graphics.Color.parseColor(hex)))
+                                    .then(if (colorHex == hex) Modifier.border(3.dp, Color.White, CircleShape) else Modifier)
+                                    .clickable { colorHex = hex }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Icon", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MEDICINE_ICONS.forEach { icon ->
+                            FilterChip(
+                                selected = selectedIcon == icon,
+                                onClick = { selectedIcon = icon },
+                                label = { Text(icon, fontSize = 18.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 Button(
                     onClick = {
                         val dosage = if (dosagePreset == "Custom") customDosage else dosagePreset
@@ -305,8 +355,8 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                                 everyXHours = everyXHours,
                                 startDateEpochDay = startDate.toEpochDay(),
                                 endDateEpochDay = endDate?.toEpochDay(),
-                                colorHex = "#0F9B8E",
-                                icon = "💊",
+                                colorHex = colorHex,
+                                icon = selectedIcon,
                                 missedAfterMinutes = missedAfterMinutes,
                                 quantityAvailable = quantityText.toIntOrNull(),
                                 dosesPerIntake = dosesPerIntake,

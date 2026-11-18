@@ -33,8 +33,11 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
             timingTrend = AdherenceCalculator.timingTrend(monthLogs),
             adherenceTrend = AdherenceCalculator.weeklyAdherenceTrend(logs),
             insights = InsightsEngine.generate(monthLogs),
-            perMedicine = monthLogs.groupBy { it.medicineName }
-                .map { (name, medicineLogs) -> AdherenceCalculator.medicineStats(name, medicineLogs) }
+            perMedicine = monthLogs.groupBy { it.medicineId }
+                .map { (_, medicineLogs) ->
+                    val name = medicineLogs.maxByOrNull { it.scheduledEpochMillis }?.medicineName ?: ""
+                    AdherenceCalculator.medicineStats(name, medicineLogs)
+                }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AnalyticsUiState())
 }

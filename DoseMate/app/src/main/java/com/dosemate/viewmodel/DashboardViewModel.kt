@@ -48,7 +48,7 @@ data class DashboardUiState(
     val isToday: Boolean,
     val slots: List<DoseSlot>,
     val sosEntries: List<SosEntry>,
-    val lowStockMedicines: List<Medicine>
+    val lowStockMedicines: List<Pair<Medicine, Int>>
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -106,15 +106,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 SosEntry(medicine, logsToday, cooldownUntil)
             }
 
-        val lowStock = medicines.filter { medicine ->
+        val lowStock = medicines.mapNotNull { medicine ->
             val qty = medicine.quantityAvailable
-            if (qty == null || medicine.frequency == Frequency.SOS) {
-                false
-            } else {
-                val dosesPerDay = slotsForDate(medicine, today).size.coerceAtLeast(1)
-                val daysLeft = qty / (dosesPerDay * medicine.dosesPerIntake).coerceAtLeast(1)
-                daysLeft <= LOW_STOCK_DAYS_THRESHOLD
-            }
+            if (qty == null || medicine.frequency == Frequency.SOS) return@mapNotNull null
+            val dosesPerDay = slotsForDate(medicine, today).size.coerceAtLeast(1)
+            val daysLeft = qty / (dosesPerDay * medicine.dosesPerIntake).coerceAtLeast(1)
+            if (daysLeft <= LOW_STOCK_DAYS_THRESHOLD) medicine to daysLeft else null
         }
 
         DashboardUiState(date, date == today, slots, sosEntries, lowStock)

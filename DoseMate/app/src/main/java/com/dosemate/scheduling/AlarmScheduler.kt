@@ -121,6 +121,7 @@ object AlarmScheduler {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             putExtra(EXTRA_MEDICINE_ID, medicine.medicineId)
             putExtra(EXTRA_SLOT_INDEX, slotIndex)
+            putExtra(EXTRA_SCHEDULED_MILLIS, triggerAt)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
@@ -196,4 +197,5 @@ object AlarmScheduler {
     const val EXTRA_MEDICINE_ID = "extra_medicine_id"
     const val EXTRA_LOG_ID = "extra_log_id"
     const val EXTRA_SLOT_INDEX = "extra_slot_index"
+    const val EXTRA_SCHEDULED_MILLIS = "extra_scheduled_millis"
 }

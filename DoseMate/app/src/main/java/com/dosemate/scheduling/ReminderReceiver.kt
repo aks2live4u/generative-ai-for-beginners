@@ -22,19 +22,19 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 val repository = DoseMateRepository(context)
                 val medicine = repository.getMedicine(medicineId)
-                if (medicine != null && medicine.isActive) {
-                    val now = System.currentTimeMillis()
+                if (medicine != null && medicine.isActive && !medicine.isArchived) {
+                    val scheduledMillis = intent.getLongExtra(AlarmScheduler.EXTRA_SCHEDULED_MILLIS, System.currentTimeMillis())
                     val log = MedicineLog(
                         medicineId = medicine.medicineId,
                         medicineName = medicine.name,
-                        scheduledEpochMillis = now,
+                        scheduledEpochMillis = scheduledMillis,
                         status = LogStatus.PENDING,
                         dateEpochDay = LocalDate.now().toEpochDay()
                     )
                     val logId = repository.insertLog(log)
 
                     NotificationHelper.showReminder(context, logId, medicine.medicineId, medicine.name, medicine.dosage)
-                    AlarmScheduler.scheduleMissedCheck(context, logId, medicine.medicineId, now, medicine.missedAfterMinutes)
+                    AlarmScheduler.scheduleMissedCheck(context, logId, medicine.medicineId, scheduledMillis, medicine.missedAfterMinutes)
                     AlarmScheduler.scheduleNextForSlot(context, medicine, slotIndex)
                 }
             } finally {
