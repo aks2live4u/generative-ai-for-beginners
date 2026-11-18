@@ -83,10 +83,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         repository.observeAllLogs(),
         selectedDate
     ) { medicines, dayLogs, allLogs, date ->
-        val active = medicines.filter { it.isActive }
         val today = LocalDate.now()
 
-        val slots = active.filter { it.frequency != Frequency.SOS }
+        val slots = medicines.filter { it.frequency != Frequency.SOS }
             .flatMap { medicine -> slotsForDate(medicine, date).map { time -> medicine to time } }
             .map { (medicine, time) ->
                 val (h, m) = time
@@ -97,7 +96,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
             .sortedWith(compareBy({ it.slotHour }, { it.slotMinute }, { it.medicine.name }))
 
-        val sosEntries = active.filter { it.frequency == Frequency.SOS }
+        val sosEntries = medicines.filter { it.frequency == Frequency.SOS }
             .map { medicine ->
                 val logsToday = dayLogs.filter { it.medicineId == medicine.medicineId }
                     .sortedByDescending { it.scheduledEpochMillis }
@@ -107,7 +106,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 SosEntry(medicine, logsToday, cooldownUntil)
             }
 
-        val lowStock = active.filter { medicine ->
+        val lowStock = medicines.filter { medicine ->
             val qty = medicine.quantityAvailable
             if (qty == null || medicine.frequency == Frequency.SOS) {
                 false

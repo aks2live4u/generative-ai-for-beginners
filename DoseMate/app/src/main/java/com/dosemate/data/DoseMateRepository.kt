@@ -8,7 +8,11 @@ class DoseMateRepository(context: Context) {
     private val medicineDao = db.medicineDao()
     private val logDao = db.medicineLogDao()
 
-    fun observeMedicines(): Flow<List<Medicine>> = medicineDao.observeAll()
+    /** Active, non-archived medicines — used by the dashboard. */
+    fun observeMedicines(): Flow<List<Medicine>> = medicineDao.observeActive()
+
+    /** All medicines including archived — used by settings/archive view. */
+    fun observeAllMedicines(): Flow<List<Medicine>> = medicineDao.observeAll()
 
     suspend fun getActiveMedicines(): List<Medicine> = medicineDao.getActiveMedicines()
 
@@ -19,6 +23,16 @@ class DoseMateRepository(context: Context) {
     suspend fun updateMedicine(medicine: Medicine) = medicineDao.update(medicine)
 
     suspend fun deleteMedicine(medicine: Medicine) = medicineDao.delete(medicine)
+
+    /** Archives (soft-deletes) a medicine. Logs are preserved; it disappears from the dashboard. */
+    suspend fun archiveMedicine(medicine: Medicine) = medicineDao.update(medicine.copy(isArchived = true))
+
+    /** Archives all currently-active medicines whose IDs are not in [keepIds]. */
+    suspend fun archiveMedicinesExcept(keepIds: Set<Long>) {
+        getActiveMedicines()
+            .filter { it.medicineId !in keepIds }
+            .forEach { medicineDao.update(it.copy(isArchived = true)) }
+    }
 
     /** Deducts [amount] units of stock for a medicine, if it tracks quantity. Returns the updated medicine. */
     suspend fun decrementStock(medicineId: Long, amount: Int): Medicine? {

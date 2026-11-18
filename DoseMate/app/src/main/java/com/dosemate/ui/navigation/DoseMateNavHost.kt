@@ -31,6 +31,7 @@ import com.dosemate.ui.screens.AnalyticsScreen
 import com.dosemate.ui.screens.DashboardScreen
 import com.dosemate.ui.screens.HistoryScreen
 import com.dosemate.ui.screens.PermissionsScreen
+import com.dosemate.ui.screens.ScanPrescriptionScreen
 import com.dosemate.ui.screens.SettingsScreen
 import com.dosemate.ui.screens.WelcomeScreen
 import com.dosemate.ui.theme.LocalDoseMateColors
@@ -44,6 +45,7 @@ private object Routes {
     const val HISTORY = "history"
     const val ANALYTICS = "analytics"
     const val SETTINGS = "settings"
+    const val SCAN_PRESCRIPTION = "scan_prescription"
 }
 
 private data class BottomTab(val route: String, val navigateRoute: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
@@ -109,8 +111,12 @@ fun DoseMateNavHost() {
             composable(Routes.DASHBOARD) {
                 DashboardScreen(
                     onEditMedicine = { id -> navController.navigate("${Routes.ADD_MEDICINE}?medicineId=$id") },
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onScanPrescription = { navController.navigate(Routes.SCAN_PRESCRIPTION) }
                 )
+            }
+            composable(Routes.SCAN_PRESCRIPTION) {
+                ScanPrescriptionScreen(onDone = { navController.popBackStack() })
             }
             composable(
                 route = Routes.ADD_MEDICINE_ROUTE,

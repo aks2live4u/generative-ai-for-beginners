@@ -5,10 +5,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MedicineDao {
+    @Query("SELECT * FROM medicines WHERE isActive = 1 AND isArchived = 0 ORDER BY reminderHour, reminderMinute")
+    fun observeActive(): Flow<List<Medicine>>
+
     @Query("SELECT * FROM medicines ORDER BY reminderHour, reminderMinute")
     fun observeAll(): Flow<List<Medicine>>
 
-    @Query("SELECT * FROM medicines WHERE isActive = 1 ORDER BY reminderHour, reminderMinute")
+    @Query("SELECT * FROM medicines WHERE isActive = 1 AND isArchived = 0 ORDER BY reminderHour, reminderMinute")
     suspend fun getActiveMedicines(): List<Medicine>
 
     @Query("SELECT * FROM medicines WHERE medicineId = :id")

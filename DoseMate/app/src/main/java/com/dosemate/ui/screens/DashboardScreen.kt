@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -55,7 +56,8 @@ private fun timeOfDayBucket(hour: Int): String = when {
 @Composable
 fun DashboardScreen(
     onEditMedicine: (Long) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onScanPrescription: () -> Unit = {}
 ) {
     val viewModel: DashboardViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
@@ -80,8 +82,13 @@ fun DashboardScreen(
                     fontWeight = FontWeight.Bold,
                     color = headerColor
                 )
-                IconButton(onClick = onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = headerColor)
+                Row {
+                    IconButton(onClick = onScanPrescription) {
+                        Icon(Icons.Filled.CameraAlt, contentDescription = "Scan Prescription", tint = headerColor)
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = headerColor)
+                    }
                 }
             }
 

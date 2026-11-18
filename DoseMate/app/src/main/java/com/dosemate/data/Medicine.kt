@@ -29,7 +29,9 @@ data class Medicine(
     val quantityAvailable: Int? = null,
     val dosesPerIntake: Int = 1,
     /** Unused: reminder sound is now a single global setting (see ReminderSoundPrefs). Kept for schema compatibility. */
-    val reminderSoundUri: String? = null
+    val reminderSoundUri: String? = null,
+    /** True when this medicine was retired by a prescription scan (or manually archived). Hides from dashboard but logs remain. */
+    val isArchived: Boolean = false
 )
 
 /** All configured dose times for the day, parsed from [Medicine.timesCsv] with a fallback to the single reminder time. */
