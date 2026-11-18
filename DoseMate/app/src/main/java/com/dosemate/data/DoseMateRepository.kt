@@ -30,7 +30,7 @@ class DoseMateRepository(context: Context) {
     /** Archives all currently-active medicines whose IDs are not in [keepIds]. */
     suspend fun archiveMedicinesExcept(keepIds: Set<Long>) {
         getActiveMedicines()
-            .filter { it.medicineId !in keepIds }
+            .filter { it.medicineId !in keepIds && it.frequency != Frequency.SOS }
             .forEach { medicineDao.update(it.copy(isArchived = true)) }
     }
 
