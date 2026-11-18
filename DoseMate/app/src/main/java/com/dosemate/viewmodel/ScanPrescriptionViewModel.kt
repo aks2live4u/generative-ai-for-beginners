@@ -118,6 +118,7 @@ class ScanPrescriptionViewModel(application: Application) : AndroidViewModel(app
                     )
                     colorIndex++
                     val id = repository.addMedicine(medicine)
+                    retainedIds.add(id)
                     if (parsed.frequency != Frequency.SOS) {
                         AlarmScheduler.scheduleNext(getApplication(), medicine.copy(medicineId = id))
                     }

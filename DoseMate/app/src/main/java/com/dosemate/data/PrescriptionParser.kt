@@ -73,11 +73,36 @@ object PrescriptionParser {
         if (xHoursMatch != null) {
             val x = (xHoursMatch.groupValues[1].toIntOrNull() ?: xHoursMatch.groupValues[2].toIntOrNull() ?: 8)
                 .coerceIn(1, 24)
-            return FreqResult(Frequency.EVERY_X_HOURS, listOf(9 to 0), x)
+            return FreqResult(Frequency.EVERY_X_HOURS, listOf(8 to 0), x)
         }
 
         if (text.containsAny("alternate day", "every other day", "eod", "alt day", "on alternate")) {
-            return FreqResult(Frequency.ALTERNATE_DAYS, listOf(9 to 0))
+            return FreqResult(Frequency.ALTERNATE_DAYS, listOf(8 to 0))
+        }
+
+        // M-A-E-N pattern (4 positions: morning-afternoon-evening-night), e.g. "1-0-0-1"
+        val maenMatch = Regex("""(?<![.\d])([0-9])\s*[-–]\s*([0-9])\s*[-–]\s*([0-9])\s*[-–]\s*([0-9])(?!\d)""").find(text)
+        if (maenMatch != null) {
+            val (m, a, e, n) = listOf(1, 2, 3, 4).map { maenMatch.groupValues[it].toIntOrNull() ?: 0 }
+            val times = buildList {
+                if (m > 0) add(8 to 0)
+                if (a > 0) add(14 to 0)
+                if (e > 0) add(18 to 0)
+                if (n > 0) add(21 to 0)
+            }
+            if (times.isNotEmpty()) return FreqResult(Frequency.DAILY, times)
+        }
+
+        // M-A-N pattern (3 positions: morning-afternoon-night), e.g. "1-0-1" or "1-1-1"
+        val manMatch = Regex("""(?<![.\d])([0-9])\s*[-–]\s*([0-9])\s*[-–]\s*([0-9])(?!\d)""").find(text)
+        if (manMatch != null) {
+            val (m, a, n) = listOf(1, 2, 3).map { manMatch.groupValues[it].toIntOrNull() ?: 0 }
+            val times = buildList {
+                if (m > 0) add(8 to 0)
+                if (a > 0) add(14 to 0)
+                if (n > 0) add(21 to 0)
+            }
+            if (times.isNotEmpty()) return FreqResult(Frequency.DAILY, times)
         }
 
         if (text.containsAny("qds", "qid", "4 times", "four times", "4x daily")) {
@@ -85,15 +110,21 @@ object PrescriptionParser {
         }
 
         if (text.containsAny("tds", "tid", "thrice", "3 times", "three times", "three-time", "3x daily")) {
-            return FreqResult(Frequency.DAILY, listOf(9 to 0, 14 to 0, 21 to 0))
+            return FreqResult(Frequency.DAILY, listOf(8 to 0, 14 to 0, 21 to 0))
         }
 
         if (text.containsAny("bd", "bid", "twice", "2 times", "two times", "2x daily", "12 hourly")) {
-            return FreqResult(Frequency.DAILY, listOf(9 to 0, 21 to 0))
+            return FreqResult(Frequency.DAILY, listOf(8 to 0, 21 to 0))
         }
 
-        // Default: once daily
-        return FreqResult(Frequency.DAILY, listOf(9 to 0))
+        // Once daily — infer time from keywords
+        val time = when {
+            text.containsAny("night", "bedtime", " hs", "nocte", "nightly", "before sleep", "at bedtime") -> 21 to 0
+            text.containsAny("evening", "after dinner", "dinner time") -> 18 to 0
+            text.containsAny("afternoon", "noon", "lunch", "midday", "after lunch") -> 14 to 0
+            else -> 8 to 0  // morning default
+        }
+        return FreqResult(Frequency.DAILY, listOf(time))
     }
 
     private fun String.containsAny(vararg keywords: String): Boolean = keywords.any { contains(it) }

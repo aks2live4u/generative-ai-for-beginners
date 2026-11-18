@@ -4,6 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -20,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -94,6 +99,12 @@ private fun CameraCapture(onCapture: (Bitmap) -> Unit, onCancel: () -> Unit) {
     val previewView = remember { PreviewView(context) }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let { uriToBitmap(context, it)?.let(onCapture) }
+    }
+
     LaunchedEffect(Unit) {
         bindCamera(context, lifecycleOwner, previewView, imageCapture)
     }
@@ -121,16 +132,38 @@ private fun CameraCapture(onCapture: (Bitmap) -> Unit, onCancel: () -> Unit) {
             )
         }
 
-        // Capture button
-        Box(
+        // Bottom controls: gallery | capture | spacer (symmetric)
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 40.dp, vertical = 48.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Gallery picker
             IconButton(
                 onClick = {
-                    captureImage(context, imageCapture, onCapture)
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
                 },
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.25f))
+            ) {
+                Icon(
+                    Icons.Filled.PhotoLibrary,
+                    contentDescription = "Pick from gallery",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            // Shutter
+            IconButton(
+                onClick = { captureImage(context, imageCapture, onCapture) },
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
@@ -143,6 +176,9 @@ private fun CameraCapture(onCapture: (Bitmap) -> Unit, onCancel: () -> Unit) {
                     modifier = Modifier.size(32.dp)
                 )
             }
+
+            // Symmetry spacer
+            Spacer(Modifier.size(56.dp))
         }
     }
 }
@@ -195,6 +231,10 @@ private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
     val matrix = Matrix().also { it.postRotate(rotation.toFloat()) }
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 }
+
+private fun uriToBitmap(context: Context, uri: Uri): Bitmap? = try {
+    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+} catch (_: Exception) { null }
 
 @Composable
 private fun CameraPermissionRationale(onRequest: () -> Unit, onCancel: () -> Unit) {
