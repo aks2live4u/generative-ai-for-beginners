@@ -23,17 +23,18 @@ object NotificationHelper {
     }
 
     private fun ensureChannel(context: Context, channelId: String, soundUri: String?) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || soundUri == null) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channelId) != null) return
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
+        val resolvedSound = soundUri ?: ReminderSoundPrefs.defaultSoundUri(context)
         val channel = NotificationChannel(channelId, "Medicine Reminders", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "Reminders to take your medicines on time"
             enableVibration(true)
-            setSound(Uri.parse(soundUri), audioAttributes)
+            setSound(Uri.parse(resolvedSound), audioAttributes)
         }
         manager.createNotificationChannel(channel)
     }
@@ -95,7 +96,7 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val daysText = if (daysLeft <= 0) "today" else "in about $daysLeft day${if (daysLeft == 1) "" else "s"}"
-        val notification = NotificationCompat.Builder(context, DoseMateApp.CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, DoseMateApp.INFO_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$medicineName is running low")
             .setContentText("You'll run out $daysText. Time to restock.")
@@ -113,7 +114,7 @@ object NotificationHelper {
             Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, DoseMateApp.CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, DoseMateApp.INFO_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$medicineName course complete")
             .setContentText("Your prescription course for $medicineName ended today.")
