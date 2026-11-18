@@ -16,7 +16,7 @@ object PrescriptionParser {
     )
 
     private val SKIP_LINE_RE = Regex(
-        """^\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|^dr\.?|^patient|^rx|^refills?|^sig:|^qty|^diagnosis""",
+        """^\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|^dr\.?|^patient|^rx|^refills?|^sig:|^qty|^diagnosis|^composition|^timing""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)
     )
 
@@ -25,14 +25,27 @@ object PrescriptionParser {
         setOf(RegexOption.IGNORE_CASE)
     )
 
-    fun parse(ocrText: String): List<ParsedMedicine> =
-        ocrText.lines()
-            .map { it.trim() }
-            .filter { it.length > 4 && !SKIP_LINE_RE.containsMatchIn(it) }
-            .mapNotNull(::parseLine)
-            .distinctBy { it.name.lowercase() }
+    fun parse(ocrText: String): List<ParsedMedicine> {
+        val allLines = ocrText.lines().map { it.trim() }
+        val result = mutableListOf<ParsedMedicine>()
+        val seen = mutableSetOf<String>()
 
-    private fun parseLine(line: String): ParsedMedicine? {
+        for (i in allLines.indices) {
+            val line = allLines[i]
+            if (line.length <= 4 || SKIP_LINE_RE.containsMatchIn(line)) continue
+            // Look ahead 3 raw lines for timing data (table columns often land on adjacent lines)
+            val lookahead = allLines.drop(i + 1).take(3).joinToString(" ")
+            val medicine = parseLine(line, lookahead) ?: continue
+            val key = medicine.name.lowercase()
+            if (key !in seen) {
+                seen.add(key)
+                result.add(medicine)
+            }
+        }
+        return result
+    }
+
+    private fun parseLine(line: String, lookahead: String = ""): ParsedMedicine? {
         val dosageMatch = DOSAGE_RE.find(line) ?: return null
         val rawName = line.substring(0, dosageMatch.range.first).trim()
             .replace(NAME_PREFIX_RE, "")
@@ -41,12 +54,16 @@ object PrescriptionParser {
             .trim()
 
         if (rawName.length < 2 || rawName.all { it.isDigit() || it == '/' || it == '-' }) return null
+        // Skip composition sub-lines regardless of how OCR prefixes them (e.g. "N Composition :")
+        if (rawName.contains("composition", ignoreCase = true)) return null
 
         val name = rawName.split(Regex("\\s+")).joinToString(" ") { word ->
             word.lowercase().replaceFirstChar { it.uppercaseChar() }
         }
 
-        val after = line.substring(dosageMatch.range.last + 1).lowercase()
+        // Combine text after dosage on this line with the next few lines so the M-A-N
+        // pattern (which HealthPlix prints in a separate table column) is also searched
+        val after = (line.substring(dosageMatch.range.last + 1) + " " + lookahead).lowercase()
         val (freq, times, xHours) = parseFrequency(after)
 
         return ParsedMedicine(
@@ -119,8 +136,9 @@ object PrescriptionParser {
 
         // Once daily — infer time from keywords
         val time = when {
-            text.containsAny("night", "bedtime", " hs", "nocte", "nightly", "before sleep", "at bedtime") -> 21 to 0
-            text.containsAny("evening", "after dinner", "dinner time") -> 18 to 0
+            text.containsAny("night", "bedtime", " hs", "nocte", "nightly", "before sleep", "at bedtime",
+                "after dinner", "post dinner", "after supper") -> 21 to 0
+            text.containsAny("evening", "dinner time") -> 18 to 0
             text.containsAny("afternoon", "noon", "lunch", "midday", "after lunch") -> 14 to 0
             else -> 8 to 0  // morning default
         }
