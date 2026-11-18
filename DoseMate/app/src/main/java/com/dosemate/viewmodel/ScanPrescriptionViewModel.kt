@@ -18,6 +18,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+private val SCAN_COLORS = listOf(
+    "#0F9B8E", // teal (default)
+    "#7C3AED", // violet
+    "#DC2626", // red
+    "#D97706", // amber
+    "#2563EB", // blue
+    "#059669", // emerald
+    "#DB2777", // pink
+    "#EA580C"  // orange
+)
+
 sealed class ScanState {
     object Camera : ScanState()
     object Processing : ScanState()
@@ -63,6 +74,7 @@ class ScanPrescriptionViewModel(application: Application) : AndroidViewModel(app
             val today = LocalDate.now().toEpochDay()
             val existingActive = repository.getActiveMedicines()
             val retainedIds = mutableSetOf<Long>()
+            var colorIndex = 0
 
             proposed.forEach { parsed ->
                 val nameL = parsed.name.lowercase()
@@ -101,8 +113,10 @@ class ScanPrescriptionViewModel(application: Application) : AndroidViewModel(app
                         frequency = parsed.frequency,
                         everyXHours = parsed.everyXHours,
                         startDateEpochDay = today,
-                        timesCsv = timesCsv
+                        timesCsv = timesCsv,
+                        colorHex = SCAN_COLORS[colorIndex % SCAN_COLORS.size]
                     )
+                    colorIndex++
                     val id = repository.addMedicine(medicine)
                     if (parsed.frequency != Frequency.SOS) {
                         AlarmScheduler.scheduleNext(getApplication(), medicine.copy(medicineId = id))
