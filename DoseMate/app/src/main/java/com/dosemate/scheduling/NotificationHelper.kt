@@ -107,7 +107,26 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).notify((LOW_STOCK_NOTIFICATION_OFFSET + medicineId).toInt(), notification)
     }
 
+    fun showCourseEnded(context: Context, medicineId: Long, medicineName: String) {
+        val contentIntent = PendingIntent.getActivity(
+            context, (COURSE_ENDED_NOTIFICATION_OFFSET + medicineId).toInt(),
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, DoseMateApp.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("$medicineName course complete")
+            .setContentText("Your prescription course for $medicineName ended today.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        NotificationManagerCompat.from(context).notify((COURSE_ENDED_NOTIFICATION_OFFSET + medicineId).toInt(), notification)
+    }
+
     private const val LOW_STOCK_NOTIFICATION_OFFSET = 5_000_000
+    private const val COURSE_ENDED_NOTIFICATION_OFFSET = 8_000_000
 
     const val ACTION_TAKEN = "com.dosemate.action.TAKEN"
     const val ACTION_SNOOZE = "com.dosemate.action.SNOOZE"

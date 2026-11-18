@@ -18,6 +18,7 @@ class BootReceiver : BroadcastReceiver() {
                 val repository = DoseMateRepository(context)
                 repository.getActiveMedicines().forEach { medicine ->
                     AlarmScheduler.scheduleNext(context, medicine)
+                    AlarmScheduler.scheduleEndDate(context, medicine)
                 }
             } finally {
                 pendingResult.finish()

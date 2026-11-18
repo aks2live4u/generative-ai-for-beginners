@@ -47,6 +47,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
     var everyXHours by remember { mutableIntStateOf(8) }
     var missedAfterMinutes by remember { mutableIntStateOf(60) }
     var startDate by remember { mutableStateOf(LocalDate.now()) }
+    var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var quantityText by remember { mutableStateOf("") }
     var dosesPerIntake by remember { mutableIntStateOf(1) }
     var loaded by remember { mutableStateOf(medicineId == null) }
@@ -63,6 +64,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                 everyXHours = if (m.everyXHours > 0) m.everyXHours else 8
                 missedAfterMinutes = m.missedAfterMinutes
                 startDate = LocalDate.ofEpochDay(m.startDateEpochDay)
+                endDate = m.endDateEpochDay?.let { LocalDate.ofEpochDay(it) }
                 quantityText = m.quantityAvailable?.toString() ?: ""
                 dosesPerIntake = m.dosesPerIntake
             }
@@ -234,6 +236,38 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                         }
                     }
                 }
+
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Text("Ends On (optional)", fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Get a notification on the last day of your course.", fontSize = 12.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilterChip(
+                                selected = endDate == null,
+                                onClick = { endDate = null },
+                                label = { Text("No end date") }
+                            )
+                            FilterChip(
+                                selected = endDate != null,
+                                onClick = { if (endDate == null) endDate = LocalDate.now().plusDays(7) },
+                                label = { Text("Set end date") }
+                            )
+                        }
+                        if (endDate != null) {
+                            val ed = endDate!!
+                            Spacer(Modifier.height(10.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                NumberStepper(value = ed.year, range = 2020..2035, onChange = { endDate = ed.withYear(it) }, label = "Year")
+                                NumberStepper(value = ed.monthValue, range = 1..12, onChange = {
+                                    endDate = LocalDate.of(ed.year, 1, 1).plusMonths((it - 1).toLong()).withDayOfMonth(minOf(ed.dayOfMonth, LocalDate.of(ed.year, it, 1).lengthOfMonth()))
+                                }, label = "Month")
+                                NumberStepper(value = ed.dayOfMonth, range = 1..ed.lengthOfMonth(), onChange = { endDate = ed.withDayOfMonth(it) }, label = "Day")
+                            }
+                        }
+                    }
+                }
             }
 
             item {
@@ -270,6 +304,7 @@ fun AddMedicineScreen(medicineId: Long? = null, onSaved: () -> Unit) {
                                 specificDays = selectedDays,
                                 everyXHours = everyXHours,
                                 startDateEpochDay = startDate.toEpochDay(),
+                                endDateEpochDay = endDate?.toEpochDay(),
                                 colorHex = "#0F9B8E",
                                 icon = "💊",
                                 missedAfterMinutes = missedAfterMinutes,

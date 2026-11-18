@@ -234,6 +234,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun deleteMedicine(medicine: Medicine) {
         viewModelScope.launch {
             AlarmScheduler.cancel(getApplication(), medicine)
+            AlarmScheduler.cancelEndDate(getApplication(), medicine.medicineId)
             repository.deleteMedicine(medicine)
         }
     }

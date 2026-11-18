@@ -14,6 +14,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 private const val MISSED_REQUEST_CODE_OFFSET = 1_000_000
+private const val END_DATE_REQUEST_CODE_OFFSET = 10_000_000
 private const val SLOTS_PER_MEDICINE = 16
 
 object AlarmScheduler {
@@ -142,6 +143,37 @@ object AlarmScheduler {
             )
             alarmManager.cancel(pendingIntent)
         }
+    }
+
+    /** Schedules a one-shot notification on the medicine's end date at 9 AM. No-op if end date is in the past or unset. */
+    fun scheduleEndDate(context: Context, medicine: Medicine) {
+        val epochDay = medicine.endDateEpochDay ?: return
+        val zone = ZoneId.systemDefault()
+        val triggerMillis = LocalDate.ofEpochDay(epochDay).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+        if (triggerMillis <= System.currentTimeMillis()) return
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val intent = Intent(context, EndDateReceiver::class.java).apply {
+            putExtra(EXTRA_MEDICINE_ID, medicine.medicineId)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            (END_DATE_REQUEST_CODE_OFFSET + medicine.medicineId).toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+    }
+
+    fun cancelEndDate(context: Context, medicineId: Long) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val intent = Intent(context, EndDateReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            (END_DATE_REQUEST_CODE_OFFSET + medicineId).toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
     }
 
     fun scheduleMissedCheck(context: Context, logId: Long, medicineId: Long, scheduledMillis: Long, missedAfterMinutes: Int) {

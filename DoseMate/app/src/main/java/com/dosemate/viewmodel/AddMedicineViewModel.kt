@@ -23,6 +23,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
         specificDays: Set<Int>,
         everyXHours: Int,
         startDateEpochDay: Long,
+        endDateEpochDay: Long?,
         colorHex: String,
         icon: String,
         missedAfterMinutes: Int,
@@ -38,6 +39,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
             if (editingMedicineId != null) {
                 val existing = repository.getMedicine(editingMedicineId) ?: return@launch
                 AlarmScheduler.cancel(getApplication(), existing)
+                AlarmScheduler.cancelEndDate(getApplication(), existing.medicineId)
                 val updated = existing.copy(
                     name = name,
                     dosage = dosage,
@@ -47,6 +49,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                     specificDaysCsv = specificDays.joinToString(","),
                     everyXHours = everyXHours,
                     startDateEpochDay = startDateEpochDay,
+                    endDateEpochDay = endDateEpochDay,
                     colorHex = colorHex,
                     icon = icon,
                     missedAfterMinutes = missedAfterMinutes,
@@ -57,6 +60,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                 repository.updateMedicine(updated)
                 if (frequency != Frequency.SOS) {
                     AlarmScheduler.scheduleNext(getApplication(), updated)
+                    AlarmScheduler.scheduleEndDate(getApplication(), updated)
                 }
             } else {
                 val medicine = Medicine(
@@ -68,6 +72,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                     specificDaysCsv = specificDays.joinToString(","),
                     everyXHours = everyXHours,
                     startDateEpochDay = startDateEpochDay,
+                    endDateEpochDay = endDateEpochDay,
                     colorHex = colorHex,
                     icon = icon,
                     missedAfterMinutes = missedAfterMinutes,
@@ -77,7 +82,9 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
                 )
                 val id = repository.addMedicine(medicine)
                 if (frequency != Frequency.SOS) {
-                    AlarmScheduler.scheduleNext(getApplication(), medicine.copy(medicineId = id))
+                    val saved = medicine.copy(medicineId = id)
+                    AlarmScheduler.scheduleNext(getApplication(), saved)
+                    AlarmScheduler.scheduleEndDate(getApplication(), saved)
                 }
             }
             onSaved()
@@ -87,6 +94,7 @@ class AddMedicineViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteMedicine(medicine: Medicine, onDeleted: () -> Unit) {
         viewModelScope.launch {
             AlarmScheduler.cancel(getApplication(), medicine)
+            AlarmScheduler.cancelEndDate(getApplication(), medicine.medicineId)
             repository.deleteMedicine(medicine)
             onDeleted()
         }
