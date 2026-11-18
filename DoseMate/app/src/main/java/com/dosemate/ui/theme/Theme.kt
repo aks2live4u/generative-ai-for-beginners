@@ -3,6 +3,7 @@ package com.dosemate.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -52,7 +53,12 @@ private fun typography(colors: DoseMateColors) = Typography(
 @Composable
 fun DoseMateTheme(content: @Composable () -> Unit) {
     val mode by ThemePrefs.current
-    val isDark = mode == ThemeMode.DARK
+    val systemDark = isSystemInDarkTheme()
+    val isDark = when (mode) {
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> systemDark
+    }
     val colors = if (isDark) DarkDoseMateColors else LightDoseMateColors
 
     CompositionLocalProvider(LocalDoseMateColors provides colors) {

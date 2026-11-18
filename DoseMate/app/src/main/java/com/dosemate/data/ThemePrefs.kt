@@ -3,14 +3,14 @@ package com.dosemate.data
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 
-enum class ThemeMode { LIGHT, DARK }
+enum class ThemeMode { LIGHT, DARK, SYSTEM }
 
 object ThemePrefs {
     private const val PREFS_NAME = "dosemate_settings"
     private const val KEY_THEME_MODE = "theme_mode"
 
     /** Observable so DoseMateTheme recomposes immediately when changed from Settings. */
-    val current = mutableStateOf(ThemeMode.DARK)
+    val current = mutableStateOf(ThemeMode.SYSTEM)
 
     fun init(context: Context) {
         current.value = readFromPrefs(context)
@@ -25,6 +25,6 @@ object ThemePrefs {
 
     private fun readFromPrefs(context: Context): ThemeMode {
         val stored = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_THEME_MODE, null)
-        return ThemeMode.entries.find { it.name == stored } ?: ThemeMode.DARK
+        return ThemeMode.entries.find { it.name == stored } ?: ThemeMode.SYSTEM
     }
 }

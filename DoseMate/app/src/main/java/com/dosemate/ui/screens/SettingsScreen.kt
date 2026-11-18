@@ -58,11 +58,16 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Appearance", fontWeight = FontWeight.SemiBold)
+                    Text("Theme", fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(4.dp))
-                    Text("Choose light or dark mode.", fontSize = 12.sp, color = LocalDoseMateColors.current.textSecondary)
+                    Text("Follows device setting, or override manually.", fontSize = 12.sp, color = LocalDoseMateColors.current.textSecondary)
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilterChip(
+                            selected = themeMode == ThemeMode.SYSTEM,
+                            onClick = { ThemePrefs.setThemeMode(context, ThemeMode.SYSTEM) },
+                            label = { Text("System") }
+                        )
                         FilterChip(
                             selected = themeMode == ThemeMode.LIGHT,
                             onClick = { ThemePrefs.setThemeMode(context, ThemeMode.LIGHT) },
