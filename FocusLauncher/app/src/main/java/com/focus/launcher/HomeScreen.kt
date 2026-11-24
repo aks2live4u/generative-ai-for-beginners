@@ -1,6 +1,11 @@
 package com.focus.launcher
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -118,6 +123,7 @@ fun HomeScreen(
     settings: LauncherSettings,
     apps: List<AppEntry>,
     screenTimeMs: Long?,
+    skippedAt: Long = 0L,
     isDefault: Boolean,
     onMakeDefault: () -> Unit,
     onOpen: (AppEntry) -> Unit,
@@ -150,6 +156,7 @@ fun HomeScreen(
         Column(
             Modifier
                 .fillMaxSize()
+                .alpha(if (settings.isNight()) 0.72f else 1f)
                 .systemBarsPadding()
                 .padding(horizontal = 28.dp)
         ) {
@@ -172,7 +179,7 @@ fun HomeScreen(
 
             Spacer(Modifier.height(12.dp))
             ClockView(settings.clockStyle, settings.use24h, look, settings.clockScale)
-            HomeSubtitle(settings, look, screenTimeMs)
+            HomeSubtitle(settings, look, screenTimeMs, skippedAt)
             WorldClocksRow(settings, look)
 
             // Essentials sit low, in thumb reach, and scroll when there are many.
@@ -196,7 +203,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeMs: Long?) {
+private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeMs: Long?, skippedAt: Long) {
     // Zone 1 continues: the date hugs the clock.
     if (settings.showDate) {
         val now = rememberNow(minuteOnly = true)
@@ -228,36 +235,41 @@ private fun HomeSubtitle(settings: LauncherSettings, look: HomeLook, screenTimeM
             modifier = Modifier.padding(top = 8.dp),
         )
     }
+    // One quiet line of facts, in the UI face so it never reads like an app name. Right after a
+    // skipped distraction it briefly says so: a small, honest reward instead of a streak.
+    val justSkipped = skippedAt > 0 && System.currentTimeMillis() - skippedAt < 6_000
+    var showPraise by remember(skippedAt) { mutableStateOf(justSkipped) }
+    if (showPraise) LaunchedEffect(skippedAt) { delay(4_000); showPraise = false }
+    val night = settings.isNight()
     val stats = buildList {
-        if (screenTimeMs != null) add("${Usage.format(screenTimeMs)} today")
+        if (screenTimeMs != null) add("${Usage.format(screenTimeMs)} on screen today")
         val skipped = settings.resistedToday
         if (skipped > 0) add("$skipped skipped")
+        if (night) add("night hours")
     }
-    if (stats.isNotEmpty()) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(top = if (settings.homeNote.isNotBlank()) 12.dp else 18.dp),
-        ) {
-            stats.forEach { StatPill(it, look) }
+    val top = if (settings.homeNote.isNotBlank()) 14.dp else 22.dp
+    Crossfade(showPraise, label = "stats", modifier = Modifier.padding(top = top)) { praise ->
+        if (praise) {
+            Text(
+                "Good call. That's ${settings.resistedToday} skipped today.",
+                color = Moon,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        } else if (stats.isNotEmpty()) {
+            Text(
+                buildAnnotatedString {
+                    stats.forEachIndexed { i, item ->
+                        if (i > 0) withStyle(SpanStyle(color = look.color.copy(alpha = 0.35f))) { append("   /   ") }
+                        if (item == "night hours") withStyle(SpanStyle(color = Ember)) { append(item) } else append(item)
+                    }
+                },
+                color = look.color.copy(alpha = 0.78f),
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
 
-/** Small factual detail in the clean UI face, on a soft tonal pill: clearly not an app name. */
-@Composable
-fun StatPill(text: String, look: HomeLook) {
-    val ink = if (look.color.isLight()) Color.White else Color.Black
-    Text(
-        text,
-        color = look.color.copy(alpha = 0.85f),
-        style = MaterialTheme.typography.labelMedium,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(ink.copy(alpha = 0.09f))
-            .border(1.dp, ink.copy(alpha = 0.10f), CircleShape)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
-}
 
 @Composable
 private fun EssentialsList(
@@ -388,7 +400,7 @@ private fun HomeNotice(look: HomeLook, title: String, body: String, action: Stri
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        TextButton(onClick = onAction) { Text(action, color = if (light) Sage else SageDeep) }
+        TextButton(onClick = onAction) { Text(action, color = if (light) Moon else MoonDeep) }
     }
 }
 
@@ -543,9 +555,9 @@ fun AnalogClock(now: LocalDateTime, color: Color, size: Dp) {
         }
         hand((now.hour % 12 + now.minute / 60.0) * 30.0, r * 0.5f, 5.dp.toPx(), color)
         hand((now.minute + now.second / 60.0) * 6.0, r * 0.76f, 3.dp.toPx(), color)
-        hand(now.second * 6.0, r * 0.86f, 1.2.dp.toPx(), Sage)
+        hand(now.second * 6.0, r * 0.86f, 1.2.dp.toPx(), Moon)
         drawCircle(color, radius = 4.dp.toPx(), center = c)
-        drawCircle(Sage, radius = 1.8.dp.toPx(), center = c)
+        drawCircle(Moon, radius = 1.8.dp.toPx(), center = c)
     }
 }
 

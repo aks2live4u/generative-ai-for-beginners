@@ -9,6 +9,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -68,20 +75,25 @@ import kotlinx.coroutines.delay
 
 // ---------------------------------------------------------------- tokens
 
-/** Warm near-black: the default ground of every friction screen. */
-val Ink = Color(0xFF0E0E0D)
-val Surface1 = Color(0xFF171615)
-val Surface2 = Color(0xFF201F1D)
-val Surface3 = Color(0xFF2A2826)
-val Hairline = Color(0xFF34322E)
-/** Warm paper white for primary text on dark. */
-val Cream = Color(0xFFECE6DA)
-/** Secondary text: 7:1 on Ink. */
-val Muted = Color(0xFFA6A094)
-/** The one accent: calm, "go slowly" sage. */
-val Sage = Color(0xFFA9C4A1)
-val SageDeep = Color(0xFF233021)
-val Rose = Color(0xFFE6A99E)
+// Night terrace sky. Hierarchy is magnitude (size and brightness), not boxes.
+/** Ink-indigo night ground. */
+val Ink = Color(0xFF0A0D16)
+val Surface1 = Color(0xFF111626)
+val Surface2 = Color(0xFF181E31)
+val Surface3 = Color(0xFF232A40)
+/** Coordinate hairlines. */
+val Hairline = Color(0xFF2A3149)
+/** Chalk-white star: primary text. */
+val Star = Color(0xFFECEFF7)
+/** A dimmer magnitude for secondary text: 7:1 on Ink. */
+val Muted = Color(0xFF9AA3B9)
+/** The faintest magnitude: decoration and disabled. */
+val Faint = Color(0xFF5D6681)
+/** Moonlight: the calm accent (go, done, chosen). */
+val Moon = Color(0xFFC3D3F7)
+val MoonDeep = Color(0xFF1E2A47)
+/** Night-vision ember: cost, limits, late hours. Kind to dark-adapted eyes. */
+val Ember = Color(0xFFF08A63)
 
 private fun TextStyle.ui() = copy(fontFamily = Fonts.Ui)
 
@@ -108,19 +120,19 @@ private val FocusTypography = Typography(
 fun FocusTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Cream,
+            primary = Star,
             onPrimary = Ink,
             primaryContainer = Surface3,
-            onPrimaryContainer = Cream,
-            secondary = Sage,
+            onPrimaryContainer = Star,
+            secondary = Moon,
             onSecondary = Ink,
-            secondaryContainer = SageDeep,
-            onSecondaryContainer = Sage,
-            tertiary = Rose,
+            secondaryContainer = MoonDeep,
+            onSecondaryContainer = Moon,
+            tertiary = Ember,
             background = Ink,
-            onBackground = Cream,
+            onBackground = Star,
             surface = Ink,
-            onSurface = Cream,
+            onSurface = Star,
             surfaceVariant = Surface2,
             onSurfaceVariant = Muted,
             surfaceContainerLowest = Ink,
@@ -132,7 +144,7 @@ fun FocusTheme(content: @Composable () -> Unit) {
             surfaceDim = Ink,
             outline = Color(0xFF57534C),
             outlineVariant = Hairline,
-            error = Rose,
+            error = Ember,
             onError = Ink,
         ),
         typography = FocusTypography,
@@ -145,7 +157,7 @@ fun FocusTheme(content: @Composable () -> Unit) {
     ) {
         // Screens draw their own backgrounds instead of using Surface, so set the default
         // content colour here; without it, icons without an explicit tint render black.
-        CompositionLocalProvider(LocalContentColor provides Cream, content = content)
+        CompositionLocalProvider(LocalContentColor provides Star, content = content)
     }
 }
 
@@ -165,12 +177,18 @@ fun rememberReduceMotion(): Boolean {
     }
 }
 
-/** A countdown that can be extended while it runs. */
+/** A countdown that can be extended while it runs. [total] grows with it, so progress stays honest. */
 @Stable
 class Countdown(initial: Int) {
     var remaining by mutableIntStateOf(initial)
+    var total by mutableIntStateOf(initial.coerceAtLeast(1))
     val done: Boolean get() = remaining <= 0
-    fun add(seconds: Int) { remaining += seconds }
+    /** 0 at the start, 1 when the wait is over. */
+    val progress: Float get() = if (total <= 0) 1f else 1f - remaining.toFloat() / total
+    fun add(seconds: Int) {
+        remaining += seconds
+        total += seconds
+    }
 }
 
 @Composable
@@ -189,20 +207,19 @@ fun rememberCountdown(seconds: Int): Countdown {
 private const val BREATH_MS = 4000
 
 /**
- * The visual heart of every friction screen: a disc that swells for four seconds (breathe in)
- * and settles for four (breathe out), with the seconds left in its centre.
+ * The signature of the pause: a moon that waxes from new to full as the wait runs down. A faint
+ * halo breathes in and out on a four-second rhythm so there is something to breathe along with.
  */
 @Composable
-fun BreathingCircle(remaining: Int, modifier: Modifier = Modifier) {
+fun MoonPhase(countdown: Countdown, modifier: Modifier = Modifier) {
     val reduceMotion = rememberReduceMotion()
     val transition = rememberInfiniteTransition(label = "breath")
-    val phase by transition.animateFloat(
+    val breath by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(BREATH_MS, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "breathPhase",
+        label = "breathHalo",
     )
-    // A second, linear clock over the full in-and-out cycle tells us which half we're in.
     val cycle by transition.animateFloat(
         initialValue = 0f,
         targetValue = 2f,
@@ -210,38 +227,90 @@ fun BreathingCircle(remaining: Int, modifier: Modifier = Modifier) {
         label = "breathCycle",
     )
     val inhale = cycle < 1f
-    val grow = if (reduceMotion) 0.82f else 0.64f + 0.36f * phase
-    val done = remaining <= 0
+    val phase by animateFloatAsState(countdown.progress, tween(900, easing = FastOutSlowInEasing), label = "moonPhase")
+    val done = countdown.done
+    val halo = if (reduceMotion) 0.5f else breath
 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
-                .size(208.dp)
-                .semantics { contentDescription = if (done) "Ready" else "$remaining seconds left" }
+                .size(196.dp)
+                .semantics { contentDescription = if (done) "Ready" else "${countdown.remaining} seconds left" }
                 .drawBehind {
-                    val r = size.minDimension / 2f
-                    drawCircle(Hairline, radius = r - 1.dp.toPx(), style = Stroke(1.dp.toPx()))
-                    drawCircle(Sage.copy(alpha = 0.10f), radius = r * grow)
-                    drawCircle(Sage.copy(alpha = 0.16f), radius = r * grow * 0.72f)
+                    val r = size.minDimension * 0.34f
+                    val c = center
+                    // Halo: moonlight scattering in night air, swelling with each breath in.
+                    drawCircle(
+                        Brush.radialGradient(
+                            listOf(Moon.copy(alpha = 0.10f + 0.10f * halo * phase.coerceAtLeast(0.2f)), Color.Transparent),
+                            center = c,
+                            radius = r * (1.55f + 0.25f * halo),
+                        ),
+                        radius = r * (1.55f + 0.25f * halo),
+                        center = c,
+                    )
+                    // The unlit moon.
+                    drawCircle(Surface3, radius = r, center = c)
+                    // The lit part: right half plus/minus a terminator ellipse.
+                    val p = phase.coerceIn(0f, 1f)
+                    if (p > 0.001f) {
+                        val half = Path().apply {
+                            addArc(Rect(c.x - r, c.y - r, c.x + r, c.y + r), -90f, 180f)
+                            close()
+                        }
+                        val rx = r * kotlin.math.abs(1f - 2f * p)
+                        val ellipse = Path().apply { addOval(Rect(c.x - rx, c.y - r, c.x + rx, c.y + r)) }
+                        val lit = Path()
+                        lit.op(half, ellipse, if (p < 0.5f) PathOperation.Difference else PathOperation.Union)
+                        drawPath(lit, Brush.linearGradient(listOf(Color(0xFFF4F1E6), Moon), start = Offset(c.x - r, c.y - r), end = Offset(c.x + r, c.y + r)))
+                    }
+                    drawCircle(Star.copy(alpha = 0.18f), radius = r, center = c, style = Stroke(1.dp.toPx()))
                 },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (done) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Sage, modifier = Modifier.size(40.dp))
-            } else {
-                Text(
-                    remaining.toString(),
-                    style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Light, fontSize = 64.sp),
-                    color = Cream,
-                )
-            }
-        }
+        )
         Text(
-            if (inhale) "Breathe in" else "Breathe out",
+            if (done) "Your call" else countdown.remaining.toString(),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Light),
+            color = if (done) Moon else Star,
+        )
+        Text(
+            if (done) "Take one more breath, then choose" else if (inhale) "Breathe in" else "Breathe out",
             style = MaterialTheme.typography.labelLarge,
             color = Muted,
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 4.dp),
         )
+    }
+}
+
+/**
+ * Today's opens as stars: one lit star per open, and with a daily limit, the remaining ones as
+ * empty sockets. The cost is visible at a glance, without a number to argue with.
+ */
+@Composable
+fun StarRow(opens: Int, limit: Int, modifier: Modifier = Modifier) {
+    val shown = if (limit > 0) limit else (opens + 1).coerceAtMost(12)
+    val description = if (limit > 0) "$opens of $limit opens used today" else "$opens opens today"
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.semantics { contentDescription = description },
+    ) {
+        repeat(shown) { i ->
+            val used = i < opens
+            val isNext = i == opens
+            Canvas(Modifier.size(10.dp)) {
+                when {
+                    used -> {
+                        drawCircle(Ember.copy(alpha = 0.25f), radius = size.minDimension * 0.75f)
+                        drawCircle(Ember, radius = size.minDimension * 0.38f)
+                    }
+                    isNext -> drawCircle(Star, radius = size.minDimension * 0.38f, style = Stroke(1.2.dp.toPx()))
+                    else -> drawCircle(Faint, radius = size.minDimension * 0.3f, style = Stroke(1.dp.toPx()))
+                }
+            }
+        }
+        if (limit <= 0 && opens >= 12) {
+            Text("+${opens - 11}", style = MaterialTheme.typography.labelMedium, color = Ember)
+        }
     }
 }
 
@@ -332,11 +401,11 @@ fun Swatch(colors: List<Color>, selected: Boolean, description: String, onClick:
                 .size(40.dp)
                 .clip(CircleShape)
                 .background(brush)
-                .border(if (selected) 2.dp else 1.dp, if (selected) Cream else Color(0x40FFFFFF), CircleShape),
+                .border(if (selected) 2.dp else 1.dp, if (selected) Star else Color(0x40FFFFFF), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                val tint = if (colors.first().isLight()) Ink else Cream
+                val tint = if (colors.first().isLight()) Ink else Star
                 Icon(Icons.Filled.Check, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
             }
         }
@@ -360,7 +429,7 @@ fun FontTile(
             .width(112.dp)
             .clip(MaterialTheme.shapes.medium)
             .background(if (selected) Surface3 else Surface1)
-            .border(if (selected) 1.5.dp else 1.dp, if (selected) Cream else Hairline, MaterialTheme.shapes.medium)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) Star else Hairline, MaterialTheme.shapes.medium)
             .clickable(role = Role.RadioButton, onClickLabel = "Use ${choice.label}", onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 14.dp),
     ) {
@@ -370,14 +439,14 @@ fun FontTile(
             fontWeight = Fonts.weight(choice, weight),
             fontSize = (30 * choice.size.coerceAtMost(1.25f)).sp,
             lineHeight = 40.sp,
-            color = Cream,
+            color = Star,
             maxLines = 1,
             overflow = TextOverflow.Clip,
         )
         Text(
             choice.label,
             style = MaterialTheme.typography.labelMedium,
-            color = if (selected) Cream else Muted,
+            color = if (selected) Star else Muted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),

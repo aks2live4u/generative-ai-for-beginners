@@ -64,6 +64,21 @@ class LogicTest {
         assertEquals(listOf("Europe/London", "Asia/Tokyo", "Asia/Dubai", "Asia/Singapore"), s.worldClocks)
     }
 
+    @Test fun pauseGrowsWithOpensAndAtNight() {
+        val s = LauncherSettings(ApplicationProvider.getApplicationContext())
+        s.pauseSeconds = 15
+        s.nightHours = true; s.nightStart = 23; s.nightEnd = 6
+        assertEquals(15, s.pauseFor("x", hour = 12))
+        s.recordOpen("x")
+        assertEquals(30, s.pauseFor("x", hour = 12))
+        repeat(5) { s.recordOpen("x") }
+        assertEquals(60, s.pauseFor("x", hour = 12))
+        assertEquals(90, s.pauseFor("x", hour = 23))
+        assertTrue(s.isNight(2)); assertFalse(s.isNight(6)); assertFalse(s.isNight(14))
+        s.pauseSeconds = 60
+        assertEquals(120, s.pauseFor("x", hour = 1))
+    }
+
     @Test fun movingEssentialsByKey() {
         val list = listOf("a", "b", "c")
         assertEquals(listOf("b", "a", "c"), list.moved("b", -1))

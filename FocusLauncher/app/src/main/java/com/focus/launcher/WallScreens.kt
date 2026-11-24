@@ -70,31 +70,6 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// ---------------------------------------------------------------- gate
-
-/** A short pause before the wall even opens: name what you need first. */
-@Composable
-fun GateScreen(seconds: Int, onContinue: () -> Unit, onBack: () -> Unit) {
-    val countdown = rememberCountdown(seconds)
-    FocusScaffold(
-        primary = "Nothing, take me home",
-        onPrimary = onBack,
-        secondary = if (countdown.done) "Open the wall" else "The wall opens in ${countdown.remaining}s",
-        secondaryEnabled = countdown.done,
-        onSecondary = onContinue,
-    ) {
-        Text("What do you need?", style = MaterialTheme.typography.headlineMedium, color = Cream, textAlign = TextAlign.Center)
-        Text(
-            "Have one app in mind before you go in.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Muted,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp, bottom = 40.dp),
-        )
-        BreathingCircle(countdown.remaining)
-    }
-}
-
 /**
  * Shared frame for the friction screens: centred content that scrolls if it must, and the two
  * choices pinned to the bottom, with going home as the filled, primary one.
@@ -148,9 +123,13 @@ fun WallScreen(
     settings: LauncherSettings,
     apps: List<AppEntry>,
     onOpen: (AppEntry) -> Unit,
-    onBack: () -> Unit,
+    onBack: (skipped: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    // You can type straight away; results appear only once the short wait is over.
+    // Real tasks lose nothing, browsing loses its momentum.
+    val countdown = rememberCountdown(settings.gateSeconds)
+    val waiting = !countdown.done
     var query by remember { mutableStateOf("") }
     var menuFor by remember { mutableStateOf<AppEntry?>(null) }
     val focus = remember { FocusRequester() }
@@ -159,6 +138,7 @@ fun WallScreen(
     val distracting = settings.distracting
     val trimmed = query.trim()
     val shown = when {
+        waiting -> emptyList()
         trimmed.isNotEmpty() -> apps
             .filter { it.label.contains(trimmed, ignoreCase = true) }
             .sortedBy { if (it.label.startsWith(trimmed, ignoreCase = true)) 0 else 1 }
@@ -174,10 +154,10 @@ fun WallScreen(
             .imePadding()
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, end = 16.dp, top = 8.dp)) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back home", tint = Cream)
+            IconButton(onClick = { onBack(waiting) }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back home", tint = Star)
             }
-            Text("Everything else", style = MaterialTheme.typography.titleLarge, color = Cream)
+            Text("Everything else", style = MaterialTheme.typography.titleLarge, color = Star)
         }
         OutlinedTextField(
             value = query,
@@ -199,17 +179,31 @@ fun WallScreen(
                 focusedBorderColor = Muted,
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { shown.firstOrNull()?.let(onOpen) }),
+            keyboardActions = KeyboardActions(onGo = { if (!waiting) shown.firstOrNull()?.let(onOpen) }),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .focusRequester(focus),
         )
 
-        if (shown.isEmpty()) {
+        if (waiting) {
+            Column(Modifier.padding(horizontal = 28.dp, vertical = 20.dp)) {
+                Text(
+                    if (trimmed.isEmpty()) "Name the one app you came for" else "Hold that thought",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Star,
+                )
+                Text(
+                    "Results in ${countdown.remaining}s. If nothing comes to mind, you didn't need anything.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Muted,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        } else if (shown.isEmpty()) {
             Column(Modifier.padding(horizontal = 28.dp, vertical = 20.dp)) {
                 if (trimmed.isEmpty()) {
-                    Text("${apps.size} apps wait behind this wall", style = MaterialTheme.typography.titleMedium, color = Cream)
+                    Text("${apps.size} apps wait behind this wall", style = MaterialTheme.typography.titleMedium, color = Star)
                     Text(
                         "Type the one you came for. There's no list to scroll, on purpose.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -217,7 +211,7 @@ fun WallScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 } else {
-                    Text("No app called “$trimmed”", style = MaterialTheme.typography.titleMedium, color = Cream)
+                    Text("No app called “$trimmed”", style = MaterialTheme.typography.titleMedium, color = Star)
                     Text(
                         "Check the spelling, or try part of the name.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -249,14 +243,14 @@ fun WallScreen(
                     Text(
                         app.label,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (pauses) Muted else Cream,
+                        color = if (pauses) Muted else Star,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                     when {
-                        doneForToday -> Text("Done for today", style = MaterialTheme.typography.labelMedium, color = Rose)
-                        pauses -> Text("Pauses first", style = MaterialTheme.typography.labelMedium, color = Sage)
+                        doneForToday -> Text("Done for today", style = MaterialTheme.typography.labelMedium, color = Ember)
+                        pauses -> Text("Pauses first", style = MaterialTheme.typography.labelMedium, color = Moon)
                     }
                 }
             }
@@ -277,7 +271,7 @@ fun WallScreen(
             Text(
                 app.label,
                 style = MaterialTheme.typography.titleLarge,
-                color = Cream,
+                color = Star,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
             )
             val itemColors = ListItemDefaults.colors(containerColor = Surface1)
@@ -335,7 +329,18 @@ fun WallScreen(
 
 private val sessionChoices = listOf(5, 10, 20, 0)
 
-/** The mindful pause in front of shopping, social, video and browser apps. */
+private fun ordinal(n: Int): String = when {
+    n % 100 in 11..13 -> "${n}th"
+    n % 10 == 1 -> "${n}st"
+    n % 10 == 2 -> "${n}nd"
+    n % 10 == 3 -> "${n}rd"
+    else -> "${n}th"
+}
+
+/**
+ * The pause in front of shopping, social, video and browser apps. Firm but kind: the cost is shown
+ * as stars, the wait grows with each open and at night, and going home is always the easy button.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PauseScreen(
@@ -345,7 +350,10 @@ fun PauseScreen(
     onCancel: () -> Unit,
 ) {
     val context = LocalContext.current
-    val countdown = rememberCountdown(settings.pauseSeconds)
+    val opens = settings.opensToday(app.pkg)
+    val limit = settings.dailyOpenLimit
+    val night = settings.isNight()
+    val countdown = rememberCountdown(settings.pauseFor(app.pkg))
     val reasons = remember(app.kind) { reasonsFor(app.kind) }
     var reason by remember { mutableStateOf<Reason?>(null) }
     var intention by remember { mutableStateOf("") }
@@ -357,7 +365,9 @@ fun PauseScreen(
             if (Usage.hasAccess(context)) Usage.todayByPackage(context)[app.pkg] ?: 0L else null
         }
     }
-    val named = intention.trim().takeIf { reason?.ask != null && it.isNotEmpty() }
+    // From the 3rd open on, every purposeful answer has to be named, not just tapped.
+    val ask = reason?.let { r -> r.ask ?: if (!r.idle && opens >= 2) "What exactly, this time?" else null }
+    val named = intention.trim().takeIf { ask != null && it.isNotEmpty() }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         onProceed(session, named)
     }
@@ -368,32 +378,23 @@ fun PauseScreen(
         if (needsPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else onProceed(session, named)
     }
 
-    val opens = settings.opensToday(app.pkg)
-    val limit = settings.dailyOpenLimit
-    val facts = buildList {
-        add(
-            when {
-                limit > 0 -> "$opens of $limit opens today"
-                opens == 0 -> "Not opened yet today"
-                opens == 1 -> "Opened once today"
-                else -> "Opened $opens times today"
-            }
-        )
-        usedMs?.let { if (it >= 60_000) add("${Usage.format(it)} so far") }
+    val cost = buildList {
+        add(if (opens == 0) "First open today" else "This would be the ${ordinal(opens + 1)} open today")
+        usedMs?.let { if (it >= 60_000) add("${Usage.format(it)} here already") }
     }.joinToString("  ·  ")
 
     if (settings.limitReached(app.pkg)) {
         FocusScaffold(primary = "Back home", onPrimary = onCancel, secondary = null, secondaryEnabled = false, onSecondary = {}) {
-            Text(app.label, style = MaterialTheme.typography.headlineMedium, color = Cream, textAlign = TextAlign.Center)
-            Text(facts, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 48.dp))
+            Text(app.label, style = MaterialTheme.typography.headlineMedium, color = Star, textAlign = TextAlign.Center)
+            StarRow(opens, limit, Modifier.padding(top = 16.dp, bottom = 48.dp))
             Text(
-                "That's all $limit for today",
+                "All $limit opens used today",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Rose,
+                color = Ember,
                 textAlign = TextAlign.Center,
             )
             Text(
-                "It opens again tomorrow. You set this limit for a reason.",
+                "It opens again tomorrow. You set this limit on a clearer day; trust that version of you.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = Muted,
                 textAlign = TextAlign.Center,
@@ -403,8 +404,7 @@ fun PauseScreen(
         return
     }
 
-    // A purposeful answer that asks "what exactly?" needs a real answer (3+ letters) to unlock.
-    val intentionMissing = reason?.ask != null && intention.trim().length < 3
+    val intentionMissing = ask != null && intention.trim().length < 3
     val ready = countdown.done && reason != null && !intentionMissing
     FocusScaffold(
         primary = "Not now, take me home",
@@ -419,16 +419,35 @@ fun PauseScreen(
         secondaryEnabled = ready,
         onSecondary = ::proceed,
     ) {
-        Text(app.label, style = MaterialTheme.typography.headlineMedium, color = Cream, textAlign = TextAlign.Center)
-        Text(facts, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 32.dp))
+        Text(app.label, style = MaterialTheme.typography.headlineMedium, color = Star, textAlign = TextAlign.Center)
+        StarRow(opens, limit, Modifier.padding(top = 14.dp))
+        Text(cost, style = MaterialTheme.typography.bodyMedium, color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp))
+        if (night) {
+            Text(
+                "It's late. Sleep is the better app tonight.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Ember,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        } else if (opens >= 1) {
+            Text(
+                "The wait grows with each open today.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Faint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
 
-        BreathingCircle(countdown.remaining)
+        MoonPhase(countdown, Modifier.padding(top = 12.dp))
 
         Text(
             "Why are you opening ${app.label}?",
             style = MaterialTheme.typography.titleMedium,
-            color = Cream,
-            modifier = Modifier.padding(top = 32.dp, bottom = 10.dp),
+            color = Star,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 28.dp, bottom = 10.dp),
         )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
@@ -439,25 +458,36 @@ fun PauseScreen(
                     selected = reason == r,
                     onClick = {
                         reason = r
-                        // An honest "bored" or "just browsing" earns ten more seconds to change your mind.
+                        // An honest "bored" or "just browsing" earns more time to change your mind.
                         if (r.idle && !extended) {
                             extended = true
                             countdown.add(10)
                         }
                     },
                     label = { Text(r.label) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SageDeep, selectedLabelColor = Sage),
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Ink,
+                        labelColor = Muted,
+                        selectedContainerColor = MoonDeep,
+                        selectedLabelColor = Moon,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = reason == r,
+                        borderColor = Hairline,
+                        selectedBorderColor = Moon.copy(alpha = 0.5f),
+                    ),
                 )
             }
         }
-        reason?.ask?.let { question ->
+        ask?.let { question ->
             OutlinedTextField(
                 value = intention,
                 onValueChange = { intention = it.take(60) },
                 label = { Text(question) },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
-                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Hairline, focusedBorderColor = Sage),
+                colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Hairline, focusedBorderColor = Moon),
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
             )
             Text(
@@ -471,16 +501,16 @@ fun PauseScreen(
             Text(
                 idleNudge(app.kind),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Sage,
+                color = Moon,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 10.dp),
+                modifier = Modifier.padding(top = 12.dp),
             )
         }
         if (reason != null) {
             Text(
                 "Remind me to close it after",
                 style = MaterialTheme.typography.titleMedium,
-                color = Cream,
+                color = Star,
                 modifier = Modifier.padding(top = 28.dp, bottom = 10.dp),
             )
             FlowRow(
@@ -492,7 +522,18 @@ fun PauseScreen(
                         selected = session == m,
                         onClick = { session = m },
                         label = { Text(if (m == 0) "No reminder" else "$m min") },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface3, selectedLabelColor = Cream),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Ink,
+                            labelColor = Muted,
+                            selectedContainerColor = Surface3,
+                            selectedLabelColor = Star,
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = session == m,
+                            borderColor = Hairline,
+                            selectedBorderColor = Star.copy(alpha = 0.4f),
+                        ),
                     )
                 }
             }

@@ -28,7 +28,6 @@ import kotlinx.coroutines.withContext
 
 sealed interface Screen {
     data object Home : Screen
-    data object Gate : Screen
     data object Wall : Screen
     data class Pause(val app: AppEntry) : Screen
     data object Settings : Screen
@@ -113,6 +112,8 @@ fun LauncherRoot(
 ) {
     val context = LocalContext.current
 
+    var skippedAt by remember { mutableStateOf(0L) }
+
     fun launchNow(app: AppEntry, sessionMinutes: Int = 0, intention: String? = null) {
         if (AppRepository.launch(context, app)) {
             settings.recordOpen(app.pkg)
@@ -128,11 +129,12 @@ fun LauncherRoot(
     }
 
     fun openWall() {
-        navigate(if (settings.gateSeconds > 0) Screen.Gate else Screen.Wall)
+        navigate(Screen.Wall)
     }
 
     fun skip() {
         settings.recordResisted()
+        skippedAt = System.currentTimeMillis()
         navigate(Screen.Home)
     }
 
@@ -140,7 +142,7 @@ fun LauncherRoot(
     BackHandler(enabled = true) {
         when (screen) {
             Screen.Home -> Unit
-            Screen.Gate, is Screen.Pause -> skip()
+            is Screen.Pause -> skip()
             else -> navigate(Screen.Home)
         }
     }
@@ -173,22 +175,18 @@ fun LauncherRoot(
             settings = settings,
             apps = apps,
             screenTimeMs = screenTime,
+            skippedAt = skippedAt,
             isDefault = isDefault,
             onMakeDefault = makeDefault,
             onOpen = ::open,
             onOpenWall = ::openWall,
             onOpenSettings = { navigate(Screen.Settings) },
         )
-        Screen.Gate -> GateScreen(
-            seconds = settings.gateSeconds,
-            onContinue = { navigate(Screen.Wall) },
-            onBack = ::skip,
-        )
         Screen.Wall -> WallScreen(
             settings = settings,
             apps = apps,
             onOpen = ::open,
-            onBack = { navigate(Screen.Home) },
+            onBack = { skipped -> if (skipped) skip() else navigate(Screen.Home) },
         )
         is Screen.Pause -> PauseScreen(
             app = screen.app,

@@ -81,8 +81,8 @@ private const val MAX_ESSENTIALS = 30
 private const val STRICT_UNLOCK_SECONDS = 60
 
 private val textColors = listOf(
-    0xFFECE6DA to "Cream", 0xFFFFFFFF to "White", 0xFFBDB8AE to "Stone", 0xFFA9C4A1 to "Sage",
-    0xFF9EC3E0 to "Sky", 0xFFE6A99E to "Rose", 0xFFEDC77A to "Amber", 0xFF151514 to "Ink",
+    0xFFECE6DA to "Star", 0xFFFFFFFF to "White", 0xFFBDB8AE to "Stone", 0xFFA9C4A1 to "Moon",
+    0xFF9EC3E0 to "Sky", 0xFFE6A99E to "Ember", 0xFFEDC77A to "Amber", 0xFF151514 to "Ink",
 ).map { Color(it.first) to it.second }
 
 private val backgrounds = listOf(
@@ -166,7 +166,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         ) {
-            Text("Settings", style = MaterialTheme.typography.headlineLarge, color = Cream, modifier = Modifier.weight(1f))
+            Text("Settings", style = MaterialTheme.typography.headlineLarge, color = Star, modifier = Modifier.weight(1f))
             TextButton(onClick = onBack) { Text("Done") }
         }
 
@@ -269,7 +269,7 @@ fun SettingsScreen(
             worldClocks.forEachIndexed { index, id ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text(cityName(id), style = MaterialTheme.typography.bodyLarge, color = Cream)
+                        Text(cityName(id), style = MaterialTheme.typography.bodyLarge, color = Star)
                         Text(utcLabel(id), style = MaterialTheme.typography.bodySmall, color = Muted)
                     }
                     IconButton(onClick = { settings.worldClocks = settings.worldClocks.moved(id, -1) }, enabled = index > 0) {
@@ -372,12 +372,17 @@ fun SettingsScreen(
                         ).show()
                     }) { Text("Find them for me") }
                 }
-                LabeledSlider("Wait before the wall opens", "${settings.gateSeconds}s", settings.gateSeconds.toFloat(), 0f..30f, steps = 29) {
+                LabeledSlider("Wait before search results appear", "${settings.gateSeconds}s", settings.gateSeconds.toFloat(), 0f..30f, steps = 29) {
                     settings.gateSeconds = it.toInt()
                 }
-                LabeledSlider("Pause before distracting apps", "${settings.pauseSeconds}s", settings.pauseSeconds.toFloat(), 5f..60f, steps = 10) {
+                LabeledSlider("First pause of the day", "${settings.pauseSeconds}s", settings.pauseSeconds.toFloat(), 5f..60f, steps = 10) {
                     settings.pauseSeconds = it.toInt()
                 }
+                Text(
+                    "Each later open today waits longer: x2, x3, then x4, up to two minutes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Muted,
+                )
                 Label("Daily opens per distracting app")
                 Chips(openLimits, settings.dailyOpenLimit, { if (it == 0) "No limit" else "$it" }) { settings.dailyOpenLimit = it }
                 ToggleRow(
@@ -385,6 +390,17 @@ fun SettingsScreen(
                     supporting = "Hide the full app list so you can't browse it",
                     checked = settings.wallSearchOnly,
                 ) { settings.wallSearchOnly = it }
+                ToggleRow(
+                    "Night hours",
+                    supporting = "From ${"%02d".format(settings.nightStart)}:00 to ${"%02d".format(settings.nightEnd)}:00 pauses run 50% longer and the home screen dims.",
+                    checked = settings.nightHours,
+                ) { settings.nightHours = it }
+                if (settings.nightHours) {
+                    Label("Night starts")
+                    Chips(listOf(21, 22, 23, 0), settings.nightStart, { "%02d:00".format(it) }) { settings.nightStart = it }
+                    Label("Night ends")
+                    Chips(listOf(5, 6, 7, 8), settings.nightEnd, { "%02d:00".format(it) }) { settings.nightEnd = it }
+                }
             }
 
             // ------------------------------------------------ strict
@@ -407,7 +423,7 @@ fun SettingsScreen(
                     Text("Allow usage access")
                 }
             } else {
-                Text("Usage access is on", style = MaterialTheme.typography.bodyMedium, color = Sage, modifier = Modifier.padding(top = 4.dp))
+                Text("Usage access is on", style = MaterialTheme.typography.bodyMedium, color = Moon, modifier = Modifier.padding(top = 4.dp))
             }
 
             // ------------------------------------------------ system
@@ -524,7 +540,7 @@ fun List<String>.moved(key: String, delta: Int): List<String> {
 @Composable
 private fun SectionTitle(title: String, subtitle: String? = null) {
     Spacer(Modifier.height(32.dp))
-    Text(title, style = MaterialTheme.typography.headlineSmall, color = Cream)
+    Text(title, style = MaterialTheme.typography.headlineSmall, color = Star)
     if (subtitle != null) {
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.padding(top = 4.dp))
     }
@@ -536,7 +552,7 @@ private fun Label(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.titleSmall,
-        color = Cream,
+        color = Star,
         modifier = Modifier.padding(top = 18.dp, bottom = 8.dp),
     )
 }
@@ -554,10 +570,10 @@ private fun Callout(title: String, body: String, icon: Boolean = false, action: 
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon) {
-                Icon(Icons.Filled.Lock, contentDescription = null, tint = Sage, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Lock, contentDescription = null, tint = Moon, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
             }
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Cream)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Star)
         }
         Text(body, style = MaterialTheme.typography.bodyMedium, color = Muted, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
         action()
@@ -581,7 +597,7 @@ private fun ToggleRow(
             .padding(vertical = 6.dp),
     ) {
         Column(Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, color = if (enabled) Cream else Muted)
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = if (enabled) Star else Muted)
             if (supporting != null) {
                 Text(supporting, style = MaterialTheme.typography.bodySmall, color = Muted, modifier = Modifier.padding(top = 2.dp))
             }
@@ -590,7 +606,7 @@ private fun ToggleRow(
             checked = checked,
             onCheckedChange = null,
             enabled = enabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = Sage, checkedThumbColor = Ink),
+            colors = SwitchDefaults.colors(checkedTrackColor = Moon, checkedThumbColor = Ink),
         )
     }
 }
@@ -606,7 +622,7 @@ private fun LabeledSlider(
 ) {
     Column(Modifier.padding(top = 18.dp)) {
         Row {
-            Text(label, style = MaterialTheme.typography.titleSmall, color = Cream, modifier = Modifier.weight(1f))
+            Text(label, style = MaterialTheme.typography.titleSmall, color = Star, modifier = Modifier.weight(1f))
             Text(value, style = MaterialTheme.typography.labelLarge, color = Muted)
         }
         Slider(value = current, onValueChange = onChange, valueRange = range, steps = steps)
@@ -622,7 +638,7 @@ private fun <T> Chips(options: List<T>, selected: T, label: (T) -> String, onSel
                 selected = option == selected,
                 onClick = { onSelect(option) },
                 label = { Text(label(option)) },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface3, selectedLabelColor = Cream),
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface3, selectedLabelColor = Star),
             )
         }
     }
@@ -637,7 +653,7 @@ private fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, o
                 selected = option == selected,
                 onClick = { onSelect(option) },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                colors = SegmentedButtonDefaults.colors(activeContainerColor = Surface3, activeContentColor = Cream),
+                colors = SegmentedButtonDefaults.colors(activeContainerColor = Surface3, activeContentColor = Star),
             ) { Text(label(option), maxLines = 1) }
         }
     }

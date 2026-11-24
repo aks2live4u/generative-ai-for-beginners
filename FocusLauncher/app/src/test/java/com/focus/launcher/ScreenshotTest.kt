@@ -77,6 +77,7 @@ class ScreenshotTest {
             wallpaperColor2 = 0xFF2B4C59.toInt()
             dim = 0.1f
             showScreenTime = true
+            nightHours = false
             block()
         }
 
@@ -148,17 +149,13 @@ class ScreenshotTest {
         shot("05_home_not_default") { HomeScreenHost(s, false) }
     }
 
-    @Test fun gate() {
-        shot("06_gate") { GateScreen(seconds = 5, onContinue = {}, onBack = {}) }
-    }
-
     @Test fun wall_empty() {
         val s = settings()
         shot("07_wall_empty") { WallScreen(s, apps, onOpen = {}, onBack = {}) }
     }
 
     @Test fun wall_search() {
-        val s = settings { dailyOpenLimit = 1 }
+        val s = settings { dailyOpenLimit = 1; gateSeconds = 0 }
         s.recordOpen("com.flipkart.android")
         compose.mainClock.autoAdvance = false
         compose.setContent {
@@ -200,6 +197,14 @@ class ScreenshotTest {
         compose.onNode(hasSetTextAction()).performScrollTo().performTextInput("train times to Pune")
         compose.mainClock.advanceTimeBy(6_000)
         compose.onRoot().captureRoboImage("build/screens/09b_pause_browser.png")
+    }
+
+    @Test fun pause_night() {
+        // Night hours covering the whole day, so the capture doesn't depend on the CI clock.
+        val s = settings { nightHours = true; nightStart = 0; nightEnd = 24; dailyOpenLimit = 6 }
+        repeat(3) { s.recordOpen("com.google.android.youtube") }
+        val app = apps.first { it.label == "YouTube" }
+        shot("09c_pause_night") { PauseScreen(app, s, onProceed = { _, _ -> }, onCancel = {}) }
     }
 
     @Test fun pause_limit_reached() {

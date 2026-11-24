@@ -66,6 +66,26 @@ class LauncherSettings(context: Context) {
     /** Last session length picked on the pause screen, in minutes (0 = no reminder). */
     var lastSessionMinutes by int("last_session_minutes", 10)
     var onboardingSeen by bool("onboarding_seen", false)
+
+    /** Night hours: pauses run longer and the home screen dims. */
+    var nightHours by bool("night_hours", true)
+    var nightStart by int("night_start", 23)
+    var nightEnd by int("night_end", 6)
+
+    fun isNight(hour: Int = java.time.LocalTime.now().hour): Boolean {
+        if (!nightHours || nightStart == nightEnd) return false
+        return if (nightStart > nightEnd) hour >= nightStart || hour < nightEnd else hour in nightStart until nightEnd
+    }
+
+    /**
+     * The pause grows with every open today (base, x2, x3, then x4) and by half again at night,
+     * so checking an app over and over costs more each time. Capped at two minutes.
+     */
+    fun pauseFor(pkg: String, hour: Int = java.time.LocalTime.now().hour): Int {
+        val step = 1 + opensToday(pkg).coerceAtMost(3)
+        val night = if (isNight(hour)) 1.5f else 1f
+        return (pauseSeconds * step * night).toInt().coerceAtMost(120)
+    }
     var pauseSeconds by int("pause_seconds", 15)
     var wallSearchOnly by bool("wall_search_only", true)
 
@@ -95,7 +115,7 @@ class LauncherSettings(context: Context) {
     var use24h by bool("use_24h", false)
     var showDate by bool("show_date", true)
     var showScreenTime by bool("show_screen_time", true)
-    var textColor by int("text_color", 0xFFE8E2D6.toInt())
+    var textColor by int("text_color", 0xFFECEFF7.toInt())
     var clockScale by float("clock_scale", 1f)
     var wallpaperColor by int("wallpaper_color", 0xFF000000.toInt())
     var wallpaperColor2 by int("wallpaper_color2", 0xFF000000.toInt())
