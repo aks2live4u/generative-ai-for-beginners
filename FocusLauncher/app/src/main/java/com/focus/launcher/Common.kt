@@ -206,6 +206,13 @@ fun rememberCountdown(seconds: Int): Countdown {
 
 private const val BREATH_MS = 4000
 
+/** Star positions around the moon: (x, y) in -1..1 of the box, and a magnitude 0..1. */
+private val nightStars = listOf(
+    Triple(-0.86f, -0.62f, 0.7f), Triple(-0.58f, -0.9f, 0.25f), Triple(0.74f, -0.78f, 0.45f),
+    Triple(0.92f, -0.2f, 0.2f), Triple(0.82f, 0.66f, 0.6f), Triple(-0.9f, 0.4f, 0.3f),
+    Triple(-0.48f, 0.9f, 0.55f), Triple(0.3f, 0.94f, 0.15f), Triple(-0.96f, -0.08f, 0.15f),
+)
+
 /**
  * The signature of the pause: a moon that waxes from new to full as the wait runs down. A faint
  * halo breathes in and out on a four-second rhythm so there is something to breathe along with.
@@ -249,7 +256,11 @@ fun MoonPhase(countdown: Countdown, modifier: Modifier = Modifier) {
                         radius = r * (1.55f + 0.25f * halo),
                         center = c,
                     )
-                    // The unlit moon.
+                    // A few faint stars, fixed in place, so the sky reads as sky from the first second.
+                    nightStars.forEach { (dx, dy, m) ->
+                        drawCircle(Star.copy(alpha = 0.22f + 0.5f * m), radius = (0.6f + 1.3f * m).dp.toPx(), center = Offset(c.x + dx * size.width / 2f, c.y + dy * size.height / 2f))
+                    }
+                    // The unlit moon: earthshine, just visible.
                     drawCircle(Surface3, radius = r, center = c)
                     // The lit part: right half plus/minus a terminator ellipse.
                     val p = phase.coerceIn(0f, 1f)

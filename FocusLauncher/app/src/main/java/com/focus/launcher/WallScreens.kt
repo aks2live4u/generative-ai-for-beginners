@@ -410,7 +410,7 @@ fun PauseScreen(
         primary = "Not now, take me home",
         onPrimary = onCancel,
         secondary = when {
-            !countdown.done -> "Wait ${countdown.remaining}s"
+            !countdown.done -> "Opens when the moon is full"
             reason == null -> "Choose a reason to continue"
             intentionMissing -> "Name it to continue"
             session > 0 -> "Open ${app.label} for $session min"

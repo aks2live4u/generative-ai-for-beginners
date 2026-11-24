@@ -40,6 +40,17 @@ aimless browsing.
   - World clocks: up to 4 cities under your clock, showing the time difference and whether it's
     tomorrow or yesterday there.
 
+## The night-sky redesign
+
+- **The pause is a moon.** It waxes from new to full while you wait; the app opens once it's full.
+  Today's opens appear as stars against your daily limit.
+- **The wait grows.** Each later open of the same app today waits longer (x2, x3, x4, up to two
+  minutes), and night hours (default 23:00 to 06:00) add half again, dim the home screen and remind
+  you that sleep is the better app.
+- **Name it.** From the third open of the day, every purposeful reason asks "what exactly?".
+- **The wall waits while you type.** Results appear after a few seconds; backing out before that
+  counts as a skipped distraction, and the home screen briefly says "Good call".
+
 ## Gestures
 
 | Action | Gesture |
